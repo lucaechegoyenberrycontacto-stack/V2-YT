@@ -374,7 +374,7 @@ img, video, canvas, svg { max-width: 100%; }
   font-size: 10.5px; color: var(--text-3); font-weight: 700;
   letter-spacing: 0.14em; text-transform: uppercase;
 }
-.po-field input[type="number"], .po-field input[type="text"] {
+.po-field input[type="number"], .po-field input[type="text"], .po-field input[type="date"] {
   padding: 14px 12px;
   border: 1px solid var(--border);
   background: rgba(0,0,0,0.28);
@@ -383,6 +383,8 @@ img, video, canvas, svg { max-width: 100%; }
   font-size: 22px; font-weight: 700; text-align: center;
   font-variant-numeric: tabular-nums;
   -moz-appearance: textfield;
+  color-scheme: dark;
+  width: 100%;
 }
 .po-field input[type="number"]::-webkit-outer-spin-button,
 .po-field input[type="number"]::-webkit-inner-spin-button {
@@ -865,7 +867,7 @@ img, video, canvas, svg { max-width: 100%; }
   color: var(--text-3); font-size: 12px; font-style: italic;
 }
 
-/* ----- Workout History (Lyfta import) ----- */
+/* ----- Workout History (multi-source: Lyfta import, Strava, manual) ----- */
 .wh-block { margin-bottom: 16px; }
 .wh-block:last-of-type { margin-bottom: 10px; }
 .wh-block-title {
@@ -880,16 +882,24 @@ img, video, canvas, svg { max-width: 100%; }
 }
 .wh-session:last-child { margin-bottom: 0; }
 .wh-session-head {
-  display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
 }
 .wh-session-date {
   font-size: 11px; color: var(--text-3); font-family: var(--font-mono); font-weight: 700;
   white-space: nowrap;
 }
-.wh-session-title { font-size: 13px; font-weight: 600; color: var(--text-1); text-align: right; }
+.wh-session-title { margin-top: 3px; font-size: 13px; font-weight: 600; color: var(--text-1); }
 .wh-session-ex {
   margin-top: 4px; font-size: 11.5px; color: var(--text-2); line-height: 1.4;
 }
+.wh-badge {
+  display: inline-block; padding: 2px 7px; border-radius: 999px;
+  font-size: 9px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+  white-space: nowrap; flex-shrink: 0;
+}
+.wh-badge-lyfta  { background: rgba(167,139,250,0.16); color: #A78BFA; }
+.wh-badge-strava { background: rgba(252,76,2,0.16);    color: #FC7A45; }
+.wh-badge-manual { background: rgba(255,255,255,0.08); color: var(--text-2); }
 .wh-pr-row {
   display: flex; justify-content: space-between; align-items: center; gap: 10px;
   padding: 8px 0; border-bottom: 1px solid var(--border);
@@ -904,9 +914,10 @@ img, video, canvas, svg { max-width: 100%; }
 .wh-freq-bar { fill: var(--good); }
 .wh-freq-label { font-size: 8px; fill: var(--text-3); font-family: var(--font-mono); }
 .wh-actions {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
   margin-top: 4px;
 }
+.wh-actions-btns { display: flex; gap: 8px; flex-wrap: wrap; }
 .wh-meta { font-size: 11px; color: var(--text-3); }
 
 /* ============================================================
@@ -1628,16 +1639,19 @@ img, video, canvas, svg { max-width: 100%; }
       <div class="po-tw-past-body" id="poTwPastBody" style="display:none"></div>
     </div>
 
-    <!-- Workout History — imported from Lyfta, synced via Supabase
-         (table: workout_history, row key: lyfta_data). Independent of
-         the rest of the app's sync so a large import never bloats it. -->
+    <!-- Workout History — one unified view over public.workout_history,
+         regardless of where each entry came from (Lyfta import today,
+         Strava auto-sync later, or manual entry). Every source is
+         normalized to the same shape before it's saved (see whNormalizeWorkout
+         in the script below), so the lists/PRs/chart never need to
+         know or care where a given workout came from. -->
     <div class="po-sub-section">
       <div class="po-sub-title">Workout History</div>
 
       <div class="wh-block">
         <div class="wh-block-title">Recent sessions</div>
         <div id="whRecentList">
-          <div class="po-empty">No imported workouts yet.</div>
+          <div class="po-empty">No workouts yet.</div>
         </div>
       </div>
 
@@ -1651,13 +1665,16 @@ img, video, canvas, svg { max-width: 100%; }
       <div class="wh-block">
         <div class="wh-block-title">Weekly frequency</div>
         <div class="wh-freq-wrap">
-          <div class="po-empty" id="whFreqEmpty">Import your history to see this.</div>
+          <div class="po-empty" id="whFreqEmpty">Log or import workouts to see this.</div>
           <svg class="wh-freq-svg hidden" id="whFreqSvg" viewBox="0 0 300 90" preserveAspectRatio="none"></svg>
         </div>
       </div>
 
       <div class="wh-actions">
-        <button class="po-btn-secondary" id="whImportBtn" type="button">Import Lyfta JSON</button>
+        <div class="wh-actions-btns">
+          <button class="po-btn-primary" id="whAddOpenBtn" type="button" style="width:auto; padding:11px 16px;">+ Log workout</button>
+          <button class="po-btn-secondary" id="whImportBtn" type="button">Import Lyfta JSON</button>
+        </div>
         <span class="wh-meta" id="whMeta"></span>
       </div>
       <input type="file" id="whImportFile" accept=".json" style="display:none">
@@ -1766,6 +1783,36 @@ img, video, canvas, svg { max-width: 100%; }
     <div class="po-modal-actions">
       <button class="po-btn-primary" id="setModalClose">Done</button>
     </div>
+  </div>
+</div>
+
+<!-- Log Workout Modal — manual entry into workout_history. Saved
+     through the exact same normalize + save path as a Lyfta import
+     or a future Strava sync, just tagged source: 'manual'. -->
+<div class="po-modal-bg" id="whAddModalBg">
+  <div class="po-modal" style="max-width: 480px;">
+    <h3>Log a workout</h3>
+    <div class="po-field">
+      <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Date</label>
+      <input type="date" id="whAddDate">
+    </div>
+    <div class="po-field">
+      <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Title</label>
+      <input type="text" id="whAddTitle" placeholder="e.g. Push day">
+    </div>
+    <div class="po-set-section">
+      <h4>Exercises</h4>
+      <div class="po-set-list" id="whAddExList"></div>
+      <button class="po-add-row-btn" id="whAddExRowBtn" type="button">+ Add exercise</button>
+      <div style="font-size:11px;color:var(--text-3);margin-top:10px;line-height:1.5;">
+        Sets as reps×weight, comma-separated — e.g. "8x30, 6x30, 5x32.5". Bodyweight sets: use weight 0.
+      </div>
+    </div>
+    <div class="po-modal-actions">
+      <button class="po-btn-secondary" id="whAddCancel" type="button">Cancel</button>
+      <button class="po-btn-primary" id="whAddSave" type="button">Save workout</button>
+    </div>
+    <div id="whAddStatus" style="text-align:center;font-size:12px;color:var(--bad);min-height:16px;margin-top:6px;"></div>
   </div>
 </div>
 
@@ -2311,27 +2358,89 @@ img, video, canvas, svg { max-width: 100%; }
   });
 
   // ============================================================
-  // WORKOUT HISTORY (Lyfta import)
+  // WORKOUT HISTORY — one unified log fed by multiple sources
+  // (Lyfta import today, Strava auto-sync later, manual entry always).
   //
-  // Read-only view over an imported workout log — a separate blob
-  // from state.logs, shaped like:
-  //   { source, imported_at, workouts: [{date, title, exercises:[{name, sets:[{reps,weight}]}]}] }
+  // Every workout is normalized to the same shape before it's ever
+  // saved — { date, title, source, exercises:[{name, sets:[{reps,weight}]}] }
+  // — so whRenderRecent/whComputePRs/whComputeWeeklyFrequency don't
+  // know or care which source a workout came from. Adding a new
+  // source later (Strava) means writing a fetch + a call to
+  // whNormalizeWorkouts + whMergeBySource — never a parallel render
+  // or storage path.
+  //
   // Synced to its own Supabase table (see WORKOUT HISTORY CLOUD SYNC
   // below) so a large import never bloats the main app_state payload.
   // ============================================================
   const WH_LS_KEY = 'po_coach_lyfta_v1';
   const WH_TABLE = 'workout_history';
+  // Row key kept as 'lyfta_data' for backward compatibility with data
+  // already synced under it — it now holds workouts from every source,
+  // not just Lyfta.
   const WH_KEY = 'lyfta_data';
 
-  function whDefault() { return { source: 'lyfta_import', imported_at: null, workouts: [] }; }
+  function whDefault() { return { workouts: [] }; }
+
+  function whNormalizeWorkout(raw, fallbackSource) {
+    raw = raw || {};
+    return {
+      date: raw.date || '',
+      title: raw.title || 'Workout',
+      source: raw.source || fallbackSource || 'manual',
+      exercises: Array.isArray(raw.exercises) ? raw.exercises.map(e => ({
+        name: (e && e.name) || '',
+        sets: Array.isArray(e && e.sets) ? e.sets.map(s => ({
+          reps: Number(s && s.reps) || 0,
+          weight: Number(s && s.weight) || 0,
+        })) : [],
+      })) : [],
+    };
+  }
+  function whNormalizeWorkouts(list, fallbackSource) {
+    return (Array.isArray(list) ? list : []).map(w => whNormalizeWorkout(w, fallbackSource));
+  }
+  // Rows saved before per-workout `source` existed only carried a
+  // blob-level `source` (e.g. "lyfta_import"). Map that once on load so
+  // already-synced data keeps the right badge without re-importing.
+  function whFallbackSourceForBlob(blob) {
+    const s = blob && blob.source;
+    if (s === 'strava' || s === 'strava_import') return 'strava';
+    if (s === 'manual') return 'manual';
+    return 'lyfta';
+  }
+  function whNormalizeBlob(blob) {
+    return { workouts: whNormalizeWorkouts(blob && blob.workouts, whFallbackSourceForBlob(blob)) };
+  }
+
   function whLoad() {
-    try { const raw = localStorage.getItem(WH_LS_KEY); if (raw) return JSON.parse(raw); } catch (e) {}
+    try {
+      const raw = localStorage.getItem(WH_LS_KEY);
+      if (raw) return whNormalizeBlob(JSON.parse(raw));
+    } catch (e) {}
     return whDefault();
   }
   function whSaveLocal(data) {
     try { localStorage.setItem(WH_LS_KEY, JSON.stringify(data)); } catch (e) {}
   }
   let whData = whLoad();
+
+  // Bulk sources (a Lyfta re-import, a future Strava sync) replace only
+  // the entries tagged with their own source; every other source's
+  // entries are left untouched.
+  function whMergeBySource(newWorkouts, source) {
+    const kept = (whData.workouts || []).filter(w => w.source !== source);
+    whData = { workouts: kept.concat(newWorkouts) };
+  }
+  // Manual entry adds a single workout without touching anything else.
+  function whAppendWorkout(workout) {
+    whData = { workouts: (whData.workouts || []).concat([workout]) };
+  }
+  // One save path for every source: local cache, re-render, cloud push.
+  function whCommit() {
+    whSaveLocal(whData);
+    renderWorkoutHistory();
+    whPushToSupabase(whData);
+  }
 
   function whSortedWorkouts() {
     return (whData.workouts || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
@@ -2388,18 +2497,30 @@ img, video, canvas, svg { max-width: 100%; }
     return out;
   }
 
+  function whSourceLabel(source) {
+    if (source === 'strava') return 'Strava';
+    if (source === 'manual') return 'Manual';
+    return 'Lyfta';
+  }
+  function whSourceBadgeClass(source) {
+    if (source === 'strava') return 'wh-badge-strava';
+    if (source === 'manual') return 'wh-badge-manual';
+    return 'wh-badge-lyfta';
+  }
+
   function whRenderRecent() {
     const wrap = $('whRecentList');
     const list = whSortedWorkouts().slice(0, 5);
-    if (!list.length) { wrap.innerHTML = '<div class="po-empty">No imported workouts yet.</div>'; return; }
+    if (!list.length) { wrap.innerHTML = '<div class="po-empty">No workouts yet.</div>'; return; }
     wrap.innerHTML = list.map(w => {
       const names = (w.exercises || []).map(e => e.name);
       const exNames = escape(names.slice(0, 4).join(', ')) + (names.length > 4 ? '…' : '');
       return '<div class="wh-session">'
         + '<div class="wh-session-head">'
         +   '<span class="wh-session-date">' + escape(w.date || '') + '</span>'
-        +   '<span class="wh-session-title">' + escape(w.title || 'Workout') + '</span>'
+        +   '<span class="wh-badge ' + whSourceBadgeClass(w.source) + '">' + whSourceLabel(w.source) + '</span>'
         + '</div>'
+        + '<div class="wh-session-title">' + escape(w.title || 'Workout') + '</div>'
         + '<div class="wh-session-ex">' + exNames + '</div>'
         + '</div>';
     }).join('');
@@ -2445,9 +2566,11 @@ img, video, canvas, svg { max-width: 100%; }
     whRenderPRs();
     whRenderFrequency();
     const meta = $('whMeta');
-    meta.textContent = whData.imported_at ? ('Imported ' + whData.imported_at) : '';
+    const n = (whData.workouts || []).length;
+    meta.textContent = n ? (n + ' workout' + (n === 1 ? '' : 's') + ' logged') : '';
   }
 
+  // ---- Lyfta import: bulk-replaces only the 'lyfta'-sourced entries ----
   $('whImportBtn').addEventListener('click', () => $('whImportFile').click());
   $('whImportFile').addEventListener('change', (e) => {
     const file = e.target.files[0];
@@ -2460,18 +2583,59 @@ img, video, canvas, svg { max-width: 100%; }
           alert('Invalid file — expected a Lyfta export with a "workouts" array.');
           return;
         }
-        whData = {
-          source: parsed.source || 'lyfta_import',
-          imported_at: parsed.imported_at || new Date().toISOString().slice(0, 10),
-          workouts: parsed.workouts,
-        };
-        whSaveLocal(whData);
-        renderWorkoutHistory();
-        whPushToSupabase(whData);
+        whMergeBySource(whNormalizeWorkouts(parsed.workouts, 'lyfta'), 'lyfta');
+        whCommit();
       } catch (err) { alert('Could not parse that file as JSON.'); }
     };
     reader.readAsText(file);
     e.target.value = '';
+  });
+
+  // ---- Manual entry: adds a single 'manual'-sourced workout ----
+  function whParseSetsStr(str) {
+    const out = [];
+    (str || '').split(',').forEach(chunk => {
+      const m = chunk.trim().match(/^(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)$/i);
+      if (m) out.push({ reps: Number(m[1]), weight: Number(m[2]) });
+    });
+    return out;
+  }
+  function whAddExerciseRow(name, setsStr) {
+    const row = document.createElement('div');
+    row.className = 'po-set-row';
+    row.innerHTML = '<input type="text" class="wh-add-ex-name" placeholder="Exercise name" value="' + escape(name || '') + '">'
+      + '<input type="text" class="wh-add-ex-sets" placeholder="8x30, 6x30" value="' + escape(setsStr || '') + '">'
+      + '<button type="button" class="po-mini-btn wh-add-ex-del" aria-label="Remove exercise">×</button>';
+    row.querySelector('.wh-add-ex-del').addEventListener('click', () => row.remove());
+    $('whAddExList').appendChild(row);
+  }
+  function whOpenAddModal() {
+    $('whAddDate').value = new Date().toISOString().slice(0, 10);
+    $('whAddTitle').value = '';
+    $('whAddExList').innerHTML = '';
+    whAddExerciseRow('', '');
+    $('whAddStatus').textContent = '';
+    $('whAddModalBg').classList.add('show');
+  }
+  function whCloseAddModal() { $('whAddModalBg').classList.remove('show'); }
+
+  $('whAddOpenBtn').addEventListener('click', whOpenAddModal);
+  $('whAddExRowBtn').addEventListener('click', () => whAddExerciseRow('', ''));
+  $('whAddCancel').addEventListener('click', whCloseAddModal);
+  $('whAddSave').addEventListener('click', () => {
+    const date = $('whAddDate').value;
+    if (!date) { $('whAddStatus').textContent = 'Pick a date.'; return; }
+    const title = $('whAddTitle').value.trim() || 'Workout';
+    const exercises = [];
+    $('whAddExList').querySelectorAll('.po-set-row').forEach(row => {
+      const name = row.querySelector('.wh-add-ex-name').value.trim();
+      const sets = whParseSetsStr(row.querySelector('.wh-add-ex-sets').value);
+      if (name && sets.length) exercises.push({ name, sets });
+    });
+    if (!exercises.length) { $('whAddStatus').textContent = 'Add at least one exercise with valid sets (e.g. 8x30).'; return; }
+    whAppendWorkout(whNormalizeWorkout({ date, title, source: 'manual', exercises }, 'manual'));
+    whCommit();
+    whCloseAddModal();
   });
 
   // ============================================================
@@ -3759,12 +3923,15 @@ img, video, canvas, svg { max-width: 100%; }
   })();
 
   // ============================================================
-  // WORKOUT HISTORY CLOUD SYNC (Lyfta import)
+  // WORKOUT HISTORY CLOUD SYNC (Lyfta, Strava, manual — unified)
   // ------------------------------------------------------------
   // Separate table from the rest of the app — public.workout_history,
   // one row keyed 'lyfta_data' — so a full import (which can be large)
   // never bloats the main app_state sync payload. Requires the SQL
-  // block from SETUP.md to be run once in Supabase.
+  // block from SETUP.md to be run once in Supabase. Remote data is
+  // always run through whNormalizeBlob before use, same as local load,
+  // so older rows (saved before per-workout `source` existed) still
+  // get a correct badge.
   // ============================================================
   let whSupa = null;
   let whLastSyncedJson = null;
@@ -3790,8 +3957,8 @@ img, video, canvas, svg { max-width: 100%; }
       const { data, error } = await whSupa
         .from(WH_TABLE).select('data').eq('key', WH_KEY).maybeSingle();
       if (!error && data && data.data && Array.isArray(data.data.workouts)) {
-        whLastSyncedJson = JSON.stringify(data.data);
-        whData = data.data;
+        whData = whNormalizeBlob(data.data);
+        whLastSyncedJson = JSON.stringify(whData);
         whSaveLocal(whData);
         renderWorkoutHistory();
       } else if (whData.workouts && whData.workouts.length) {
@@ -3806,10 +3973,11 @@ img, video, canvas, svg { max-width: 100%; }
         filter: 'key=eq.' + WH_KEY,
       }, (payload) => {
         if (!payload.new || !payload.new.data) return;
-        const incoming = JSON.stringify(payload.new.data);
+        const normalized = whNormalizeBlob(payload.new.data);
+        const incoming = JSON.stringify(normalized);
         if (incoming === whLastSyncedJson) return;
         whLastSyncedJson = incoming;
-        whData = payload.new.data;
+        whData = normalized;
         whSaveLocal(whData);
         renderWorkoutHistory();
       })
