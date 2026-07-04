@@ -19,8 +19,8 @@ The dashboard opens to a **password screen** — the default password is in
 
 ## 2. Supabase (cross-device sync) — required for sync
 
-Create a free project at **supabase.com**, then run **both** SQL blocks in
-**SQL Editor → New query → Run**.
+Create a free project at **supabase.com**, then run SQL #1 (required) and any of the
+optional blocks you need, in **SQL Editor → New query → Run**.
 
 ### SQL #1 — `app_state` (all dashboard sync)
 ```sql
@@ -40,7 +40,24 @@ create policy "anon full access app_state"
 alter publication supabase_realtime add table public.app_state;
 ```
 
-### SQL #2 — progress-photo sync (Storage bucket)
+### SQL #2 — `workout_history` (Lyfta import, Fitness page)
+Only needed if you use the **Workout History** section on the Fitness page (Import Lyfta JSON).
+```sql
+create table if not exists public.workout_history (
+  key        text primary key,
+  data       jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.workout_history enable row level security;
+create policy "anon full access workout_history"
+  on public.workout_history for all
+  to anon using (true) with check (true);
+
+alter publication supabase_realtime add table public.workout_history;
+```
+
+### SQL #3 — progress-photo sync (Storage bucket)
 Progress photos upload to a Supabase **Storage** bucket called `progress-photos` (only the
 image URLs sync through `app_state`). Skip this if you don't need photos to sync across devices.
 ```sql
