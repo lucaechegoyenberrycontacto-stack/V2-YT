@@ -868,8 +868,16 @@ img, video, canvas, svg { max-width: 100%; }
 }
 
 /* ----- Workout History (multi-source: Lyfta import, Strava, manual) ----- */
+.wh-stats-group {
+  background: rgba(255,255,255,0.025);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 14px;
+  margin-bottom: 14px;
+}
 .wh-block { margin-bottom: 16px; }
 .wh-block:last-of-type { margin-bottom: 10px; }
+.wh-stats-group .wh-block:last-of-type { margin-bottom: 0; }
 .wh-block-title {
   font-size: 10px; font-weight: 700; letter-spacing: 0.12em;
   text-transform: uppercase; color: var(--text-3); margin-bottom: 8px;
@@ -909,9 +917,10 @@ img, video, canvas, svg { max-width: 100%; }
 .wh-pr-name { color: var(--text-2); }
 .wh-pr-val { color: var(--text-1); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .wh-freq-wrap { position: relative; }
-.wh-freq-svg { width: 100%; height: 90px; display: block; }
+.wh-freq-svg { width: 100%; height: 130px; display: block; }
 .wh-freq-svg.hidden { display: none; }
-.wh-freq-bar { fill: var(--good); }
+.wh-freq-bar { fill: var(--good); opacity: 0.6; }
+.wh-freq-bar-current { opacity: 1; stroke: rgba(110,231,183,0.7); stroke-width: 1.5; }
 .wh-freq-label { font-size: 8px; fill: var(--text-3); font-family: var(--font-mono); }
 .wh-actions {
   display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
@@ -1648,25 +1657,27 @@ img, video, canvas, svg { max-width: 100%; }
     <div class="po-sub-section">
       <div class="po-sub-title">Workout History</div>
 
-      <div class="wh-block">
-        <div class="wh-block-title">Recent sessions</div>
-        <div id="whRecentList">
-          <div class="po-empty">No workouts yet.</div>
+      <div class="wh-stats-group">
+        <div class="wh-block">
+          <div class="wh-block-title">Recent sessions</div>
+          <div id="whRecentList">
+            <div class="po-empty">No workouts yet.</div>
+          </div>
         </div>
-      </div>
 
-      <div class="wh-block">
-        <div class="wh-block-title">All-time PRs</div>
-        <div id="whPrList">
-          <div class="po-empty">No PR data yet.</div>
+        <div class="wh-block">
+          <div class="wh-block-title">All-time PRs</div>
+          <div id="whPrList">
+            <div class="po-empty">No PR data yet.</div>
+          </div>
         </div>
-      </div>
 
-      <div class="wh-block">
-        <div class="wh-block-title">Weekly frequency</div>
-        <div class="wh-freq-wrap">
-          <div class="po-empty" id="whFreqEmpty">Log or import workouts to see this.</div>
-          <svg class="wh-freq-svg hidden" id="whFreqSvg" viewBox="0 0 300 90" preserveAspectRatio="none"></svg>
+        <div class="wh-block">
+          <div class="wh-block-title">Weekly frequency</div>
+          <div class="wh-freq-wrap">
+            <div class="po-empty" id="whFreqEmpty">Log or import workouts to see this.</div>
+            <svg class="wh-freq-svg hidden" id="whFreqSvg" viewBox="0 0 300 130" preserveAspectRatio="none"></svg>
+          </div>
         </div>
       </div>
 
@@ -2481,10 +2492,14 @@ img, video, canvas, svg { max-width: 100%; }
   // training days that fell in it (missing weeks show as 0, not skipped).
   function whComputeWeeklyFrequency(numWeeks) {
     numWeeks = numWeeks || 8;
-    const counts = {};
+    // Group by unique date first, so 2 sessions logged on the same day
+    // count as 1 training day, not 2.
+    const daysByWeek = {};
     (whData.workouts || []).forEach(w => {
       const wk = whWeekKeyFromDateStr(w.date);
-      if (wk) counts[wk] = (counts[wk] || 0) + 1;
+      if (!wk) return;
+      if (!daysByWeek[wk]) daysByWeek[wk] = new Set();
+      daysByWeek[wk].add(w.date);
     });
     const today = new Date();
     const out = [];
@@ -2492,7 +2507,9 @@ img, video, canvas, svg { max-width: 100%; }
       const d = new Date(today); d.setDate(d.getDate() - i * 7);
       const info = whIsoWeekInfo(d);
       const key = info.year + '-W' + String(info.week).padStart(2, '0');
-      out.push({ week: key, count: counts[key] || 0 });
+      const dow = (d.getDay() + 6) % 7; // 0=Mon..6=Sun
+      const weekStart = new Date(d); weekStart.setDate(d.getDate() - dow);
+      out.push({ week: key, count: daysByWeek[key] ? daysByWeek[key].size : 0, weekStart });
     }
     return out;
   }
@@ -2538,6 +2555,7 @@ img, video, canvas, svg { max-width: 100%; }
     ).join('');
   }
 
+  const WH_MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   function whRenderFrequency() {
     const svg = $('whFreqSvg');
     const empty = $('whFreqEmpty');
@@ -2545,18 +2563,20 @@ img, video, canvas, svg { max-width: 100%; }
     const hasAny = data.some(d => d.count > 0);
     if (!hasAny) { svg.classList.add('hidden'); empty.classList.remove('hidden'); return; }
     empty.classList.add('hidden'); svg.classList.remove('hidden');
-    const W = 300, H = 90, pad = 6, gap = 6;
+    const W = 300, H = 130, pad = 6, gap = 6;
     const n = data.length;
     const barW = (W - pad * 2 - gap * (n - 1)) / n;
     const maxCount = Math.max.apply(null, data.map(d => d.count).concat([1]));
-    const baseY = H - 16;
+    const baseY = H - 24;
     let bars = '';
     data.forEach((d, i) => {
       const x = pad + i * (barW + gap);
       const h = d.count > 0 ? Math.max(4, (baseY - 6) * (d.count / maxCount)) : 0;
       const y = baseY - h;
-      bars += '<rect class="wh-freq-bar" x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + barW.toFixed(1) + '" height="' + h.toFixed(1) + '" rx="3"></rect>';
-      bars += '<text class="wh-freq-label" x="' + (x + barW / 2).toFixed(1) + '" y="' + (baseY + 12) + '" text-anchor="middle">' + d.count + '</text>';
+      const isCurrent = i === data.length - 1;
+      const label = d.weekStart ? (WH_MONTHS_SHORT[d.weekStart.getMonth()] + ' ' + d.weekStart.getDate()) : '';
+      bars += '<rect class="wh-freq-bar' + (isCurrent ? ' wh-freq-bar-current' : '') + '" x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + barW.toFixed(1) + '" height="' + h.toFixed(1) + '" rx="3"></rect>';
+      bars += '<text class="wh-freq-label" x="' + (x + barW / 2).toFixed(1) + '" y="' + (baseY + 14) + '" text-anchor="middle">' + label + '</text>';
     });
     svg.innerHTML = bars;
   }
