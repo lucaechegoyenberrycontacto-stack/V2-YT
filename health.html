@@ -509,382 +509,279 @@ main {
 
 <main>
 
-  <!-- ===== WHOOP card (full) ===== -->
+  <!-- ===== Sleep card (manual entry — Whoop removed, Strava has no sleep API) ===== -->
   <style>
-    .whoop-section { margin-bottom: 32px; }
-    .whoop-card {
+    .sleep-section { margin-bottom: 32px; }
+    .sleep-card {
       padding: 22px 22px 18px;
       background: rgba(255,255,255,0.025);
       border-radius: 22px;
       box-shadow: 0 1px 0 0 rgba(255,255,255,0.06) inset, 0 12px 40px rgba(0,0,0,0.45), 0 1px 2px rgba(0,0,0,0.25);
     }
-    /* Disconnected */
-    .wh-brand { display:inline-flex; align-items:center; gap:8px; }
-    .wh-brand-mark { width:22px; height:22px; border-radius:50%; background:#FFF; color:#0A0A0B; font-weight:900; font-size:12px; display:inline-flex; align-items:center; justify-content:center; letter-spacing:-0.04em; box-shadow:0 0 12px rgba(255,255,255,0.20); }
-    .wh-brand-text { font-weight:800; font-size:13px; letter-spacing:0.18em; color:var(--text-primary); }
-    .wh-disc { display:flex; flex-direction:column; align-items:center; text-align:center; padding:18px 8px 8px; gap:6px; }
-    .wh-disc .wh-brand { margin-bottom:14px; }
-    .wh-disc-title { font-size:22px; font-weight:700; color:var(--text-primary); letter-spacing:-0.02em; margin-top:2px; }
-    .wh-disc-sub { font-size:13px; color:var(--text-tertiary); max-width:280px; line-height:1.5; margin-bottom:18px; }
-    .wh-connect { display:inline-flex; align-items:center; gap:8px; padding:12px 22px; border-radius:999px; border:1px solid rgba(255,255,255,0.85); background:linear-gradient(180deg, #FFF, #E8E5DD); color:#0A0A0B; font-family:inherit; font-size:13.5px; font-weight:700; cursor:pointer; box-shadow:inset 0 1px 0 rgba(255,255,255,0.55), 0 6px 20px rgba(0,0,0,0.45); transition:transform 0.12s; }
-    .wh-connect:hover { transform:translateY(-1px); }
-    /* Header */
-    .wh-head { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:18px; flex-wrap:wrap; }
-    .wh-live { display:inline-flex; align-items:center; gap:5px; font-size:9.5px; font-weight:700; letter-spacing:0.16em; text-transform:uppercase; color:#6BE3A4; margin-left:4px; padding:3px 8px; border-radius:999px; background:rgba(107,227,164,0.10); border:1px solid rgba(107,227,164,0.30); }
-    .wh-live-dot { width:6px; height:6px; border-radius:50%; background:#6BE3A4; box-shadow:0 0 8px rgba(107,227,164,0.65); animation:wh-pulse 1.6s ease-in-out infinite; }
-    @keyframes wh-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.85)} }
-    .wh-head-right { display:flex; align-items:center; gap:10px; }
-    .wh-updated { font-size:11px; color:var(--text-tertiary); font-family:var(--font-mono); }
-    .wh-refresh { width:32px; height:32px; border-radius:50%; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.06); color:var(--text-secondary); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:transform 0.4s, background 0.18s, color 0.18s; }
-    .wh-refresh:hover { background:rgba(255,255,255,0.10); color:var(--text-primary); }
-    .wh-refresh.spin { transform:rotate(360deg); }
-    /* Ring */
-    .wh-ring-wrap { position:relative; width:240px; max-width:78%; margin:0 auto 24px; aspect-ratio:1; }
-    .wh-ring { width:100%; height:100%; transform:rotate(-90deg); filter:drop-shadow(0 0 24px rgba(255,255,255,0.05)); }
-    .wh-ring-track { fill:none; stroke:rgba(255,255,255,0.06); stroke-width:12; }
-    .wh-ring-fill { fill:none; stroke:#FFF; stroke-width:12; stroke-linecap:round; stroke-dasharray:603.19; stroke-dashoffset:603.19; transition:stroke-dashoffset 0.8s cubic-bezier(0.22,1,0.36,1), stroke 0.4s; }
-    .wh-ring-center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:none; }
-    .wh-ring-num { font-size:60px; font-weight:700; letter-spacing:-0.04em; color:var(--text-primary); line-height:1; font-variant-numeric:tabular-nums; }
-    .wh-ring-unit { font-size:10px; font-weight:700; letter-spacing:0.22em; text-transform:uppercase; color:var(--text-tertiary); margin-top:10px; }
-    .wh-ring-label { font-size:12.5px; font-weight:600; margin-top:6px; letter-spacing:-0.005em; }
-    /* Stages */
-    .wh-stages { margin-bottom:22px; padding-top:22px; border-top:1px solid rgba(255,255,255,0.05); }
-    .wh-stages-head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px; }
-    .wh-stages-eye { font-size:10px; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--text-tertiary); }
-    .wh-stages-meta { font-size:11px; color:var(--text-tertiary); font-family:var(--font-mono); }
-    .wh-stages-bar { display:flex; height:10px; background:rgba(255,255,255,0.04); border-radius:999px; overflow:hidden; margin-bottom:12px; border:1px solid rgba(255,255,255,0.04); }
-    .wh-stage { height:100%; transition:width 0.7s cubic-bezier(0.22,1,0.36,1); }
-    .wh-stage-rem   { background:#FFF; }
-    .wh-stage-deep  { background:#B8B6B0; }
-    .wh-stage-light { background:#76746E; }
-    .wh-stage-awake { background:#38362F; }
-    .wh-stages-legend { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
-    .wh-leg { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--text-secondary); font-weight:500; }
-    .wh-leg-dot { width:8px; height:8px; border-radius:2px; flex-shrink:0; }
-    .wh-leg-dot.d-rem{background:#FFF} .wh-leg-dot.d-deep{background:#B8B6B0} .wh-leg-dot.d-light{background:#76746E} .wh-leg-dot.d-awake{background:#38362F; border:1px solid rgba(255,255,255,0.10);}
-    .wh-leg-num { margin-left:auto; color:var(--text-primary); font-weight:700; font-family:var(--font-mono); font-size:11px; }
-    @media (max-width:480px) { .wh-stages-legend { grid-template-columns:repeat(2,1fr); } }
+    /* Form */
+    .sleep-form-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+    .sleep-field { flex: 1; min-width: 100px; display: flex; flex-direction: column; gap: 6px; }
+    .sleep-field-label { font-size: 10px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary); }
+    .sleep-input { padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.28); color: var(--text-primary); font-family: inherit; font-size: 13.5px; outline: none; transition: border-color 0.18s; color-scheme: dark; }
+    .sleep-input:focus { border-color: rgba(255,255,255,0.40); }
+    .sleep-feeling-row { display: flex; gap: 6px; }
+    .sleep-feeling-btn { flex: 1; padding: 8px 0; border-radius: 10px; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.025); font-size: 18px; cursor: pointer; transition: background 0.15s, border-color 0.15s; }
+    .sleep-feeling-btn:hover { background: rgba(255,255,255,0.05); }
+    .sleep-feeling-btn.active { border-color: rgba(107,227,164,0.55); background: rgba(107,227,164,0.10); }
+    .sleep-save-btn { width: 100%; margin-top: 4px; padding: 12px; border: 1px solid rgba(255,255,255,0.85); border-radius: 12px; background: linear-gradient(180deg, #FFF, #E8E5DD); color: #0A0A0B; font-family: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 6px 20px rgba(0,0,0,0.30); transition: transform 0.12s; }
+    .sleep-save-btn:hover { transform: translateY(-1px); }
+    .sleep-save-status { text-align: center; font-size: 11.5px; color: var(--text-tertiary); min-height: 16px; margin-top: 8px; }
+    /* Weekly stacked chart — same colors/segmented-bar pattern the old
+       Whoop sleep-stages bar used (rem/light/deep), just vertical & x7. */
+    .sleep-week { margin-top: 22px; padding-top: 22px; border-top: 1px solid rgba(255,255,255,0.05); }
+    .sleep-week-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
+    .sleep-week-eye { font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-tertiary); }
+    .sleep-week-legend { display: flex; gap: 12px; }
+    .sleep-leg-item { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; color: var(--text-secondary); font-weight: 500; }
+    .sleep-leg-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+    .sleep-leg-dot.d-rem { background: var(--text-primary); }
+    .sleep-leg-dot.d-light { background: var(--text-tertiary); }
+    .sleep-leg-dot.d-deep { background: var(--text-secondary); }
+    .sleep-week-empty { font-size: 12.5px; color: var(--text-tertiary); font-style: italic; text-align: center; padding: 20px 10px; }
+    .sleep-week-chart { display: flex; align-items: flex-end; gap: 8px; height: 130px; padding-top: 6px; }
+    .sleep-week-day { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; height: 100%; justify-content: flex-end; }
+    .sleep-week-bar { width: 100%; max-width: 30px; display: flex; flex-direction: column-reverse; border-radius: 4px; overflow: hidden; background: rgba(255,255,255,0.03); min-height: 4px; }
+    .sleep-week-seg { width: 100%; }
+    .sleep-seg-rem   { background: var(--text-primary); }
+    .sleep-seg-light { background: var(--text-tertiary); }
+    .sleep-seg-deep  { background: var(--text-secondary); }
+    .sleep-seg-total { background: var(--text-tertiary); }
+    .sleep-week-label { font-size: 9.5px; color: var(--text-tertiary); font-family: var(--font-mono); }
     /* Stats */
-    .wh-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; padding-top:22px; border-top:1px solid rgba(255,255,255,0.05); }
-    .wh-stat { position:relative; background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.04); border-radius:12px; padding:12px 10px; text-align:center; }
-    .wh-stat-label { font-size:10px; color:var(--text-tertiary); text-transform:uppercase; letter-spacing:0.14em; font-weight:700; margin-bottom:8px; }
-    .wh-stat-val { font-size:22px; font-weight:700; color:var(--text-primary); line-height:1; font-variant-numeric:tabular-nums; letter-spacing:-0.03em; }
-    .wh-stat-sub { font-size:10px; color:var(--text-tertiary); margin-top:5px; font-family:var(--font-mono); }
-    @media (max-width:480px) { .wh-stats { grid-template-columns:repeat(2,1fr); } .wh-stat-val { font-size:20px; } }
-    /* Biomarkers */
-    .wh-bio { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px; }
-    .wh-bio-item { position:relative; background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.04); border-radius:12px; padding:11px 12px; text-align:center; }
-    .wh-bio-label { display:block; font-size:9.5px; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; color:var(--text-tertiary); margin-bottom:4px; }
-    .wh-bio-val { display:block; font-size:14px; font-weight:700; color:var(--text-primary); font-variant-numeric:tabular-nums; }
-    @media (max-width:380px) { .wh-bio { grid-template-columns:1fr; } }
-    /* Zone dot */
-    .wh-zone { position:absolute; top:9px; right:9px; width:7px; height:7px; border-radius:50%; background:rgba(255,255,255,0.12); }
-    .wh-zone.z-good { background:#6BE3A4; box-shadow:0 0 7px rgba(107,227,164,0.55); }
-    .wh-zone.z-norm { background:rgba(255,255,255,0.30); }
-    .wh-zone.z-warn { background:#F2C063; box-shadow:0 0 7px rgba(242,192,99,0.55); }
-    .wh-zone.z-bad  { background:#FF8A8A; box-shadow:0 0 7px rgba(255,138,138,0.55); }
-    /* Legend */
-    .wh-legend { display:flex; justify-content:center; flex-wrap:wrap; gap:14px; margin-top:14px; padding:10px 12px; background:rgba(255,255,255,0.02); border-radius:999px; border:1px solid rgba(255,255,255,0.04); }
-    .wh-leg-item { display:inline-flex; align-items:center; gap:6px; font-size:10.5px; font-weight:600; color:var(--text-tertiary); }
-    .wh-leg-item .wh-zone { position:static; display:inline-block; }
-    /* Today's Call */
-    .wh-verdict { margin-top:18px; padding:16px 18px; background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.04); border-left:2px solid rgba(255,255,255,0.40); border-radius:0 12px 12px 0; }
-    .wh-verdict-head { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
-    .wh-verdict-eye { font-size:10px; color:var(--text-tertiary); text-transform:uppercase; letter-spacing:0.18em; font-weight:700; }
-    .wh-verdict-badge { font-size:9.5px; font-weight:800; padding:3px 9px; border-radius:999px; letter-spacing:0.14em; text-transform:uppercase; border:1px solid; }
-    .wh-verdict-badge.green  { color:#6BE3A4; border-color:rgba(107,227,164,0.50); background:rgba(107,227,164,0.10); }
-    .wh-verdict-badge.yellow { color:#F2C063; border-color:rgba(242,192,99,0.50); background:rgba(242,192,99,0.10); }
-    .wh-verdict-badge.red    { color:#FF8A8A; border-color:rgba(255,138,138,0.50); background:rgba(255,138,138,0.10); }
-    .wh-verdict-headline { font-size:15px; font-weight:600; color:var(--text-primary); line-height:1.4; margin-bottom:12px; }
-    .wh-verdict-reasons { font-size:12.5px; color:var(--text-secondary); line-height:1.65; }
-    /* Disconnect */
-    .wh-disconnect-link { display:block; margin:16px auto 0; padding:6px 14px; background:transparent; border:none; color:var(--text-tertiary); font-family:inherit; font-size:11px; text-align:center; cursor:pointer; letter-spacing:0.04em; }
-    .wh-disconnect-link:hover { color:var(--text-secondary); text-decoration:underline; }
-    .wh-err { background:rgba(255,107,107,0.08); border:1px solid rgba(255,107,107,0.28); color:#FF8A8A; padding:10px 12px; border-radius:10px; font-size:11.5px; font-family:var(--font-mono); margin-bottom:14px; }
+    .sleep-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-top: 18px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,0.05); }
+    .sleep-stat { background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.04); border-radius: 12px; padding: 12px 10px; text-align: center; }
+    .sleep-stat-label { font-size: 9.5px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700; margin-bottom: 8px; }
+    .sleep-stat-val { font-size: 20px; font-weight: 700; color: var(--text-primary); line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+    @media (max-width:480px) { .sleep-form-row.sleep-form-row-3 { flex-wrap: wrap; } .sleep-stat-val { font-size: 17px; } }
   </style>
-  <div class="whoop-section">
-    <div class="section-title">Whoop</div>
-    <div class="whoop-card">
-      <div id="whDisc" class="wh-disc">
-        <div class="wh-brand"><span class="wh-brand-mark">W</span><span class="wh-brand-text">WHOOP</span></div>
-        <div class="wh-disc-title">Not connected</div>
-        <div class="wh-disc-sub">Link your account to see live recovery, sleep, and strain.</div>
-        <button id="whConnectBtn" class="wh-connect" type="button">Connect WHOOP</button>
+  <div class="sleep-section" id="sleep">
+    <div class="section-title">Sleep</div>
+    <div class="sleep-card">
+      <div class="sleep-form-row">
+        <label class="sleep-field">
+          <span class="sleep-field-label">Date</span>
+          <input type="date" id="sleepDate" class="sleep-input">
+        </label>
       </div>
-      <div id="whConn" style="display:none">
-        <div class="wh-head">
-          <div class="wh-brand"><span class="wh-brand-mark">W</span><span class="wh-brand-text">WHOOP</span><span class="wh-live"><span class="wh-live-dot"></span>live</span></div>
-          <div class="wh-head-right">
-            <span id="whUpdated" class="wh-updated">—</span>
-            <button id="whRefresh" class="wh-refresh" type="button" aria-label="Refresh"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15A9 9 0 1 1 5.64 5.64L23 10"/></svg></button>
+      <div class="sleep-form-row">
+        <label class="sleep-field">
+          <span class="sleep-field-label">Bedtime</span>
+          <input type="time" id="sleepBedTime" class="sleep-input">
+        </label>
+        <label class="sleep-field">
+          <span class="sleep-field-label">Wake time</span>
+          <input type="time" id="sleepWakeTime" class="sleep-input">
+        </label>
+      </div>
+      <div class="sleep-form-row sleep-form-row-3">
+        <label class="sleep-field">
+          <span class="sleep-field-label">REM (min)</span>
+          <input type="number" min="0" id="sleepRem" class="sleep-input" placeholder="optional">
+        </label>
+        <label class="sleep-field">
+          <span class="sleep-field-label">Light (min)</span>
+          <input type="number" min="0" id="sleepLight" class="sleep-input" placeholder="optional">
+        </label>
+        <label class="sleep-field">
+          <span class="sleep-field-label">Deep (min)</span>
+          <input type="number" min="0" id="sleepDeep" class="sleep-input" placeholder="optional">
+        </label>
+      </div>
+      <div class="sleep-form-row" style="flex-direction:column; align-items:stretch;">
+        <span class="sleep-field-label">How did you wake up? (optional)</span>
+        <div class="sleep-feeling-row" id="sleepFeelingRow">
+          <button type="button" class="sleep-feeling-btn" data-v="1" aria-label="Terrible">😩</button>
+          <button type="button" class="sleep-feeling-btn" data-v="2" aria-label="Rough">😕</button>
+          <button type="button" class="sleep-feeling-btn" data-v="3" aria-label="OK">😐</button>
+          <button type="button" class="sleep-feeling-btn" data-v="4" aria-label="Good">🙂</button>
+          <button type="button" class="sleep-feeling-btn" data-v="5" aria-label="Great">😄</button>
+        </div>
+      </div>
+      <button id="sleepSaveBtn" class="sleep-save-btn" type="button">Save</button>
+      <div id="sleepSaveStatus" class="sleep-save-status"></div>
+
+      <div class="sleep-week">
+        <div class="sleep-week-head">
+          <span class="sleep-week-eye">Last 7 days</span>
+          <div class="sleep-week-legend">
+            <span class="sleep-leg-item"><span class="sleep-leg-dot d-rem"></span>REM</span>
+            <span class="sleep-leg-item"><span class="sleep-leg-dot d-light"></span>Light</span>
+            <span class="sleep-leg-item"><span class="sleep-leg-dot d-deep"></span>Deep</span>
           </div>
         </div>
-        <div id="whErr" class="wh-err" style="display:none"></div>
-        <div class="wh-ring-wrap">
-          <svg class="wh-ring" viewBox="0 0 220 220" aria-hidden="true">
-            <circle class="wh-ring-track" cx="110" cy="110" r="96"/>
-            <circle class="wh-ring-fill" cx="110" cy="110" r="96" id="whRingFill"/>
-          </svg>
-          <div class="wh-ring-center">
-            <div id="whRecNum" class="wh-ring-num">—</div>
-            <div class="wh-ring-unit">recovery</div>
-            <div id="whRecLabel" class="wh-ring-label">—</div>
-          </div>
-        </div>
-        <div id="whStages" class="wh-stages" style="display:none">
-          <div class="wh-stages-head"><span class="wh-stages-eye">Sleep stages</span><span class="wh-stages-meta" id="whStagesMeta">—</span></div>
-          <div class="wh-stages-bar">
-            <div class="wh-stage wh-stage-rem"   id="whBarRem"   style="width:0%"></div>
-            <div class="wh-stage wh-stage-deep"  id="whBarDeep"  style="width:0%"></div>
-            <div class="wh-stage wh-stage-light" id="whBarLight" style="width:0%"></div>
-            <div class="wh-stage wh-stage-awake" id="whBarAwake" style="width:0%"></div>
-          </div>
-          <div class="wh-stages-legend">
-            <div class="wh-leg"><span class="wh-leg-dot d-rem"></span>REM<span class="wh-leg-num" id="whRem">—</span></div>
-            <div class="wh-leg"><span class="wh-leg-dot d-deep"></span>Deep<span class="wh-leg-num" id="whDeep">—</span></div>
-            <div class="wh-leg"><span class="wh-leg-dot d-light"></span>Light<span class="wh-leg-num" id="whLight">—</span></div>
-            <div class="wh-leg"><span class="wh-leg-dot d-awake"></span>Awake<span class="wh-leg-num" id="whAwake">—</span></div>
-          </div>
-        </div>
-        <div class="wh-stats">
-          <div class="wh-stat"><span class="wh-zone" id="whZoneSleep"></span><div class="wh-stat-label">Sleep</div><div class="wh-stat-val" id="whSleep">—</div><div class="wh-stat-sub" id="whSleepSub">—</div></div>
-          <div class="wh-stat"><span class="wh-zone" id="whZoneStrain"></span><div class="wh-stat-label">Strain</div><div class="wh-stat-val" id="whStrain">—</div><div class="wh-stat-sub" id="whStrainSub">today</div></div>
-          <div class="wh-stat"><span class="wh-zone" id="whZoneHrv"></span><div class="wh-stat-label">HRV</div><div class="wh-stat-val" id="whHrv">—</div><div class="wh-stat-sub">ms</div></div>
-          <div class="wh-stat"><span class="wh-zone" id="whZoneRhr"></span><div class="wh-stat-label">RHR</div><div class="wh-stat-val" id="whRhr">—</div><div class="wh-stat-sub">bpm</div></div>
-        </div>
-        <div id="whBio" class="wh-bio" style="display:none">
-          <div class="wh-bio-item"><span class="wh-zone" id="whZoneSkin"></span><span class="wh-bio-label">Skin temp</span><span class="wh-bio-val" id="whSkin">—</span></div>
-          <div class="wh-bio-item"><span class="wh-zone" id="whZoneSpo2"></span><span class="wh-bio-label">Blood O₂</span><span class="wh-bio-val" id="whSpo2">—</span></div>
-          <div class="wh-bio-item"><span class="wh-zone" id="whZoneResp"></span><span class="wh-bio-label">Resp rate</span><span class="wh-bio-val" id="whResp">—</span></div>
-        </div>
-        <div class="wh-legend">
-          <span class="wh-leg-item"><span class="wh-zone z-good"></span>Good</span>
-          <span class="wh-leg-item"><span class="wh-zone z-norm"></span>Normal</span>
-          <span class="wh-leg-item"><span class="wh-zone z-warn"></span>Watch</span>
-          <span class="wh-leg-item"><span class="wh-zone z-bad"></span>High / Low</span>
-        </div>
-        <div id="whVerdict" class="wh-verdict" style="display:none">
-          <div class="wh-verdict-head"><span class="wh-verdict-eye">Today's call</span><span id="whVerdictBadge" class="wh-verdict-badge"></span></div>
-          <div id="whVerdictHead" class="wh-verdict-headline"></div>
-          <div id="whVerdictReasons" class="wh-verdict-reasons"></div>
-        </div>
-        <button id="whDisconnectBtn" class="wh-disconnect-link" type="button">Disconnect</button>
+        <div id="sleepWeekEmpty" class="sleep-week-empty" style="display:none">Aún no hay datos de sueño — registra tu primera noche arriba.</div>
+        <div id="sleepWeekChart" class="sleep-week-chart"></div>
+      </div>
+
+      <div class="sleep-stats" id="sleepStats">
+        <div class="sleep-stat"><div class="sleep-stat-label">Avg sleep</div><div class="sleep-stat-val" id="sleepAvgHours">—</div></div>
+        <div class="sleep-stat"><div class="sleep-stat-label">Avg REM</div><div class="sleep-stat-val" id="sleepAvgRem">—</div></div>
+        <div class="sleep-stat"><div class="sleep-stat-label">Streak</div><div class="sleep-stat-val" id="sleepStreak">—</div></div>
       </div>
     </div>
   </div>
   <script>
   (function () {
-    const KEY = 'whoop_tokens_v1';
-    const CLIENT_ID = '3b9d1b01-31fb-4bd8-b18c-c7fa27deed2f';
-    const REDIRECT  = window.location.origin + '/api/whoop-callback';
-    const SCOPES    = 'read:recovery read:sleep read:workout read:cycles read:profile read:body_measurement offline';
-
-    function load() { try { return JSON.parse(localStorage.getItem(KEY)); } catch { return null; } }
-    function save(t) { try { localStorage.setItem(KEY, JSON.stringify(t)); } catch {} }
-    function wipe() { try { localStorage.removeItem(KEY); } catch {} }
-
-    if (location.hash && location.hash.indexOf('whoop_access') !== -1) {
-      const h = new URLSearchParams(location.hash.slice(1));
-      const access = h.get('whoop_access'), refresh = h.get('whoop_refresh');
-      const expires = Number(h.get('whoop_expires')) || Date.now() + 3500e3;
-      if (access) { save({ access, refresh, expires }); history.replaceState(null, '', location.pathname + location.search); }
-    }
-
+    const SLEEP_KEY = 'sleepEntries';
     const $ = (id) => document.getElementById(id);
-    const errEl = $('whErr');
-    function showErr(m) { errEl.textContent = m || ''; errEl.style.display = m ? 'block' : 'none'; }
 
-    $('whConnectBtn').addEventListener('click', () => {
-      const url = 'https://api.prod.whoop.com/oauth/oauth2/auth'
-        + '?client_id='     + encodeURIComponent(CLIENT_ID)
-        + '&redirect_uri='  + encodeURIComponent(REDIRECT)
-        + '&response_type=code'
-        + '&scope='         + encodeURIComponent(SCOPES)
-        + '&state='         + Math.random().toString(36).slice(2);
-      location.href = url;
+    function loadEntries() {
+      try { const v = JSON.parse(localStorage.getItem(SLEEP_KEY)); return Array.isArray(v) ? v : []; }
+      catch { return []; }
+    }
+    function saveEntries(list) { try { localStorage.setItem(SLEEP_KEY, JSON.stringify(list)); } catch {} }
+
+    function pad2(n) { return String(n).padStart(2, '0'); }
+    function dateKey(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+    function todayStr() { return dateKey(new Date()); }
+
+    function minutesSinceMidnight(hhmm) {
+      if (!hhmm) return null;
+      const [h, m] = hhmm.split(':').map(Number);
+      if (isNaN(h) || isNaN(m)) return null;
+      return h * 60 + m;
+    }
+    // Hours asleep, handling the bedtime→wake crossing midnight.
+    function durationHours(bedTime, wakeTime) {
+      const b = minutesSinceMidnight(bedTime), w = minutesSinceMidnight(wakeTime);
+      if (b == null || w == null) return null;
+      let diff = w - b;
+      if (diff <= 0) diff += 24 * 60;
+      return diff / 60;
+    }
+
+    // ---------- Form ----------
+    let selectedFeeling = null;
+    $('sleepDate').value = todayStr();
+
+    $('sleepFeelingRow').addEventListener('click', (e) => {
+      const btn = e.target.closest('.sleep-feeling-btn');
+      if (!btn) return;
+      selectedFeeling = Number(btn.dataset.v);
+      $('sleepFeelingRow').querySelectorAll('.sleep-feeling-btn').forEach(b => b.classList.toggle('active', b === btn));
     });
-    $('whDisconnectBtn').addEventListener('click', () => { wipe(); render(); });
-    $('whRefresh').addEventListener('click', async (e) => {
-      const btn = e.currentTarget; btn.classList.add('spin');
-      try { await loadData(); } finally { setTimeout(() => btn.classList.remove('spin'), 600); }
+
+    $('sleepSaveBtn').addEventListener('click', () => {
+      const date = $('sleepDate').value || todayStr();
+      const bedTime = $('sleepBedTime').value || null;
+      const wakeTime = $('sleepWakeTime').value || null;
+      const status = $('sleepSaveStatus');
+      if (!bedTime || !wakeTime) { status.textContent = 'Bedtime and wake time are required.'; return; }
+
+      const entry = {
+        date, bedTime, wakeTime,
+        remMin: $('sleepRem').value ? Number($('sleepRem').value) : null,
+        lightMin: $('sleepLight').value ? Number($('sleepLight').value) : null,
+        deepMin: $('sleepDeep').value ? Number($('sleepDeep').value) : null,
+        feeling: selectedFeeling,
+        loggedAt: new Date().toISOString(),
+      };
+      const entries = loadEntries();
+      const idx = entries.findIndex(e => e.date === date);
+      if (idx >= 0) entries[idx] = entry; else entries.push(entry);
+      saveEntries(entries);
+
+      status.textContent = 'Saved ✓';
+      setTimeout(() => { status.textContent = ''; }, 1800);
+      renderSleep();
     });
 
-    async function refreshTok(t) {
-      if (!t.refresh) return null;
-      try {
-        const r = await fetch('/api/whoop-refresh', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ refresh_token: t.refresh }) });
-        const j = await r.json();
-        if (j.access_token) {
-          const next = { access: j.access_token, refresh: j.refresh_token || t.refresh, expires: Date.now() + (j.expires_in||3500)*1000 };
-          save(next); return next;
-        }
-      } catch {}
-      return null;
-    }
-    async function whFetch(path, t) {
-      const [p, qs] = path.split('?');
-      const params = new URLSearchParams(qs || ''); params.set('path', p);
-      const r = await fetch('/api/whoop-data?' + params.toString(), { headers: { 'Authorization': 'Bearer ' + t.access, 'Accept':'application/json' } });
-      if (r.status === 401) { const n = await refreshTok(t); if (n) return whFetch(path, n); throw new Error('unauthorized — reconnect'); }
-      if (!r.ok) throw new Error('WHOOP ' + r.status + ': ' + (await r.text()));
-      return await r.json();
-    }
-
-    function fmtMins(ms) { const m = Math.round(ms/60000); const h = Math.floor(m/60); return h + 'h ' + String(m%60).padStart(2,'0') + 'm'; }
-    function fmtMinsShort(ms) { const m = Math.round(ms/60000); const h = Math.floor(m/60); return (h>0?h+'h ':'') + (m%60)+'m'; }
-    function zone(el, c) { el.className = 'wh-zone'; if (c) el.classList.add('z-' + c); }
-    function recoveryZone(v) { if (v == null) return null; if (v >= 67) return 'good'; if (v >= 34) return 'warn'; return 'bad'; }
-    function sleepZone(p) { if (p == null) return null; if (p >= 85) return 'good'; if (p >= 70) return 'norm'; return 'warn'; }
-    function strainZone(s) { if (s == null) return null; if (s < 6) return 'norm'; if (s < 14) return 'good'; if (s < 18) return 'warn'; return 'bad'; }
-    function hrvZone(h) { if (h == null) return null; if (h >= 60) return 'good'; if (h >= 40) return 'norm'; return 'warn'; }
-    function rhrZone(r) { if (r == null) return null; if (r <= 55) return 'good'; if (r <= 70) return 'norm'; return 'warn'; }
-    function tempZone(t) { if (t == null) return null; if (t >= 32.5 && t <= 34) return 'good'; if (t >= 31 && t <= 35) return 'norm'; return 'warn'; }
-    function spo2Zone(s) { if (s == null) return null; if (s >= 95) return 'good'; if (s >= 92) return 'norm'; if (s >= 88) return 'warn'; return 'bad'; }
-    function respZone(r) { if (r == null) return null; if (r >= 12 && r <= 18) return 'good'; if (r >= 10 && r <= 22) return 'norm'; return 'warn'; }
-
-    function ringStroke(score) {
-      // green > yellow > red
-      if (score >= 67) return '#6BE3A4';
-      if (score >= 34) return '#F2C063';
-      return '#FF8A8A';
-    }
-    function recoveryLabel(score) {
-      if (score >= 67) return 'Go hard today';
-      if (score >= 34) return 'Moderate — listen to body';
-      return 'Recover today';
-    }
-
-    function verdict(rec, strain, sleepPerf) {
-      if (rec == null) return null;
-      let cls = 'green', badge = 'GREEN', headline = 'Push hard today. Body\'s primed — go for the PR, do the harder workout, take on the heavy task.';
-      if (rec < 67 && rec >= 34) { cls = 'yellow'; badge = 'YELLOW'; headline = 'Moderate day. Train, but don\'t max out. Stick to planned volume, skip the max effort sets.'; }
-      else if (rec < 34) { cls = 'red'; badge = 'RED'; headline = 'Recover. Body is asking for rest — light movement, walk, mobility, sleep early.'; }
-      return { cls, badge, headline };
-    }
-
-    async function loadData() {
-      let t = load(); if (!t) return;
-      if (t.expires && Date.now() > t.expires - 60000) { const n = await refreshTok(t); if (n) t = n; }
-      showErr('');
-      try {
-        const [rec, sleep, cycle] = await Promise.all([
-          whFetch('/recovery?limit=1', t).catch((e)=>{console.error('[whoop] recovery', e.message); return null;}),
-          whFetch('/activity/sleep?limit=1', t).catch((e)=>{console.error('[whoop] sleep', e.message); return null;}),
-          whFetch('/cycle?limit=1', t).catch((e)=>{console.error('[whoop] cycle', e.message); return null;}),
-        ]);
-
-        let recScore = null, hrv = null, rhr = null, skin = null, spo2 = null;
-        const r0 = rec && rec.records && rec.records[0];
-        if (r0 && r0.score) {
-          recScore = Math.round(r0.score.recovery_score || 0);
-          hrv = r0.score.hrv_rmssd_milli != null ? Math.round(r0.score.hrv_rmssd_milli) : null;
-          rhr = r0.score.resting_heart_rate != null ? Math.round(r0.score.resting_heart_rate) : null;
-          skin = r0.score.skin_temp_celsius != null ? r0.score.skin_temp_celsius : null;
-          spo2 = r0.score.spo2_percentage != null ? r0.score.spo2_percentage : null;
-        }
-
-        // Ring
-        const fill = $('whRingFill');
-        const C = 603.19;
-        if (recScore != null) {
-          fill.style.strokeDashoffset = String(C * (1 - recScore/100));
-          fill.style.stroke = ringStroke(recScore);
-          $('whRecNum').textContent = String(recScore);
-          const labelEl = $('whRecLabel');
-          labelEl.textContent = recoveryLabel(recScore);
-          labelEl.style.color = ringStroke(recScore);
-        }
-
-        // Sleep
-        let sleepPerf = null, sleepDuration = null, resp = null;
-        const s0 = sleep && sleep.records && sleep.records[0];
-        if (s0 && s0.score) {
-          sleepPerf = Math.round(s0.score.sleep_performance_percentage || 0);
-          resp = s0.score.respiratory_rate != null ? Number(s0.score.respiratory_rate).toFixed(1) : null;
-          if (s0.score.stage_summary) {
-            const ss = s0.score.stage_summary;
-            const inBed = ss.total_in_bed_time_milli || 0;
-            const awake = ss.total_awake_time_milli || 0;
-            sleepDuration = inBed - awake;
-            const rem = ss.total_rem_sleep_time_milli || 0;
-            const deep = ss.total_slow_wave_sleep_time_milli || 0;
-            const light = ss.total_light_sleep_time_milli || 0;
-            const total = rem + deep + light + awake;
-            if (total > 0) {
-              $('whStages').style.display = '';
-              $('whBarRem').style.width   = (100*rem/total)   + '%';
-              $('whBarDeep').style.width  = (100*deep/total)  + '%';
-              $('whBarLight').style.width = (100*light/total) + '%';
-              $('whBarAwake').style.width = (100*awake/total) + '%';
-              $('whStagesMeta').textContent = fmtMins(total) + ' total';
-              $('whRem').textContent   = fmtMinsShort(rem);
-              $('whDeep').textContent  = fmtMinsShort(deep);
-              $('whLight').textContent = fmtMinsShort(light);
-              $('whAwake').textContent = fmtMinsShort(awake);
-            }
-          }
-        }
-        if (sleepPerf != null) {
-          $('whSleep').textContent = sleepPerf + '%';
-          const hrs = sleepDuration ? (sleepDuration/3.6e6).toFixed(1) + 'h' : '—';
-          $('whSleepSub').textContent = hrs;
-          zone($('whZoneSleep'), sleepZone(sleepPerf));
-        }
-
-        // Strain
-        let strain = null, kcal = null;
-        const c0 = cycle && cycle.records && cycle.records[0];
-        if (c0 && c0.score && c0.score.strain != null) {
-          strain = Number(c0.score.strain);
-          $('whStrain').textContent = strain.toFixed(1);
-          if (c0.score.kilojoule != null) {
-            kcal = Math.round(c0.score.kilojoule / 4.184);
-            $('whStrainSub').textContent = kcal + ' kcal';
-          }
-          zone($('whZoneStrain'), strainZone(strain));
-        }
-
-        if (hrv != null) { $('whHrv').textContent = String(hrv); zone($('whZoneHrv'), hrvZone(hrv)); }
-        if (rhr != null) { $('whRhr').textContent = String(rhr); zone($('whZoneRhr'), rhrZone(rhr)); }
-
-        // Biomarkers
-        const anyBio = (skin != null) || (spo2 != null) || (resp != null);
-        if (anyBio) {
-          $('whBio').style.display = '';
-          if (skin != null) { $('whSkin').textContent = Number(skin).toFixed(1) + '°C'; zone($('whZoneSkin'), tempZone(skin)); }
-          if (spo2 != null) { $('whSpo2').textContent = Number(spo2).toFixed(1) + '%'; zone($('whZoneSpo2'), spo2Zone(spo2)); }
-          if (resp != null) { $('whResp').textContent = resp + ' br/min'; zone($('whZoneResp'), respZone(Number(resp))); }
-        }
-
-        // Verdict
-        const v = verdict(recScore, strain, sleepPerf);
-        if (v) {
-          $('whVerdict').style.display = '';
-          const badge = $('whVerdictBadge');
-          badge.textContent = v.badge;
-          badge.className = 'wh-verdict-badge ' + v.cls;
-          $('whVerdictHead').textContent = v.headline;
-          const reasons = [];
-          if (sleepPerf != null) reasons.push((sleepPerf >= 80 ? '✓' : '·') + ' Sleep score ' + sleepPerf + '% — ' + (sleepPerf >= 80 ? 'you slept well.' : 'sub-par sleep.'));
-          if (strain != null)   reasons.push((strain < 14 ? '·' : '✓') + ' Strain ' + strain.toFixed(1) + ' yesterday — ' + (strain < 14 ? 'room to push today if recovery allows.' : 'high load logged.'));
-          if (hrv != null)      reasons.push((hrv >= 50 ? '✓' : '·') + ' HRV ' + hrv + 'ms — ' + (hrv >= 50 ? 'strong autonomic state.' : 'autonomic stress.'));
-          if (rhr != null)      reasons.push((rhr <= 60 ? '✓' : '·') + ' RHR ' + rhr + 'bpm — ' + (rhr <= 60 ? 'well-conditioned.' : 'elevated.'));
-          $('whVerdictReasons').innerHTML = reasons.join('<br>');
-        }
-
-        const now = new Date();
-        $('whUpdated').textContent = 'Updated ' + now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-      } catch (e) {
-        showErr(e.message || String(e));
+    // ---------- Weekly chart ----------
+    function last7DayKeys() {
+      const out = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        out.push(dateKey(d));
       }
+      return out;
+    }
+    function dayLabel(dstr) {
+      const [y, m, d] = dstr.split('-').map(Number);
+      return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(y, m - 1, d).getDay()];
     }
 
-    function render() {
-      const t = load();
-      if (t && t.access) { $('whDisc').style.display = 'none'; $('whConn').style.display = ''; loadData(); }
-      else { $('whDisc').style.display = ''; $('whConn').style.display = 'none'; }
+    function renderWeekChart(entries) {
+      const wrap = $('sleepWeekChart');
+      const emptyEl = $('sleepWeekEmpty');
+      const keys = last7DayKeys();
+      const byDate = {};
+      entries.forEach(e => { byDate[e.date] = e; });
+
+      if (!keys.some(k => byDate[k])) {
+        wrap.innerHTML = '';
+        emptyEl.style.display = 'block';
+        return;
+      }
+      emptyEl.style.display = 'none';
+
+      const durations = keys.map(k => (byDate[k] ? durationHours(byDate[k].bedTime, byDate[k].wakeTime) : null) || 0);
+      const maxHours = Math.max.apply(null, durations.concat([1]));
+
+      wrap.innerHTML = keys.map((k, i) => {
+        const e = byDate[k];
+        const hours = durations[i];
+        const heightPct = Math.max(hours > 0 ? 6 : 3, Math.round(100 * hours / maxHours));
+        let segsHtml = '';
+        if (e && (e.remMin || e.lightMin || e.deepMin)) {
+          const total = (e.remMin || 0) + (e.lightMin || 0) + (e.deepMin || 0);
+          const pct = (v) => total ? (100 * v / total) : 0;
+          segsHtml = '<div class="sleep-week-seg sleep-seg-rem" style="height:' + pct(e.remMin || 0) + '%"></div>'
+            + '<div class="sleep-week-seg sleep-seg-light" style="height:' + pct(e.lightMin || 0) + '%"></div>'
+            + '<div class="sleep-week-seg sleep-seg-deep" style="height:' + pct(e.deepMin || 0) + '%"></div>';
+        } else if (e) {
+          segsHtml = '<div class="sleep-week-seg sleep-seg-total" style="height:100%"></div>';
+        }
+        return '<div class="sleep-week-day">'
+          + '<div class="sleep-week-bar" style="height:' + heightPct + '%">' + segsHtml + '</div>'
+          + '<div class="sleep-week-label">' + dayLabel(k) + '</div>'
+          + '</div>';
+      }).join('');
     }
-    render();
+
+    // ---------- Stats ----------
+    function renderStats(entries) {
+      const keys = last7DayKeys();
+      const recent = keys.map(k => entries.find(e => e.date === k)).filter(Boolean);
+      const avgEl = $('sleepAvgHours'), remEl = $('sleepAvgRem'), streakEl = $('sleepStreak');
+
+      if (!recent.length) { avgEl.textContent = '—'; remEl.textContent = '—'; streakEl.textContent = '—'; return; }
+
+      const durations = recent.map(e => durationHours(e.bedTime, e.wakeTime)).filter(v => v != null);
+      avgEl.textContent = durations.length ? (durations.reduce((a, b) => a + b, 0) / durations.length).toFixed(1) + 'h' : '—';
+
+      const withStages = recent.filter(e => e.remMin || e.lightMin || e.deepMin);
+      if (withStages.length) {
+        const remPcts = withStages.map(e => {
+          const total = (e.remMin || 0) + (e.lightMin || 0) + (e.deepMin || 0);
+          return total ? (100 * (e.remMin || 0) / total) : 0;
+        });
+        remEl.textContent = Math.round(remPcts.reduce((a, b) => a + b, 0) / remPcts.length) + '%';
+      } else {
+        remEl.textContent = '—';
+      }
+
+      // Consecutive days ending today with a logged entry.
+      const all = new Set(entries.map(e => e.date));
+      let streak = 0;
+      for (let i = 0; i < 365; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        if (all.has(dateKey(d))) streak++; else break;
+      }
+      streakEl.textContent = streak + (streak === 1 ? ' day' : ' days');
+    }
+
+    function renderSleep() {
+      const entries = loadEntries();
+      renderWeekChart(entries);
+      renderStats(entries);
+    }
+
+    renderSleep();
   })();
   </script>
 
