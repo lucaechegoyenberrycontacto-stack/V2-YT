@@ -533,6 +533,10 @@ main {
     .sleep-feeling-btn { flex: 1; padding: 8px 0; border-radius: 10px; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.025); font-size: 18px; cursor: pointer; transition: background 0.15s, border-color 0.15s; }
     .sleep-feeling-btn:hover { background: rgba(255,255,255,0.05); }
     .sleep-feeling-btn.active { border-color: rgba(107,227,164,0.55); background: rgba(107,227,164,0.10); }
+    .sleep-quality-row { display: flex; gap: 6px; flex-wrap: wrap; }
+    .sleep-quality-btn { flex: 1; min-width: 64px; padding: 9px 4px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.025); color: var(--text-secondary); font-family: inherit; font-size: 11px; font-weight: 600; text-align: center; cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s; }
+    .sleep-quality-btn:hover { background: rgba(255,255,255,0.05); }
+    .sleep-quality-btn.active { border-color: rgba(107,227,164,0.55); background: rgba(107,227,164,0.10); color: var(--text-primary); }
     .sleep-save-btn { width: 100%; margin-top: 4px; padding: 12px; border: 1px solid rgba(255,255,255,0.85); border-radius: 12px; background: linear-gradient(180deg, #FFF, #E8E5DD); color: #0A0A0B; font-family: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 6px 20px rgba(0,0,0,0.30); transition: transform 0.12s; }
     .sleep-save-btn:hover { transform: translateY(-1px); }
     .sleep-save-status { text-align: center; font-size: 11.5px; color: var(--text-tertiary); min-height: 16px; margin-top: 8px; }
@@ -540,6 +544,22 @@ main {
        colors as the legend. Lines break wherever a day has no value for
        that series, instead of interpolating across missing nights. */
     .sleep-week { margin-top: 22px; padding-top: 22px; border-top: 1px solid rgba(255,255,255,0.05); }
+    /* Breaks the chart (not the form above, not the stats below) out of
+       the page's 720px column on wide viewports so the 7 days get real
+       breathing room. Capped well short of full-bleed. Mobile keeps the
+       original narrow layout — .sleep-week-breakout/.sleep-week-inner are
+       plain no-op wrappers below the breakpoint. */
+    @media (min-width: 800px) {
+      .sleep-week-breakout {
+        position: relative; left: 50%; right: 50%;
+        width: 100vw; margin-left: -50vw; margin-right: -50vw;
+      }
+      .sleep-week-inner {
+        max-width: 1000px; margin: 0 auto; padding: 24px 32px;
+        box-sizing: border-box; background: var(--bg-card);
+        border-radius: 18px; box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+      }
+    }
     .sleep-week-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 20px; flex-wrap: wrap; gap: 8px; }
     .sleep-week-eye { font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-tertiary); }
     .sleep-week-legend { display: flex; gap: 12px; flex-wrap: wrap; }
@@ -554,11 +574,11 @@ main {
     .sleep-week-svg { width: 100%; height: 400px; display: block; overflow: visible; }
     .sleep-week-svg.hidden { display: none; }
     .sleep-week-grid { stroke: rgba(255,255,255,0.06); stroke-width: 1; }
-    .sleep-week-yaxis-label { font-size: 9px; fill: var(--text-tertiary); font-family: var(--font-mono); }
-    .sleep-line-rem   { fill: none; stroke: var(--sleep-rem);   stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-    .sleep-line-light { fill: none; stroke: var(--sleep-light); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-    .sleep-line-deep  { fill: none; stroke: var(--sleep-deep);  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-    .sleep-line-total { fill: none; stroke: var(--sleep-total); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    .sleep-week-yaxis-label { font-size: 11px; fill: var(--text-tertiary); font-family: var(--font-mono); }
+    .sleep-line-rem   { fill: none; stroke: var(--sleep-rem);   stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    .sleep-line-light { fill: none; stroke: var(--sleep-light); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    .sleep-line-deep  { fill: none; stroke: var(--sleep-deep);  stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    .sleep-line-total { fill: none; stroke: var(--sleep-total); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
     .sleep-dot { cursor: pointer; }
     .sleep-dot-rem   { fill: var(--sleep-rem); }
     .sleep-dot-light { fill: var(--sleep-light); }
@@ -567,7 +587,7 @@ main {
     /* Invisible larger circle behind each dot so mobile taps land reliably
        without making the visible marker itself bigger. */
     .sleep-dot-hit { fill: rgba(0,0,0,0.001); pointer-events: all; cursor: pointer; }
-    .sleep-week-daylabel { font-size: 9.5px; fill: var(--text-tertiary); font-family: var(--font-mono); }
+    .sleep-week-daylabel { font-size: 11px; fill: var(--text-tertiary); font-family: var(--font-mono); }
     .sleep-week-tooltip {
       position: absolute; display: none; pointer-events: none;
       transform: translate(-50%, calc(-100% - 10px));
@@ -626,30 +646,44 @@ main {
           <button type="button" class="sleep-feeling-btn" data-v="5" aria-label="Great">😄</button>
         </div>
       </div>
+      <div class="sleep-form-row" style="flex-direction:column; align-items:stretch;">
+        <span class="sleep-field-label">Sleep quality (optional)</span>
+        <div class="sleep-quality-row" id="sleepQualityRow">
+          <button type="button" class="sleep-quality-btn" data-v="poor">Poor</button>
+          <button type="button" class="sleep-quality-btn" data-v="bad">Bad</button>
+          <button type="button" class="sleep-quality-btn" data-v="good">Good</button>
+          <button type="button" class="sleep-quality-btn" data-v="very_good">Very Good</button>
+          <button type="button" class="sleep-quality-btn" data-v="excellent">Excellent</button>
+        </div>
+      </div>
       <button id="sleepSaveBtn" class="sleep-save-btn" type="button">Save</button>
       <div id="sleepSaveStatus" class="sleep-save-status"></div>
 
       <div class="sleep-week">
-        <div class="sleep-week-head">
-          <span class="sleep-week-eye">Last 7 days</span>
-          <div class="sleep-week-legend">
-            <span class="sleep-leg-item"><span class="sleep-leg-dot d-rem"></span>REM</span>
-            <span class="sleep-leg-item"><span class="sleep-leg-dot d-light"></span>Light</span>
-            <span class="sleep-leg-item"><span class="sleep-leg-dot d-deep"></span>Deep</span>
-            <span class="sleep-leg-item"><span class="sleep-leg-dot d-total"></span>Total</span>
+        <div class="sleep-week-breakout">
+          <div class="sleep-week-inner">
+            <div class="sleep-week-head">
+              <span class="sleep-week-eye">This week</span>
+              <div class="sleep-week-legend">
+                <span class="sleep-leg-item"><span class="sleep-leg-dot d-rem"></span>REM</span>
+                <span class="sleep-leg-item"><span class="sleep-leg-dot d-light"></span>Light</span>
+                <span class="sleep-leg-item"><span class="sleep-leg-dot d-deep"></span>Deep</span>
+                <span class="sleep-leg-item"><span class="sleep-leg-dot d-total"></span>Total</span>
+              </div>
+            </div>
+            <div id="sleepWeekEmpty" class="sleep-week-empty" style="display:none">Aún no hay datos de sueño — registra tu primera noche arriba.</div>
+            <div class="sleep-week-chart-wrap" id="sleepWeekChartWrap">
+              <svg class="sleep-week-svg hidden" id="sleepWeekSvg" viewBox="0 0 300 400" preserveAspectRatio="none"></svg>
+              <div class="sleep-week-tooltip" id="sleepWeekTooltip"></div>
+            </div>
           </div>
-        </div>
-        <div id="sleepWeekEmpty" class="sleep-week-empty" style="display:none">Aún no hay datos de sueño — registra tu primera noche arriba.</div>
-        <div class="sleep-week-chart-wrap" id="sleepWeekChartWrap">
-          <svg class="sleep-week-svg hidden" id="sleepWeekSvg" viewBox="0 0 300 400" preserveAspectRatio="none"></svg>
-          <div class="sleep-week-tooltip" id="sleepWeekTooltip"></div>
         </div>
       </div>
 
       <div class="sleep-stats" id="sleepStats">
         <div class="sleep-stat"><div class="sleep-stat-label">Avg sleep</div><div class="sleep-stat-val" id="sleepAvgHours">—</div></div>
         <div class="sleep-stat"><div class="sleep-stat-label">Avg REM</div><div class="sleep-stat-val" id="sleepAvgRem">—</div></div>
-        <div class="sleep-stat"><div class="sleep-stat-label">Streak</div><div class="sleep-stat-val" id="sleepStreak">—</div></div>
+        <div class="sleep-stat"><div class="sleep-stat-label">Good Streak</div><div class="sleep-stat-val" id="sleepStreak">—</div></div>
       </div>
     </div>
   </div>
@@ -683,8 +717,15 @@ main {
       return diff / 60;
     }
 
+    // Sleep quality — manually transcribed from the Xiaomi app's own
+    // sleep analysis (separate from the "how did you wake up" feeling
+    // picker above, which is the user's own subjective read). Ranked so
+    // the Good Streak stat can require "Good" or better.
+    const SLEEP_QUALITY_RANK = { poor: 0, bad: 1, good: 2, very_good: 3, excellent: 4 };
+
     // ---------- Form ----------
     let selectedFeeling = null;
+    let selectedQuality = null;
     $('sleepDate').value = todayStr();
 
     $('sleepFeelingRow').addEventListener('click', (e) => {
@@ -692,6 +733,12 @@ main {
       if (!btn) return;
       selectedFeeling = Number(btn.dataset.v);
       $('sleepFeelingRow').querySelectorAll('.sleep-feeling-btn').forEach(b => b.classList.toggle('active', b === btn));
+    });
+    $('sleepQualityRow').addEventListener('click', (e) => {
+      const btn = e.target.closest('.sleep-quality-btn');
+      if (!btn) return;
+      selectedQuality = btn.dataset.v;
+      $('sleepQualityRow').querySelectorAll('.sleep-quality-btn').forEach(b => b.classList.toggle('active', b === btn));
     });
 
     $('sleepSaveBtn').addEventListener('click', () => {
@@ -707,6 +754,7 @@ main {
         lightHours: $('sleepLight').value ? Number($('sleepLight').value) : null,
         deepHours: $('sleepDeep').value ? Number($('sleepDeep').value) : null,
         feeling: selectedFeeling,
+        quality: selectedQuality,
         loggedAt: new Date().toISOString(),
       };
       const entries = loadEntries();
@@ -720,10 +768,16 @@ main {
     });
 
     // ---------- Weekly chart ----------
-    function last7DayKeys() {
+    // Current calendar week, Monday first. If today is e.g. Saturday, Sunday
+    // still shows on the axis — it just has no data yet (same gap treatment
+    // as any other day with nothing logged), it isn't hidden or trimmed.
+    function currentWeekKeys() {
+      const now = new Date();
+      const dow = (now.getDay() + 6) % 7; // 0=Mon..6=Sun
+      const monday = new Date(now); monday.setDate(now.getDate() - dow);
       const out = [];
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date(); d.setDate(d.getDate() - i);
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(monday); d.setDate(monday.getDate() + i);
         out.push(dateKey(d));
       }
       return out;
@@ -745,8 +799,8 @@ main {
         d += (started ? ' L ' : 'M ') + x.toFixed(1) + ' ' + y.toFixed(1);
         started = true;
         const attrs = ' cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" data-kind="' + kind + '" data-value="' + v + '"';
-        dots += '<circle class="sleep-dot-hit" r="9"' + attrs + '></circle>'
-          + '<circle class="sleep-dot sleep-dot-' + kind + '" r="3"' + attrs + '></circle>';
+        dots += '<circle class="sleep-dot-hit" r="13"' + attrs + '></circle>'
+          + '<circle class="sleep-dot sleep-dot-' + kind + '" r="4.5"' + attrs + '></circle>';
       });
       return (d ? '<path class="sleep-line-' + kind + '" d="' + d + '"></path>' : '') + dots;
     }
@@ -786,7 +840,7 @@ main {
     function renderWeekChart(entries) {
       const svg = $('sleepWeekSvg');
       const emptyEl = $('sleepWeekEmpty');
-      const keys = last7DayKeys();
+      const keys = currentWeekKeys();
       const byDate = {};
       entries.forEach(e => { byDate[e.date] = e; });
 
@@ -808,13 +862,19 @@ main {
       };
 
       // Fixed 0–12h Y axis — never rescale, nobody sleeps more than 12h.
-      // H is 400 (vs. an original 190) so each 2h grid step gets real
-      // vertical room — width stays at 300 since the SVG already
-      // stretches to 100% of the card via preserveAspectRatio="none",
-      // so growing W wouldn't add any actual on-screen width.
+      // W matches the ACTUAL rendered pixel width of the chart (not an
+      // arbitrary fixed unit) so widening the container via the
+      // .sleep-week-breakout CSS genuinely spreads the 7 days across
+      // more space, instead of just stretching the same 300-unit grid
+      // over a bigger box (which scales the dots/strokes right along
+      // with the spacing and leaves them just as crowded, only bigger).
+      // It also makes the X and Y scales 1:1, so dots render as true
+      // circles instead of the sideways-stretched ellipses a mismatched
+      // scale would produce.
       const n = keys.length;
-      const W = 300, H = 400;
-      const padLeft = 24, padRight = 10, padTop = 16, padBottom = 32;
+      const W = svg.getBoundingClientRect().width || 600, H = 400;
+      svg.setAttribute('viewBox', '0 0 ' + W.toFixed(1) + ' ' + H);
+      const padLeft = 32, padRight = 14, padTop = 16, padBottom = 32;
       const plotW = W - padLeft - padRight;
       const plotH = H - padTop - padBottom;
       const xAt = (i) => padLeft + plotW * (n === 1 ? 0.5 : i / (n - 1));
@@ -823,8 +883,8 @@ main {
       let html = '';
       for (let v = 0; v <= SLEEP_Y_MAX; v += SLEEP_Y_STEP) {
         const y = yAt(v);
-        html += '<line class="sleep-week-grid" x1="' + padLeft + '" y1="' + y.toFixed(1) + '" x2="' + (W - padRight) + '" y2="' + y.toFixed(1) + '"></line>'
-          + '<text class="sleep-week-yaxis-label" x="' + (padLeft - 6) + '" y="' + (y + 3).toFixed(1) + '" text-anchor="end">' + v + '</text>';
+        html += '<line class="sleep-week-grid" x1="' + padLeft + '" y1="' + y.toFixed(1) + '" x2="' + (W - padRight).toFixed(1) + '" y2="' + y.toFixed(1) + '"></line>'
+          + '<text class="sleep-week-yaxis-label" x="' + (padLeft - 8) + '" y="' + (y + 3).toFixed(1) + '" text-anchor="end">' + v + '</text>';
       }
       html += buildSeriesLine(series.rem, 'rem', xAt, yAt);
       html += buildSeriesLine(series.light, 'light', xAt, yAt);
@@ -839,32 +899,43 @@ main {
 
     // ---------- Stats ----------
     function renderStats(entries) {
-      const keys = last7DayKeys();
+      // Only days of the current calendar week that have already happened
+      // carry an entry at all, so this naturally excludes both past gaps
+      // and days later this week that haven't occurred yet — nothing
+      // extra to special-case for "the future."
+      const keys = currentWeekKeys();
       const recent = keys.map(k => entries.find(e => e.date === k)).filter(Boolean);
       const avgEl = $('sleepAvgHours'), remEl = $('sleepAvgRem'), streakEl = $('sleepStreak');
 
-      if (!recent.length) { avgEl.textContent = '—'; remEl.textContent = '—'; streakEl.textContent = '—'; return; }
+      if (!recent.length) { avgEl.textContent = '—'; remEl.textContent = '—'; }
+      else {
+        const durations = recent.map(e => durationHours(e.bedTime, e.wakeTime)).filter(v => v != null);
+        avgEl.textContent = durations.length ? (durations.reduce((a, b) => a + b, 0) / durations.length).toFixed(1) + 'h' : '—';
 
-      const durations = recent.map(e => durationHours(e.bedTime, e.wakeTime)).filter(v => v != null);
-      avgEl.textContent = durations.length ? (durations.reduce((a, b) => a + b, 0) / durations.length).toFixed(1) + 'h' : '—';
-
-      const withStages = recent.filter(e => e.remHours || e.lightHours || e.deepHours);
-      if (withStages.length) {
-        const remPcts = withStages.map(e => {
-          const total = (e.remHours || 0) + (e.lightHours || 0) + (e.deepHours || 0);
-          return total ? (100 * (e.remHours || 0) / total) : 0;
-        });
-        remEl.textContent = Math.round(remPcts.reduce((a, b) => a + b, 0) / remPcts.length) + '%';
-      } else {
-        remEl.textContent = '—';
+        const withStages = recent.filter(e => e.remHours || e.lightHours || e.deepHours);
+        if (withStages.length) {
+          const remPcts = withStages.map(e => {
+            const total = (e.remHours || 0) + (e.lightHours || 0) + (e.deepHours || 0);
+            return total ? (100 * (e.remHours || 0) / total) : 0;
+          });
+          remEl.textContent = Math.round(remPcts.reduce((a, b) => a + b, 0) / remPcts.length) + '%';
+        } else {
+          remEl.textContent = '—';
+        }
       }
 
-      // Consecutive days ending today with a logged entry.
-      const all = new Set(entries.map(e => e.date));
+      // Good Streak: consecutive days ending today rated Good or better
+      // on sleep quality (from the Xiaomi app, transcribed by hand). A
+      // day with no entry, or an entry with no quality logged, or a
+      // Poor/Bad rating, all break the streak the same way.
+      const byDateForStreak = {};
+      entries.forEach(e => { byDateForStreak[e.date] = e; });
       let streak = 0;
       for (let i = 0; i < 365; i++) {
         const d = new Date(); d.setDate(d.getDate() - i);
-        if (all.has(dateKey(d))) streak++; else break;
+        const e = byDateForStreak[dateKey(d)];
+        const rank = e && e.quality ? SLEEP_QUALITY_RANK[e.quality] : -1;
+        if (rank >= SLEEP_QUALITY_RANK.good) streak++; else break;
       }
       streakEl.textContent = streak + (streak === 1 ? ' day' : ' days');
     }
