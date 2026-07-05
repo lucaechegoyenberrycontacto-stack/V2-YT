@@ -571,7 +571,7 @@ main {
     .sleep-leg-dot.d-total { background: var(--sleep-total); }
     .sleep-week-empty { font-size: 12.5px; color: var(--text-tertiary); font-style: italic; text-align: center; padding: 20px 10px; }
     .sleep-week-chart-wrap { position: relative; }
-    .sleep-week-svg { width: 100%; height: 400px; display: block; overflow: visible; }
+    .sleep-week-svg { width: 100%; height: 800px; display: block; overflow: visible; }
     .sleep-week-svg.hidden { display: none; }
     .sleep-week-grid { stroke: rgba(255,255,255,0.06); stroke-width: 1; }
     .sleep-week-yaxis-label { font-size: 11px; fill: var(--text-tertiary); font-family: var(--font-mono); }
@@ -652,7 +652,6 @@ main {
           <button type="button" class="sleep-quality-btn" data-v="poor">Poor</button>
           <button type="button" class="sleep-quality-btn" data-v="bad">Bad</button>
           <button type="button" class="sleep-quality-btn" data-v="good">Good</button>
-          <button type="button" class="sleep-quality-btn" data-v="very_good">Very Good</button>
           <button type="button" class="sleep-quality-btn" data-v="excellent">Excellent</button>
         </div>
       </div>
@@ -721,7 +720,7 @@ main {
     // sleep analysis (separate from the "how did you wake up" feeling
     // picker above, which is the user's own subjective read). Ranked so
     // the Good Streak stat can require "Good" or better.
-    const SLEEP_QUALITY_RANK = { poor: 0, bad: 1, good: 2, very_good: 3, excellent: 4 };
+    const SLEEP_QUALITY_RANK = { poor: 0, bad: 1, good: 2, excellent: 3 };
 
     // ---------- Form ----------
     let selectedFeeling = null;
@@ -805,7 +804,7 @@ main {
       return (d ? '<path class="sleep-line-' + kind + '" d="' + d + '"></path>' : '') + dots;
     }
 
-    const SLEEP_Y_MAX = 12, SLEEP_Y_STEP = 2;
+    const SLEEP_Y_MAX = 12, SLEEP_Y_STEP = 1;
 
     function hideSleepTooltip() {
       const tip = $('sleepWeekTooltip');
@@ -872,7 +871,7 @@ main {
       // circles instead of the sideways-stretched ellipses a mismatched
       // scale would produce.
       const n = keys.length;
-      const W = svg.getBoundingClientRect().width || 600, H = 400;
+      const W = svg.getBoundingClientRect().width || 600, H = 800;
       svg.setAttribute('viewBox', '0 0 ' + W.toFixed(1) + ' ' + H);
       const padLeft = 32, padRight = 14, padTop = 16, padBottom = 32;
       const plotW = W - padLeft - padRight;
