@@ -166,9 +166,12 @@ body::after {
 }
 .home-bible { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.08); }
 
-/* Weather — minimalist: big temp + condition + high/low, no hourly strip. */
+/* Weather — minimalist: icon + big temp + condition + high/low, plus a
+   small sparkline of today's hourly temps (no axis labels, no libraries —
+   same hand-drawn SVG pattern as health.html's sleep chart). */
 .home-weather { margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.08); }
-.home-weather-row { display: flex; align-items: center; gap: 12px; }
+.home-weather-row { display: flex; align-items: center; gap: 10px; }
+.home-weather-icon { font-size: 28px; line-height: 1; flex-shrink: 0; }
 .home-weather-temp {
   font-size: 34px; font-weight: 600; color: var(--text-primary);
   letter-spacing: -0.02em; line-height: 1; font-variant-numeric: tabular-nums;
@@ -185,6 +188,10 @@ body::after {
 .home-weather-refresh:hover { background: rgba(255,255,255,0.07); color: var(--text-primary); }
 .home-weather-refresh.spinning { animation: home-weather-spin 0.6s linear; }
 @keyframes home-weather-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.home-weather-chart-svg { width: 100%; height: 44px; display: block; margin-top: 10px; overflow: visible; }
+.home-weather-chart-svg.hidden { display: none; }
+.home-weather-chart-line { fill: none; stroke: var(--text-secondary); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; opacity: 0.55; }
+.home-weather-chart-now { fill: #6B8E23; }
 
 @media (max-width: 560px) {
   .home-clock { font-size: 34px; }
@@ -209,6 +216,7 @@ body::after {
           <div class="home-date" id="homeDate">—</div>
           <div class="home-weather" id="homeWeather">
             <div class="home-weather-row">
+              <span class="home-weather-icon" id="weatherIcon"></span>
               <span class="home-weather-temp" id="weatherTemp">—</span>
               <div class="home-weather-info">
                 <div class="home-weather-cond" id="weatherCond">Cargando…</div>
@@ -216,6 +224,7 @@ body::after {
               </div>
               <button class="home-weather-refresh" id="weatherRefreshBtn" type="button" aria-label="Actualizar clima" title="Actualizar clima">↻</button>
             </div>
+            <svg class="home-weather-chart-svg hidden" id="weatherChartSvg" viewBox="0 0 300 44" preserveAspectRatio="none"></svg>
           </div>
         </div>
         <div class="home-quote-block">
@@ -523,16 +532,58 @@ body::after {
     85: 'Chubascos de nieve', 86: 'Chubascos de nieve fuertes',
     95: 'Tormenta', 96: 'Tormenta con granizo', 99: 'Tormenta con granizo fuerte'
   };
+  // Day icons; clear/mostly-clear swap to a moon at night (is_day===0).
+  const WMO_ICON_DAY = {
+    0: '☀️', 1: '🌤️', 2: '⛅', 3: '☁️',
+    45: '🌫️', 48: '🌫️',
+    51: '🌦️', 53: '🌦️', 55: '🌧️', 56: '🌧️', 57: '🌧️',
+    61: '🌦️', 63: '🌧️', 65: '🌧️', 66: '🌧️', 67: '🌧️',
+    71: '🌨️', 73: '❄️', 75: '❄️', 77: '❄️',
+    80: '🌦️', 81: '🌧️', 82: '⛈️',
+    85: '🌨️', 86: '🌨️',
+    95: '⛈️', 96: '⛈️', 99: '⛈️'
+  };
+  const WMO_ICON_NIGHT = { 0: '🌙', 1: '🌙', 2: '☁️' }; // other codes look the same at night
 
   function renderWeather(data) {
     if (!data || data.temp == null) return;
     $('weatherTemp').textContent = Math.round(data.temp) + '°';
     $('weatherCond').textContent = WMO_DESC[data.code] != null ? WMO_DESC[data.code] : '—';
+    const icons = data.isDay === 0 ? WMO_ICON_NIGHT : WMO_ICON_DAY;
+    $('weatherIcon').textContent = icons[data.code] != null ? icons[data.code] : (WMO_ICON_DAY[data.code] || '🌡️');
     const parts = [];
     if (data.max != null && data.min != null) parts.push('Máx ' + Math.round(data.max) + '° · Mín ' + Math.round(data.min) + '°');
     if (data.feels != null) parts.push('Sensación ' + Math.round(data.feels) + '°');
     $('weatherSub').textContent = parts.join(' · ');
+    renderWeatherChart(data.hourly);
   }
+
+  // Small sparkline of today's hourly temps — no axis labels, no library,
+  // same hand-drawn SVG approach as health.html's sleep chart. A single
+  // dot marks the current hour.
+  function renderWeatherChart(hourly) {
+    const svg = $('weatherChartSvg');
+    if (!hourly || !hourly.temps || hourly.temps.length < 2) { svg.classList.add('hidden'); svg.innerHTML = ''; return; }
+    svg.classList.remove('hidden');
+
+    const temps = hourly.temps;
+    const n = temps.length;
+    const W = svg.getBoundingClientRect().width || 300, H = 44;
+    svg.setAttribute('viewBox', '0 0 ' + W.toFixed(1) + ' ' + H);
+    const padY = 6;
+    const min = Math.min.apply(null, temps), max = Math.max.apply(null, temps);
+    const range = (max - min) || 1;
+    const xAt = (i) => (W * i) / (n - 1);
+    const yAt = (v) => padY + (H - padY * 2) * (1 - (v - min) / range);
+
+    let d = '';
+    temps.forEach((v, i) => { d += (i === 0 ? 'M ' : ' L ') + xAt(i).toFixed(1) + ' ' + yAt(v).toFixed(1); });
+    let html = '<path class="home-weather-chart-line" d="' + d + '"></path>';
+    const nowIdx = Math.max(0, Math.min(n - 1, hourly.nowIndex));
+    html += '<circle class="home-weather-chart-now" cx="' + xAt(nowIdx).toFixed(1) + '" cy="' + yAt(temps[nowIdx]).toFixed(1) + '" r="3"></circle>';
+    svg.innerHTML = html;
+  }
+
   function loadWeatherCache() {
     try { return JSON.parse(localStorage.getItem(WEATHER_CACHE_KEY)); } catch (e) { return null; }
   }
@@ -544,15 +595,22 @@ body::after {
     if (btn) btn.classList.add('spinning');
     try {
       const url = 'https://api.open-meteo.com/v1/forecast?latitude=' + WEATHER_LAT + '&longitude=' + WEATHER_LON +
-        '&current=temperature_2m,apparent_temperature,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=auto';
+        '&current=temperature_2m,apparent_temperature,weather_code,is_day' +
+        '&hourly=temperature_2m&forecast_days=1' +
+        '&daily=temperature_2m_max,temperature_2m_min&timezone=auto';
       const res = await fetch(url);
       const json = await res.json();
+      const nowIndex = json.current && json.current.time && json.hourly && json.hourly.time
+        ? json.hourly.time.indexOf(json.current.time.slice(0, 13) + ':00')
+        : new Date().getHours();
       const data = {
         temp: json.current ? json.current.temperature_2m : null,
         feels: json.current ? json.current.apparent_temperature : null,
         code: json.current ? json.current.weather_code : null,
+        isDay: json.current ? json.current.is_day : 1,
         max: json.daily && json.daily.temperature_2m_max ? json.daily.temperature_2m_max[0] : null,
         min: json.daily && json.daily.temperature_2m_min ? json.daily.temperature_2m_min[0] : null,
+        hourly: json.hourly && json.hourly.temperature_2m ? { temps: json.hourly.temperature_2m, nowIndex: nowIndex < 0 ? new Date().getHours() : nowIndex } : null,
       };
       renderWeather(data);
       saveWeatherCache(data);
