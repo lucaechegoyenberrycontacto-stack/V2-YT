@@ -212,9 +212,13 @@ body.topbar-modal-open {
 
   const bottombarHtml = `
 <nav class="bottombar" id="bottombar" role="navigation" aria-label="Main tabs">
-  <a href="index.html" class="bottombar-tab" data-page="main">
+  <a href="home.html" class="bottombar-tab" data-page="main">
     <span class="bottombar-tab-icon">🏠</span>
-    <span>Main</span>
+    <span>Home</span>
+  </a>
+  <a href="index.html" class="bottombar-tab" data-page="apps">
+    <span class="bottombar-tab-icon">🗂️</span>
+    <span>Apps</span>
   </a>
   <a href="health.html" class="bottombar-tab" data-page="health">
     <span class="bottombar-tab-icon">💊</span>
@@ -245,7 +249,9 @@ body.topbar-modal-open {
     const p = (window.location.pathname || '').toLowerCase();
     if (p.endsWith('health.html')) return 'health';
     if (p.endsWith('gym.html')) return 'fitness';
-    return 'main'; // index.html, /, or anything else falls back to main
+    if (p.endsWith('index.html')) return 'apps';
+    if (p.endsWith('home.html') || p === '' || p === '/') return 'main';
+    return 'main'; // anything else unrecognized still falls back to main
   }
 
   function injectStyleAndHTML() {
