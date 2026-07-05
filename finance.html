@@ -1757,7 +1757,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
         <div class="label" style="display:flex;justify-content:space-between;align-items:center"><span>🏦 Bank accounts</span><span id="bankTotal" style="font-size:13px;color:var(--text-primary);font-weight:600">0</span></div>
         <div id="bankList" class="nw-list"></div>
         <div class="quick-add">
-          <input type="text" placeholder="Account name" id="bankName" />
+          <select id="bankName"></select>
+          <input type="text" placeholder="New account name" id="bankNameNew" style="display:none;grid-column:1 / -1;" />
           <input type="number" placeholder="Amount" id="bankAmount" step="0.01" />
           <button class="quick-add-btn" id="bankAddBtn">+</button>
         </div>
@@ -2543,11 +2544,113 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     countEl.textContent = String(hist.length);
   }
 
+  // ============================================================
+  // BANK ACCOUNTS REGISTRY — account names persist independently of
+  // balance, so the "Bank accounts" quick-add can offer a select of
+  // known accounts instead of free text, and adding to an existing
+  // account merges into its row instead of creating a duplicate.
+  // ============================================================
+  const BANK_REGISTRY_KEY = 'nw:bank:registry';
+  function getBankRegistry() {
+    let reg = storeGet(BANK_REGISTRY_KEY);
+    if (!Array.isArray(reg)) {
+      reg = ['Uala', 'Efectivo'];
+      storeSet(BANK_REGISTRY_KEY, reg);
+    }
+    return reg;
+  }
+  function addToBankRegistry(name) {
+    const reg = getBankRegistry();
+    if (!reg.some(n => n.toLowerCase() === name.toLowerCase())) {
+      reg.push(name);
+      storeSet(BANK_REGISTRY_KEY, reg);
+    }
+    return reg;
+  }
+  function populateBankNameSelect() {
+    const sel = document.getElementById('bankName');
+    if (!sel) return;
+    sel.innerHTML = '';
+    getBankRegistry().forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name; opt.textContent = name;
+      sel.appendChild(opt);
+    });
+    const newOpt = document.createElement('option');
+    newOpt.value = '__new__'; newOpt.textContent = '➕ New account…';
+    sel.appendChild(newOpt);
+  }
+
+  // ============================================================
+  // ONE-TIME MIGRATION — "Efectivo" used to live under Other assets,
+  // but it's functionally a liquid bank-like account. Move it (and
+  // its exact balance) into nw:bank once, then never again.
+  // ============================================================
+  const EFECTIVO_MIGRATED_KEY = 'nw:efectivo_migrated';
+  function migrateEfectivoToBank() {
+    if (storeGet(EFECTIVO_MIGRATED_KEY)) return;
+    const otherItems = storeGet('nw:other') || [];
+    const idx = otherItems.findIndex(it => String(it.name || '').toLowerCase() === 'efectivo');
+    if (idx >= 0) {
+      const [efectivo] = otherItems.splice(idx, 1);
+      storeSet('nw:other', otherItems);
+      const bankItems = storeGet('nw:bank') || [];
+      bankItems.push(efectivo);
+      storeSet('nw:bank', bankItems);
+    }
+    storeSet(EFECTIVO_MIGRATED_KEY, true);
+  }
+  migrateEfectivoToBank();
+
   NW_CATS.forEach(cat => {
     const addBtn = document.getElementById(cat.addId);
     const nameInput = document.getElementById(cat.nameId);
     const amtInput = document.getElementById(cat.amtId);
     if (!addBtn) return;
+
+    if (cat.key === 'bank') {
+      // ---- Bank accounts: registry-backed select + merge-on-add ----
+      const nameNewInput = document.getElementById('bankNameNew');
+      populateBankNameSelect();
+      nameInput.addEventListener('change', () => {
+        if (nameInput.value === '__new__') {
+          nameNewInput.style.display = '';
+          nameNewInput.focus();
+        } else {
+          nameNewInput.style.display = 'none';
+          nameNewInput.value = '';
+        }
+      });
+      function doAdd() {
+        const isNew = nameInput.value === '__new__';
+        const n = isNew ? nameNewInput.value.trim() : nameInput.value;
+        const a = parseFloat(amtInput.value);
+        if (!n || isNaN(a)) return;
+        if (isNew) addToBankRegistry(n);
+        // Interpret the input in the CURRENTLY SELECTED display currency, then
+        // convert to CHF for storage. So if USD is selected and user types 40000,
+        // we store 40000 / USD-per-CHF rate — 31,400 CHF; displays as $40,000.
+        const symbol = currencyEl ? currencyEl.value : 'CHF';
+        const rate = exchangeRates[symbol] || 1;
+        const amountCHF = a / rate;
+        const items = storeGet('nw:' + cat.key) || [];
+        const existingIdx = items.findIndex(it => String(it.name || '').toLowerCase() === n.toLowerCase());
+        if (existingIdx >= 0) items[existingIdx].amount = (Number(items[existingIdx].amount) || 0) + amountCHF;
+        else items.push({ name: n, amount: amountCHF });
+        storeSet('nw:' + cat.key, items);
+        logActivity(cat.key, n, amountCHF, 'add');
+        nameNewInput.value = ''; nameNewInput.style.display = 'none';
+        amtInput.value = '';
+        populateBankNameSelect();
+        nameInput.selectedIndex = 0;
+        renderAllNetWorth();
+      }
+      addBtn.addEventListener('click', doAdd);
+      nameNewInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doAdd(); });
+      amtInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doAdd(); });
+      return;
+    }
+
     function doAdd() {
       const n = nameInput.value.trim();
       const a = parseFloat(amtInput.value);
