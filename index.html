@@ -161,6 +161,28 @@ body::after {
   margin-top: 8px; font-size: 10.5px; font-weight: 700;
   letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary);
 }
+.home-bible { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.08); }
+
+/* Weather — minimalist: big temp + condition + high/low, no hourly strip. */
+.home-weather { margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.08); }
+.home-weather-row { display: flex; align-items: center; gap: 12px; }
+.home-weather-temp {
+  font-size: 34px; font-weight: 600; color: var(--text-primary);
+  letter-spacing: -0.02em; line-height: 1; font-variant-numeric: tabular-nums;
+}
+.home-weather-info { flex: 1; min-width: 0; }
+.home-weather-cond { font-size: 12.5px; color: var(--text-secondary); }
+.home-weather-sub { margin-top: 2px; font-size: 10.5px; color: var(--text-tertiary); }
+.home-weather-refresh {
+  width: 30px; height: 30px; flex-shrink: 0; border-radius: 9px;
+  border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03);
+  color: var(--text-secondary); font-size: 15px; line-height: 1; cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.home-weather-refresh:hover { background: rgba(255,255,255,0.07); color: var(--text-primary); }
+.home-weather-refresh.spinning { animation: home-weather-spin 0.6s linear; }
+@keyframes home-weather-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
 @media (max-width: 560px) {
   .home-clock { font-size: 34px; }
   .home-quote-block { border-left: none; border-top: 1px solid rgba(255,255,255,0.08); padding-left: 0; padding-top: 16px; }
@@ -182,10 +204,24 @@ body::after {
         <div class="home-clock-block">
           <div class="home-clock" id="homeClock">00:00:00</div>
           <div class="home-date" id="homeDate">—</div>
+          <div class="home-weather" id="homeWeather">
+            <div class="home-weather-row">
+              <span class="home-weather-temp" id="weatherTemp">—</span>
+              <div class="home-weather-info">
+                <div class="home-weather-cond" id="weatherCond">Cargando…</div>
+                <div class="home-weather-sub" id="weatherSub"></div>
+              </div>
+              <button class="home-weather-refresh" id="weatherRefreshBtn" type="button" aria-label="Actualizar clima" title="Actualizar clima">↻</button>
+            </div>
+          </div>
         </div>
         <div class="home-quote-block">
           <div class="home-quote" id="homeQuoteText">"…"</div>
           <div class="home-quote-author" id="homeQuoteAuthor">— </div>
+          <div class="home-bible">
+            <div class="home-quote" id="homeBibleText">"…"</div>
+            <div class="home-quote-author" id="homeBibleRef">— </div>
+          </div>
         </div>
       </div>
     </div>
@@ -375,6 +411,162 @@ body::after {
     $('homeQuoteAuthor').textContent = '— ' + q.a;
   }
   showRandomQuote();
+
+  /* ============================================================
+     BIBLE VERSES — well-known verses, Old and New Testament.
+     Same behavior as the Stoic quotes: one picked at random on
+     every load (Math.random, not date-based).
+     ============================================================ */
+  const BIBLE_VERSES = [
+    { t: "En el principio creó Dios los cielos y la tierra", a: "Génesis 1:1" },
+    { t: "No es bueno que el hombre esté solo", a: "Génesis 2:18" },
+    { t: "Jehová es mi pastor; nada me faltará", a: "Salmos 23:1" },
+    { t: "Aunque ande en valle de sombra de muerte, no temeré mal alguno, porque tú estarás conmigo", a: "Salmos 23:4" },
+    { t: "Los cielos cuentan la gloria de Dios, y el firmamento anuncia la obra de sus manos", a: "Salmos 19:1" },
+    { t: "Este es el día que hizo Jehová; nos gozaremos y alegraremos en él", a: "Salmos 118:24" },
+    { t: "Encomienda a Jehová tu camino, y confía en él; y él hará", a: "Salmos 37:5" },
+    { t: "El Señor es mi luz y mi salvación; ¿de quién temeré?", a: "Salmos 27:1" },
+    { t: "Bienaventurado el varón que no anduvo en consejo de malos", a: "Salmos 1:1" },
+    { t: "Gustad, y ved que es bueno Jehová", a: "Salmos 34:8" },
+    { t: "Aunque mi padre y mi madre me dejaran, con todo, Jehová me recogerá", a: "Salmos 27:10" },
+    { t: "Fortaleza y honor son su vestidura; y en el día postrero reirá", a: "Proverbios 31:25" },
+    { t: "El temor de Jehová es el principio de la sabiduría", a: "Proverbios 9:10" },
+    { t: "Fíate de Jehová de todo tu corazón, y no te apoyes en tu propia prudencia", a: "Proverbios 3:5" },
+    { t: "El corazón alegre constituye buen remedio, mas el espíritu triste seca los huesos", a: "Proverbios 17:22" },
+    { t: "Panal de miel son las palabras suaves; dulzura al alma y medicina para los huesos", a: "Proverbios 16:24" },
+    { t: "Todo tiene su tiempo, y todo lo que se quiere debajo del cielo tiene su hora", a: "Eclesiastés 3:1" },
+    { t: "Vanidad de vanidades, todo es vanidad", a: "Eclesiastés 1:2" },
+    { t: "Los que esperan a Jehová tendrán nuevas fuerzas; levantarán alas como las águilas", a: "Isaías 40:31" },
+    { t: "No temas, porque yo estoy contigo; no desmayes, porque yo soy tu Dios", a: "Isaías 41:10" },
+    { t: "Porque un niño nos es nacido, hijo nos es dado", a: "Isaías 9:6" },
+    { t: "Todos nosotros nos descarriamos como ovejas, cada cual se apartó por su camino", a: "Isaías 53:6" },
+    { t: "Porque yo sé los pensamientos que tengo acerca de vosotros, dice Jehová, pensamientos de paz, y no de mal", a: "Jeremías 29:11" },
+    { t: "Antes que te formase en el vientre te conocí", a: "Jeremías 1:5" },
+    { t: "Esfuérzate y sé valiente; no temas ni desmayes", a: "Josué 1:9" },
+    { t: "Escoged hoy a quién sirváis... pero yo y mi casa serviremos a Jehová", a: "Josué 24:15" },
+
+    { t: "Porque de tal manera amó Dios al mundo, que ha dado a su Hijo unigénito", a: "Juan 3:16" },
+    { t: "Yo soy el camino, y la verdad, y la vida", a: "Juan 14:6" },
+    { t: "En el principio era el Verbo, y el Verbo era con Dios, y el Verbo era Dios", a: "Juan 1:1" },
+    { t: "Un mandamiento nuevo os doy: Que os améis unos a otros", a: "Juan 13:34" },
+    { t: "La verdad os hará libres", a: "Juan 8:32" },
+    { t: "Yo soy la luz del mundo", a: "Juan 8:12" },
+    { t: "Yo soy la resurrección y la vida", a: "Juan 11:25" },
+    { t: "Buscad primeramente el reino de Dios y su justicia, y todas estas cosas os serán añadidas", a: "Mateo 6:33" },
+    { t: "Venid a mí todos los que estáis trabajados y cargados, y yo os haré descansar", a: "Mateo 11:28" },
+    { t: "No solo de pan vivirá el hombre, sino de toda palabra que sale de la boca de Dios", a: "Mateo 4:4" },
+    { t: "Bienaventurados los pobres en espíritu, porque de ellos es el reino de los cielos", a: "Mateo 5:3" },
+    { t: "Amad a vuestros enemigos, bendecid a los que os maldicen", a: "Mateo 5:44" },
+    { t: "Pedid, y se os dará; buscad, y hallaréis; llamad, y se os abrirá", a: "Mateo 7:7" },
+    { t: "No juzguéis, para que no seáis juzgados", a: "Mateo 7:1" },
+    { t: "Porque donde esté vuestro tesoro, allí estará también vuestro corazón", a: "Mateo 6:21" },
+    { t: "Amarás al Señor tu Dios con todo tu corazón", a: "Mateo 22:37" },
+    { t: "Amarás a tu prójimo como a ti mismo", a: "Mateo 22:39" },
+    { t: "Porque el que quiera salvar su vida, la perderá", a: "Mateo 16:25" },
+    { t: "El que quiera hacerse grande entre vosotros será vuestro servidor", a: "Mateo 20:26" },
+    { t: "Todo lo puedo en Cristo que me fortalece", a: "Filipenses 4:13" },
+    { t: "Por nada estéis afanosos, sino sean conocidas vuestras peticiones delante de Dios", a: "Filipenses 4:6" },
+    { t: "Todo lo que es verdadero, todo lo honesto, todo lo justo... en esto pensad", a: "Filipenses 4:8" },
+    { t: "Y sabemos que a los que aman a Dios, todas las cosas les ayudan a bien", a: "Romanos 8:28" },
+    { t: "No os conforméis a este siglo, sino transformaos por medio de la renovación de vuestro entendimiento", a: "Romanos 12:2" },
+    { t: "Porque por gracia sois salvos por medio de la fe", a: "Efesios 2:8" },
+    { t: "Porque somos hechura suya, creados en Cristo Jesús para buenas obras", a: "Efesios 2:10" },
+    { t: "Todo lo que hagáis, hacedlo de corazón, como para el Señor", a: "Colosenses 3:23" },
+    { t: "El amor es sufrido, es benigno; el amor no tiene envidia", a: "1 Corintios 13:4" },
+    { t: "Y ahora permanecen la fe, la esperanza y el amor, estos tres; pero el mayor de ellos es el amor", a: "1 Corintios 13:13" },
+    { t: "Dios es amor", a: "1 Juan 4:8" },
+    { t: "Perfecto amor echa fuera el temor", a: "1 Juan 4:18" },
+    { t: "Si confesamos nuestros pecados, él es fiel y justo para perdonar nuestros pecados", a: "1 Juan 1:9" },
+    { t: "No os améis con la lengua ni con las palabras, sino con hechos y en verdad", a: "1 Juan 3:18" },
+    { t: "La fe es la certeza de lo que se espera, la convicción de lo que no se ve", a: "Hebreos 11:1" },
+    { t: "Someteos, pues, a Dios; resistid al diablo, y huirá de vosotros", a: "Santiago 4:7" },
+    { t: "Toda buena dádiva y todo don perfecto desciende de lo alto", a: "Santiago 1:17" },
+    { t: "Si alguno de vosotros tiene falta de sabiduría, pídala a Dios", a: "Santiago 1:5" },
+    { t: "Sed hacedores de la palabra, y no tan solamente oidores", a: "Santiago 1:22" },
+    { t: "Echando toda vuestra ansiedad sobre él, porque él tiene cuidado de vosotros", a: "1 Pedro 5:7" },
+    { t: "Mas el fruto del Espíritu es amor, gozo, paz, paciencia, benignidad, bondad, fe, mansedumbre, templanza", a: "Gálatas 5:22-23" },
+    { t: "Ya no vivo yo, mas vive Cristo en mí", a: "Gálatas 2:20" },
+    { t: "He aquí, yo estoy a la puerta y llamo", a: "Apocalipsis 3:20" },
+    { t: "Yo soy el Alfa y la Omega, principio y fin", a: "Apocalipsis 22:13" },
+    { t: "Enjugará Dios toda lágrima de los ojos de ellos; y ya no habrá muerte", a: "Apocalipsis 21:4" }
+  ];
+
+  function showRandomBibleVerse() {
+    const v = BIBLE_VERSES[Math.floor(Math.random() * BIBLE_VERSES.length)];
+    $('homeBibleText').textContent = '"' + v.t + '"';
+    $('homeBibleRef').textContent = '— ' + v.a;
+  }
+  showRandomBibleVerse();
+
+  /* ============================================================
+     WEATHER — Carcarañá, Santa Fe, Argentina (fixed coordinates,
+     per user request — no geolocation prompt). Open-Meteo: free,
+     no API key, CORS-enabled — same "keyless public API" pattern
+     already used for ARS/exchange rates in finance.html.
+     ============================================================ */
+  const WEATHER_LAT = -32.8563501, WEATHER_LON = -61.148729;
+  const WEATHER_CACHE_KEY = 'home:weather_cache';
+  const WEATHER_REFRESH_MS = 60 * 60 * 1000; // auto-refresh every hour
+
+  const WMO_DESC = {
+    0: 'Despejado', 1: 'Mayormente despejado', 2: 'Parcialmente nublado', 3: 'Nublado',
+    45: 'Niebla', 48: 'Niebla escarchada',
+    51: 'Llovizna ligera', 53: 'Llovizna', 55: 'Llovizna densa',
+    56: 'Llovizna helada', 57: 'Llovizna helada densa',
+    61: 'Lluvia ligera', 63: 'Lluvia', 65: 'Lluvia fuerte',
+    66: 'Lluvia helada', 67: 'Lluvia helada fuerte',
+    71: 'Nieve ligera', 73: 'Nieve', 75: 'Nieve fuerte', 77: 'Granizo fino',
+    80: 'Chubascos ligeros', 81: 'Chubascos', 82: 'Chubascos fuertes',
+    85: 'Chubascos de nieve', 86: 'Chubascos de nieve fuertes',
+    95: 'Tormenta', 96: 'Tormenta con granizo', 99: 'Tormenta con granizo fuerte'
+  };
+
+  function renderWeather(data) {
+    if (!data || data.temp == null) return;
+    $('weatherTemp').textContent = Math.round(data.temp) + '°';
+    $('weatherCond').textContent = WMO_DESC[data.code] != null ? WMO_DESC[data.code] : '—';
+    const parts = [];
+    if (data.max != null && data.min != null) parts.push('Máx ' + Math.round(data.max) + '° · Mín ' + Math.round(data.min) + '°');
+    if (data.feels != null) parts.push('Sensación ' + Math.round(data.feels) + '°');
+    $('weatherSub').textContent = parts.join(' · ');
+  }
+  function loadWeatherCache() {
+    try { return JSON.parse(localStorage.getItem(WEATHER_CACHE_KEY)); } catch (e) { return null; }
+  }
+  function saveWeatherCache(data) {
+    try { localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify(Object.assign({}, data, { ts: Date.now() }))); } catch (e) {}
+  }
+  async function fetchWeather() {
+    const btn = $('weatherRefreshBtn');
+    if (btn) btn.classList.add('spinning');
+    try {
+      const url = 'https://api.open-meteo.com/v1/forecast?latitude=' + WEATHER_LAT + '&longitude=' + WEATHER_LON +
+        '&current=temperature_2m,apparent_temperature,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=auto';
+      const res = await fetch(url);
+      const json = await res.json();
+      const data = {
+        temp: json.current ? json.current.temperature_2m : null,
+        feels: json.current ? json.current.apparent_temperature : null,
+        code: json.current ? json.current.weather_code : null,
+        max: json.daily && json.daily.temperature_2m_max ? json.daily.temperature_2m_max[0] : null,
+        min: json.daily && json.daily.temperature_2m_min ? json.daily.temperature_2m_min[0] : null,
+      };
+      renderWeather(data);
+      saveWeatherCache(data);
+    } catch (e) {
+      const cached = loadWeatherCache();
+      if (cached) renderWeather(cached);
+      else $('weatherCond').textContent = 'Sin conexión';
+    } finally {
+      if (btn) setTimeout(() => btn.classList.remove('spinning'), 600);
+    }
+  }
+  // Show cached weather instantly (no flash of "—"), then always fetch fresh.
+  const cachedWeather = loadWeatherCache();
+  if (cachedWeather) renderWeather(cachedWeather);
+  fetchWeather();
+  setInterval(fetchWeather, WEATHER_REFRESH_MS);
+  $('weatherRefreshBtn').addEventListener('click', fetchWeather);
 
   /* ============================================================
      SHARED DATE HELPERS — same formulas as topbar.js / health.html
