@@ -133,6 +133,21 @@ html, body {
    this, long text or wide buttons can force their parent past the
    viewport even with max-width set. */
 .po-shell *, .tabbar * { min-width: 0; }
+
+/* ---------- Mode grouping: "entrená hoy" (logging) vs "tu progreso"
+   (weight/photos/history). Mobile stacks both in that order; desktop
+   gets a 2-column layout so logging a set never requires scrolling
+   past the weight/progress card. ---------- */
+.po-groups { display: flex; flex-direction: column; gap: 22px; }
+@media (min-width: 1024px) {
+  .po-shell { max-width: min(1120px, 100vw); }
+  .po-groups {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    align-items: start;
+    gap: 24px;
+  }
+}
 /* No image, video, or canvas can ever push the page past the viewport */
 img, video, canvas, svg { max-width: 100%; }
 
@@ -240,13 +255,10 @@ img, video, canvas, svg { max-width: 100%; }
 }
 .po-icon-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-1); }
 
-.card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 20px;
-  margin-bottom: 14px;
-}
+/* Plain layout wrapper — no background of its own. Each child
+   .po-sub-section carries its own card styling (see below), so this
+   just groups them without doubling up the border/background. */
+.card { margin-bottom: 14px; }
 
 /* ----- Filters (Gym + Day segmented controls) ----- */
 .po-filters { margin-bottom: 18px; }
@@ -279,7 +291,16 @@ img, video, canvas, svg { max-width: 100%; }
 }
 
 /* ----- Sub-section title ----- */
-.po-sub-section { margin-top: 22px; }
+/* Each sub-section is its own card — same recipe .card used to have
+   as one big wrapper, moved down so sections can be split across the
+   entrenar-hoy / tu-progreso columns without losing their card look. */
+.po-sub-section {
+  margin-top: 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+}
 .po-sub-section:first-child { margin-top: 0; }
 .po-sub-title {
   display: flex; align-items: center; gap: 8px;
@@ -688,7 +709,8 @@ img, video, canvas, svg { max-width: 100%; }
   .po-header { margin-bottom: 14px; gap: 10px; }
 
   /* Cards — tighter padding so content has room */
-  .card { padding: 16px 14px; margin-bottom: 12px; }
+  .card { margin-bottom: 12px; }
+  .po-sub-section { padding: 16px 14px; }
 
   /* Gym / Day segmented controls — let labels truncate instead of pushing wider */
   .po-seg-row { gap: 8px; }
@@ -868,14 +890,16 @@ img, video, canvas, svg { max-width: 100%; }
 }
 
 /* ----- Workout History (multi-source: Lyfta import, Strava, manual) ----- */
-.wh-stats-group {
-  background: rgba(255,255,255,0.025);
+/* Plain layout wrapper now — each .wh-block below carries its own
+   card styling, matching .wt-card / .po-sub-section. */
+.wh-stats-group { margin-bottom: 14px; }
+.wh-block {
+  margin-bottom: 16px;
+  background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 16px 14px;
-  margin-bottom: 14px;
+  border-radius: 16px;
+  padding: 20px;
 }
-.wh-block { margin-bottom: 16px; }
 .wh-block:last-of-type { margin-bottom: 10px; }
 .wh-stats-group .wh-block:last-of-type { margin-bottom: 0; }
 .wh-block-title {
@@ -946,9 +970,9 @@ img, video, canvas, svg { max-width: 100%; }
 }
 .wt-card {
   background: var(--bg-card);
-  border: 1px solid rgba(110,231,183,0.10);
-  border-radius: 18px;
-  padding: 22px 20px 18px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
 }
 .wt-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
 .wt-num {
@@ -1340,164 +1364,6 @@ img, video, canvas, svg { max-width: 100%; }
     <span class="po-day-split" id="dayPillSplit">—</span>
   </button>
 
-  <!-- WEIGHT + PROGRESS PHOTOS -->
-  <div class="wt-section">
-    <div class="wt-divider"><span>WEIGHT</span></div>
-
-    <div class="wt-card">
-      <div class="wt-row">
-        <span class="wt-num" id="wtNum">—</span>
-        <span class="wt-unit" id="wtUnit">kg</span>
-      </div>
-      <div class="wt-delta hidden" id="wtDelta"></div>
-      <div class="wt-streak hidden" id="wtStreak">🔥<span id="wtStreakNum">0 day streak</span></div>
-
-      <div class="wt-empty" id="wtEmpty">Log your first weight to start tracking.</div>
-
-      <div class="wt-chart-wrap hidden" id="wtChartWrap">
-        <div class="wt-chart-yaxis">
-          <span id="wtYAxisMax">—</span>
-          <span id="wtYAxisMin">—</span>
-        </div>
-        <svg class="wt-chart" viewBox="0 0 320 130" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="wtFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="#6ee7b7" stop-opacity="0.25"/>
-              <stop offset="100%" stop-color="#6ee7b7" stop-opacity="0"/>
-            </linearGradient>
-            <filter id="wtGlow"><feGaussianBlur stdDeviation="1.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-          </defs>
-          <line class="wt-grid" x1="0" y1="20" x2="320" y2="20"></line>
-          <line class="wt-grid" x1="0" y1="65" x2="320" y2="65"></line>
-          <line class="wt-grid" x1="0" y1="110" x2="320" y2="110"></line>
-          <g id="wtChartContent"></g>
-        </svg>
-        <div class="wt-meta" id="wtMeta">0 entries</div>
-      </div>
-
-      <div class="wt-legend hidden" id="wtLegend">
-        <span class="wt-legend-item"><span class="wt-legend-dot"></span>DAILY</span>
-        <span class="wt-legend-item"><span class="wt-legend-dot wt-legend-dot-avg"></span>7-DAY AVG</span>
-      </div>
-
-      <!-- Composition estimate — uses strength trend + weight trend to guess
-           how much of recent weight change was muscle vs fat. -->
-      <div class="wt-comp hidden" id="wtComp">
-        <div class="wt-comp-h">
-          <span class="wt-comp-label">Composition estimate</span>
-          <span class="wt-comp-window" id="wtCompWindow">last 30d</span>
-        </div>
-        <div class="wt-comp-headline" id="wtCompHeadline">—</div>
-        <div class="wt-comp-bars" id="wtCompBars"></div>
-        <div class="wt-comp-foot" id="wtCompFoot">—</div>
-      </div>
-
-      <div class="wt-locked hidden" id="wtLocked">
-        <div class="wt-locked-info">
-          <span class="wt-locked-check">✓</span>
-          <div>
-            <div class="wt-locked-label">LOGGED TODAY</div>
-            <div class="wt-locked-value" id="wtLockedValue">— kg</div>
-          </div>
-        </div>
-        <button class="wt-edit-btn" id="wtEditBtn">Edit</button>
-      </div>
-
-      <div class="wt-input-row" id="wtInputRow">
-        <div class="wt-input-top">
-          <input type="number" step="0.1" class="wt-input" id="wtInput" placeholder="Enter weight" inputmode="decimal" aria-label="Today's weight">
-          <span class="wt-unit-static" id="wtUnitStatic">kg</span>
-          <button class="wt-save-btn" id="wtSaveBtn">Save</button>
-        </div>
-      </div>
-    </div>
-
-    <button class="wt-progress-link" id="wtProgressLink" type="button" aria-label="Open progress photos">
-      <div>
-        <div class="wt-progress-label">PROGRESS PHOTOS</div>
-        <div class="wt-progress-count" id="wtProgressCount">0 photos</div>
-      </div>
-      <span class="wt-progress-arrow">→</span>
-    </button>
-  </div>
-
-  <!-- Progress photos overlay -->
-  <div class="wt-overlay" id="wtOverlay" aria-hidden="true">
-    <div class="wt-overlay-inner">
-      <div class="wt-overlay-h">
-        <button class="wt-back" id="wtBack" aria-label="Back">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-        </button>
-        <div class="wt-overlay-title">Progress</div>
-      </div>
-      <div class="wt-overlay-actions">
-        <button class="wt-overlay-action wt-overlay-primary" id="wtTakePhotoBtn">Take Photo</button>
-        <button class="wt-overlay-action wt-overlay-secondary" id="wtFromLibraryBtn">From Library</button>
-      </div>
-      <input type="file" id="wtFileCamera" accept="image/*" capture="environment" style="display:none">
-      <input type="file" id="wtFileLibrary" accept="image/*" style="display:none">
-      <div class="wt-photo-grid" id="wtPhotoGrid">
-        <div class="wt-photo-empty">No photos yet · tap Take Photo to start</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Camera modal -->
-  <div class="wt-cam" id="wtCam" aria-hidden="true">
-    <div class="wt-cam-stage">
-      <video class="wt-cam-video" id="wtCamVideo" autoplay playsinline muted></video>
-      <canvas id="wtCamCanvas" style="display:none"></canvas>
-    </div>
-    <div class="wt-cam-actions">
-      <button class="wt-cam-btn" id="wtCamCancel">Cancel</button>
-      <button class="wt-cam-shutter" id="wtCamShutter" aria-label="Capture"></button>
-      <button class="wt-cam-btn" id="wtCamFlip" aria-label="Flip camera">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-      </button>
-    </div>
-  </div>
-
-  <!-- Photo viewer — has two modes: single (one photo) and compare (two photos side-by-side) -->
-  <div class="wt-viewer" id="wtViewer" data-mode="single" aria-hidden="true">
-
-    <!-- SINGLE MODE -->
-    <div class="wt-viewer-single">
-      <div class="wt-viewer-stage">
-        <img id="wtViewerImg" alt="" style="max-width:100%; max-height:100%; object-fit:contain;">
-      </div>
-      <div class="wt-viewer-meta">
-        <div class="wt-viewer-date" id="wtViewerDate">—</div>
-        <div class="wt-viewer-weight" id="wtViewerWeight">—</div>
-      </div>
-      <div class="wt-viewer-actions">
-        <button class="wt-viewer-btn wt-viewer-compare" id="wtViewerCompare">Compare</button>
-        <button class="wt-viewer-btn wt-viewer-close" id="wtViewerClose">Close</button>
-        <button class="wt-viewer-btn wt-viewer-delete" id="wtViewerDelete">Delete</button>
-      </div>
-    </div>
-
-    <!-- COMPARE MODE -->
-    <div class="wt-viewer-compare-view">
-      <div class="wt-compare-stage">
-        <div class="wt-compare-side" id="wtCmpSideA">
-          <img id="wtCmpImgA" alt="">
-          <div class="wt-compare-meta-line" id="wtCmpMetaA">—</div>
-        </div>
-        <button type="button" class="wt-compare-side wt-compare-other" id="wtCmpSideB" title="Tap to compare to a different photo" aria-label="Compare to a different photo">
-          <img id="wtCmpImgB" alt="">
-          <div class="wt-compare-meta-line" id="wtCmpMetaB">—</div>
-        </button>
-      </div>
-      <div class="wt-compare-headline" id="wtCompareHeadline">—</div>
-      <div class="wt-viewer-actions">
-        <button class="wt-viewer-btn wt-viewer-back" id="wtCompareBack">← Back</button>
-        <button class="wt-viewer-btn wt-viewer-close" id="wtCompareClose">Close</button>
-        <button class="wt-viewer-btn wt-viewer-delete" id="wtCompareDelete">Delete</button>
-      </div>
-    </div>
-
-  </div>
-
   <div class="po-header">
     <h1 class="po-title" id="appTitle">Progressive Overload Coach</h1>
     <button class="po-icon-btn" id="settingsBtn" title="Settings" aria-label="Settings">
@@ -1505,191 +1371,367 @@ img, video, canvas, svg { max-width: 100%; }
     </button>
   </div>
 
-  <div class="card">
-    <!-- Filters -->
-    <div class="po-filters">
-      <div class="po-seg-row">
-        <span class="po-seg-label">Gym</span>
-        <div class="po-seg-control" id="gymSeg"></div>
-      </div>
-      <div class="po-seg-row">
-        <span class="po-seg-label">Day</span>
-        <div class="po-seg-control" id="daySeg"></div>
-      </div>
-    </div>
+  <div class="po-groups">
 
-    <!-- Exercise -->
-    <div class="po-sub-section">
-      <div class="po-sub-title">Exercise</div>
-      <div class="po-exercise-bar">
-        <select class="po-ex-select" id="exSelect"></select>
-        <button class="po-btn-icon" id="addExBtn" title="Add exercise" aria-label="Add">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        </button>
-        <button class="po-btn-icon" id="editExBtn" title="Edit / delete" aria-label="Edit">
-          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
-        </button>
-      </div>
-      <div class="po-no-ex" id="noExMsg" style="display:none">No exercises here yet. Tap <strong>+</strong> to add one.</div>
-    </div>
-
-    <!-- Log a set -->
-    <div class="po-sub-section">
-      <div class="po-sub-title">Log today's top set</div>
-      <div class="po-bw-banner" id="bwBanner">Bodyweight — log reps only</div>
-      <div class="po-last-set" id="lastSet">
-        <span class="po-last-label">Last time</span>
-        <span class="po-last-value" id="lastSetValue"></span>
-        <span class="po-last-meta" id="lastSetMeta"></span>
-      </div>
-      <div class="po-log-grid" id="logGrid">
-        <div class="po-field" id="weightField">
-          <label id="weightLabel">Weight (kg)</label>
-          <div class="po-weight-row">
-            <button class="po-w-btn" id="weightDownBtn" type="button">−</button>
-            <input type="number" id="weightInput" step="0.5" inputmode="decimal" placeholder="0">
-            <button class="po-w-btn" id="weightUpBtn" type="button">+</button>
+    <!-- ===== ENTRENÁ HOY — day pill (above), exercise picker, set
+         logging, prescription, stats, trend, history, today's workout.
+         The highest-frequency action in the app lives here, first. ===== -->
+    <div class="po-group-today">
+      <div class="card">
+        <!-- Filters -->
+        <div class="po-filters">
+          <div class="po-seg-row">
+            <span class="po-seg-label">Gym</span>
+            <div class="po-seg-control" id="gymSeg"></div>
+          </div>
+          <div class="po-seg-row">
+            <span class="po-seg-label">Day</span>
+            <div class="po-seg-control" id="daySeg"></div>
           </div>
         </div>
-        <div class="po-field">
-          <label>Reps</label>
-          <div class="po-reps-row" id="repsRow" data-value="8">
-            <button type="button" class="po-reps-pill" data-v="4">4</button>
-            <button type="button" class="po-reps-pill" data-v="5">5</button>
-            <button type="button" class="po-reps-pill" data-v="6">6</button>
-            <button type="button" class="po-reps-pill" data-v="7">7</button>
-            <button type="button" class="po-reps-pill active" data-v="8">8</button>
-            <button type="button" class="po-reps-pill" data-v="9">9</button>
-            <button type="button" class="po-reps-pill" data-v="10">10</button>
-            <button type="button" class="po-reps-pill" data-v="11">11</button>
-            <button type="button" class="po-reps-pill" data-v="12">12</button>
+
+        <!-- Exercise -->
+        <div class="po-sub-section">
+          <div class="po-sub-title">Exercise</div>
+          <div class="po-exercise-bar">
+            <select class="po-ex-select" id="exSelect"></select>
+            <button class="po-btn-icon" id="addExBtn" title="Add exercise" aria-label="Add">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </button>
+            <button class="po-btn-icon" id="editExBtn" title="Edit / delete" aria-label="Edit">
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+            </button>
           </div>
+          <div class="po-no-ex" id="noExMsg" style="display:none">No exercises here yet. Tap <strong>+</strong> to add one.</div>
         </div>
-      </div>
-      <button class="po-btn-primary" id="logBtn">Log set</button>
-    </div>
 
-    <!-- Prescription -->
-    <div class="po-sub-section">
-      <div class="po-sub-title">Next session</div>
-      <div id="rxWrap"></div>
-    </div>
-
-    <!-- Stats -->
-    <div class="po-sub-section">
-      <div class="po-sub-title">Stats</div>
-      <div class="po-stats-row">
-        <div class="po-stat-box">
-          <div class="po-stat-label" id="oneRmLabel">Est. 1RM</div>
-          <div class="po-stat-val" id="oneRm">—<span class="po-unit" id="oneRmUnit">kg</span></div>
-        </div>
-        <div class="po-stat-box">
-          <div class="po-stat-label">Best set</div>
-          <div class="po-stat-val" id="bestSet">—</div>
-        </div>
-        <div class="po-stat-box">
-          <div class="po-stat-label">Sessions</div>
-          <div class="po-stat-val" id="sessionCount">—</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Trend -->
-    <div class="po-sub-section">
-      <div class="po-sub-title">Trend (last 10 sessions)</div>
-      <div class="po-spark-wrap">
-        <svg class="po-spark-svg" id="sparkline" viewBox="0 0 300 60" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="sparkGrad" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stop-color="rgba(255,255,255,0.18)"/>
-              <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
-            </linearGradient>
-          </defs>
-        </svg>
-        <div class="po-spark-empty" id="sparkEmpty">Need 2+ sessions for trend</div>
-      </div>
-    </div>
-
-    <!-- History -->
-    <div class="po-sub-section">
-      <div class="po-sub-title">History</div>
-      <div id="historyCard">
-        <div class="po-empty">No logs yet.</div>
-      </div>
-    </div>
-
-    <!-- Today's Workout — every set logged today, grouped by exercise.
-         "Mark done" stamps the day so the past-workouts list shows it
-         as a completed session. The volume here also feeds the
-         composition estimate at the top of the page. -->
-    <div class="po-sub-section">
-      <div class="po-sub-title">Today's workout</div>
-      <div class="po-tw" id="poTw">
-        <div class="po-tw-head">
-          <div>
-            <div class="po-tw-eyebrow" id="poTwDateLabel">TODAY</div>
-            <div class="po-tw-summary">
-              <span class="po-tw-summary-num" id="poTwSetCount">0</span>
-              <span class="po-tw-summary-label">sets</span>
-              <span class="po-tw-summary-sep">·</span>
-              <span class="po-tw-summary-vol" id="poTwTotalVol">0 kg lifted</span>
+        <!-- Log a set -->
+        <div class="po-sub-section">
+          <div class="po-sub-title">Log today's top set</div>
+          <div class="po-bw-banner" id="bwBanner">Bodyweight — log reps only</div>
+          <div class="po-last-set" id="lastSet">
+            <span class="po-last-label">Last time</span>
+            <span class="po-last-value" id="lastSetValue"></span>
+            <span class="po-last-meta" id="lastSetMeta"></span>
+          </div>
+          <div class="po-log-grid" id="logGrid">
+            <div class="po-field" id="weightField">
+              <label id="weightLabel">Weight (kg)</label>
+              <div class="po-weight-row">
+                <button class="po-w-btn" id="weightDownBtn" type="button">−</button>
+                <input type="number" id="weightInput" step="0.5" inputmode="decimal" placeholder="0">
+                <button class="po-w-btn" id="weightUpBtn" type="button">+</button>
+              </div>
+            </div>
+            <div class="po-field">
+              <label>Reps</label>
+              <div class="po-reps-row" id="repsRow" data-value="8">
+                <button type="button" class="po-reps-pill" data-v="4">4</button>
+                <button type="button" class="po-reps-pill" data-v="5">5</button>
+                <button type="button" class="po-reps-pill" data-v="6">6</button>
+                <button type="button" class="po-reps-pill" data-v="7">7</button>
+                <button type="button" class="po-reps-pill active" data-v="8">8</button>
+                <button type="button" class="po-reps-pill" data-v="9">9</button>
+                <button type="button" class="po-reps-pill" data-v="10">10</button>
+                <button type="button" class="po-reps-pill" data-v="11">11</button>
+                <button type="button" class="po-reps-pill" data-v="12">12</button>
+              </div>
             </div>
           </div>
-          <button class="po-tw-done-btn" id="poTwDoneBtn" type="button">Mark workout done</button>
+          <button class="po-btn-primary" id="logBtn">Log set</button>
         </div>
-        <ul class="po-tw-list" id="poTwList"></ul>
-        <div class="po-tw-empty" id="poTwEmpty">No sets logged today — log one above and it'll appear here.</div>
-      </div>
 
-      <button type="button" class="po-tw-past-toggle" id="poTwPastToggle" aria-expanded="false">
-        <span>Past workouts <span class="po-tw-past-count" id="poTwPastCount">0</span></span>
-        <span class="po-tw-past-arrow" id="poTwPastArrow">▾</span>
-      </button>
-      <div class="po-tw-past-body" id="poTwPastBody" style="display:none"></div>
+        <!-- Prescription -->
+        <div class="po-sub-section">
+          <div class="po-sub-title">Next session</div>
+          <div id="rxWrap"></div>
+        </div>
+
+        <!-- Stats -->
+        <div class="po-sub-section">
+          <div class="po-sub-title">Stats</div>
+          <div class="po-stats-row">
+            <div class="po-stat-box">
+              <div class="po-stat-label" id="oneRmLabel">Est. 1RM</div>
+              <div class="po-stat-val" id="oneRm">—<span class="po-unit" id="oneRmUnit">kg</span></div>
+            </div>
+            <div class="po-stat-box">
+              <div class="po-stat-label">Best set</div>
+              <div class="po-stat-val" id="bestSet">—</div>
+            </div>
+            <div class="po-stat-box">
+              <div class="po-stat-label">Sessions</div>
+              <div class="po-stat-val" id="sessionCount">—</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trend -->
+        <div class="po-sub-section">
+          <div class="po-sub-title">Trend (last 10 sessions)</div>
+          <div class="po-spark-wrap">
+            <svg class="po-spark-svg" id="sparkline" viewBox="0 0 300 60" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="sparkGrad" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stop-color="rgba(255,255,255,0.18)"/>
+                  <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+                </linearGradient>
+              </defs>
+            </svg>
+            <div class="po-spark-empty" id="sparkEmpty">Need 2+ sessions for trend</div>
+          </div>
+        </div>
+
+        <!-- History -->
+        <div class="po-sub-section">
+          <div class="po-sub-title">History</div>
+          <div id="historyCard">
+            <div class="po-empty">No logs yet.</div>
+          </div>
+        </div>
+
+        <!-- Today's Workout — every set logged today, grouped by exercise.
+             "Mark done" stamps the day so the past-workouts list shows it
+             as a completed session. The volume here also feeds the
+             composition estimate at the top of the page. -->
+        <div class="po-sub-section">
+          <div class="po-sub-title">Today's workout</div>
+          <div class="po-tw" id="poTw">
+            <div class="po-tw-head">
+              <div>
+                <div class="po-tw-eyebrow" id="poTwDateLabel">TODAY</div>
+                <div class="po-tw-summary">
+                  <span class="po-tw-summary-num" id="poTwSetCount">0</span>
+                  <span class="po-tw-summary-label">sets</span>
+                  <span class="po-tw-summary-sep">·</span>
+                  <span class="po-tw-summary-vol" id="poTwTotalVol">0 kg lifted</span>
+                </div>
+              </div>
+              <button class="po-tw-done-btn" id="poTwDoneBtn" type="button">Mark workout done</button>
+            </div>
+            <ul class="po-tw-list" id="poTwList"></ul>
+            <div class="po-tw-empty" id="poTwEmpty">No sets logged today — log one above and it'll appear here.</div>
+          </div>
+
+          <button type="button" class="po-tw-past-toggle" id="poTwPastToggle" aria-expanded="false">
+            <span>Past workouts <span class="po-tw-past-count" id="poTwPastCount">0</span></span>
+            <span class="po-tw-past-arrow" id="poTwPastArrow">▾</span>
+          </button>
+          <div class="po-tw-past-body" id="poTwPastBody" style="display:none"></div>
+        </div>
+      </div>
     </div>
 
-    <!-- Workout History — one unified view over public.workout_history,
-         regardless of where each entry came from (Lyfta import today,
-         Strava auto-sync later, or manual entry). Every source is
-         normalized to the same shape before it's saved (see whNormalizeWorkout
-         in the script below), so the lists/PRs/chart never need to
-         know or care where a given workout came from. -->
-    <div class="po-sub-section">
-      <div class="po-sub-title">Workout History</div>
+    <!-- ===== TU PROGRESO — body weight, progress photos, and the
+         historical workout log (recent sessions, PRs, weekly
+         frequency). Reviewed less often than "entrená hoy", so it
+         comes second and no longer forces a scroll past it every time
+         someone just wants to log a set. ===== -->
+    <div class="po-group-progress">
+      <div class="wt-divider"><span>TU PROGRESO</span></div>
 
-      <div class="wh-stats-group">
-        <div class="wh-block">
-          <div class="wh-block-title">Recent sessions</div>
-          <div id="whRecentList">
-            <div class="po-empty">No workouts yet.</div>
+      <!-- WEIGHT + PROGRESS PHOTOS -->
+      <div class="wt-section">
+        <div class="wt-divider"><span>WEIGHT</span></div>
+
+        <div class="wt-card">
+          <div class="wt-row">
+            <span class="wt-num" id="wtNum">—</span>
+            <span class="wt-unit" id="wtUnit">kg</span>
+          </div>
+          <div class="wt-delta hidden" id="wtDelta"></div>
+          <div class="wt-streak hidden" id="wtStreak">🔥<span id="wtStreakNum">0 day streak</span></div>
+
+          <div class="wt-empty" id="wtEmpty">Log your first weight to start tracking.</div>
+
+          <div class="wt-chart-wrap hidden" id="wtChartWrap">
+            <div class="wt-chart-yaxis">
+              <span id="wtYAxisMax">—</span>
+              <span id="wtYAxisMin">—</span>
+            </div>
+            <svg class="wt-chart" viewBox="0 0 320 130" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="wtFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#6ee7b7" stop-opacity="0.25"/>
+                  <stop offset="100%" stop-color="#6ee7b7" stop-opacity="0"/>
+                </linearGradient>
+                <filter id="wtGlow"><feGaussianBlur stdDeviation="1.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+              </defs>
+              <line class="wt-grid" x1="0" y1="20" x2="320" y2="20"></line>
+              <line class="wt-grid" x1="0" y1="65" x2="320" y2="65"></line>
+              <line class="wt-grid" x1="0" y1="110" x2="320" y2="110"></line>
+              <g id="wtChartContent"></g>
+            </svg>
+            <div class="wt-meta" id="wtMeta">0 entries</div>
+          </div>
+
+          <div class="wt-legend hidden" id="wtLegend">
+            <span class="wt-legend-item"><span class="wt-legend-dot"></span>DAILY</span>
+            <span class="wt-legend-item"><span class="wt-legend-dot wt-legend-dot-avg"></span>7-DAY AVG</span>
+          </div>
+
+          <!-- Composition estimate — uses strength trend + weight trend to guess
+               how much of recent weight change was muscle vs fat. -->
+          <div class="wt-comp hidden" id="wtComp">
+            <div class="wt-comp-h">
+              <span class="wt-comp-label">Composition estimate</span>
+              <span class="wt-comp-window" id="wtCompWindow">last 30d</span>
+            </div>
+            <div class="wt-comp-headline" id="wtCompHeadline">—</div>
+            <div class="wt-comp-bars" id="wtCompBars"></div>
+            <div class="wt-comp-foot" id="wtCompFoot">—</div>
+          </div>
+
+          <div class="wt-locked hidden" id="wtLocked">
+            <div class="wt-locked-info">
+              <span class="wt-locked-check">✓</span>
+              <div>
+                <div class="wt-locked-label">LOGGED TODAY</div>
+                <div class="wt-locked-value" id="wtLockedValue">— kg</div>
+              </div>
+            </div>
+            <button class="wt-edit-btn" id="wtEditBtn">Edit</button>
+          </div>
+
+          <div class="wt-input-row" id="wtInputRow">
+            <div class="wt-input-top">
+              <input type="number" step="0.1" class="wt-input" id="wtInput" placeholder="Enter weight" inputmode="decimal" aria-label="Today's weight">
+              <span class="wt-unit-static" id="wtUnitStatic">kg</span>
+              <button class="wt-save-btn" id="wtSaveBtn">Save</button>
+            </div>
           </div>
         </div>
 
-        <div class="wh-block">
-          <div class="wh-block-title">All-time PRs</div>
-          <div id="whPrList">
-            <div class="po-empty">No PR data yet.</div>
+        <button class="wt-progress-link" id="wtProgressLink" type="button" aria-label="Open progress photos">
+          <div>
+            <div class="wt-progress-label">PROGRESS PHOTOS</div>
+            <div class="wt-progress-count" id="wtProgressCount">0 photos</div>
           </div>
-        </div>
+          <span class="wt-progress-arrow">→</span>
+        </button>
+      </div>
 
-        <div class="wh-block">
-          <div class="wh-block-title">Weekly frequency</div>
-          <div class="wh-freq-wrap">
-            <div class="po-empty" id="whFreqEmpty">Log or import workouts to see this.</div>
-            <svg class="wh-freq-svg hidden" id="whFreqSvg" viewBox="0 0 300 130" preserveAspectRatio="none"></svg>
+      <!-- Progress photos overlay -->
+      <div class="wt-overlay" id="wtOverlay" aria-hidden="true">
+        <div class="wt-overlay-inner">
+          <div class="wt-overlay-h">
+            <button class="wt-back" id="wtBack" aria-label="Back">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            </button>
+            <div class="wt-overlay-title">Progress</div>
+          </div>
+          <div class="wt-overlay-actions">
+            <button class="wt-overlay-action wt-overlay-primary" id="wtTakePhotoBtn">Take Photo</button>
+            <button class="wt-overlay-action wt-overlay-secondary" id="wtFromLibraryBtn">From Library</button>
+          </div>
+          <input type="file" id="wtFileCamera" accept="image/*" capture="environment" style="display:none">
+          <input type="file" id="wtFileLibrary" accept="image/*" style="display:none">
+          <div class="wt-photo-grid" id="wtPhotoGrid">
+            <div class="wt-photo-empty">No photos yet · tap Take Photo to start</div>
           </div>
         </div>
       </div>
 
-      <div class="wh-actions">
-        <div class="wh-actions-btns">
-          <button class="po-btn-primary" id="whAddOpenBtn" type="button" style="width:auto; padding:11px 16px;">+ Log workout</button>
-          <button class="po-btn-secondary" id="whImportBtn" type="button">Import Lyfta JSON</button>
+      <!-- Camera modal -->
+      <div class="wt-cam" id="wtCam" aria-hidden="true">
+        <div class="wt-cam-stage">
+          <video class="wt-cam-video" id="wtCamVideo" autoplay playsinline muted></video>
+          <canvas id="wtCamCanvas" style="display:none"></canvas>
         </div>
-        <span class="wh-meta" id="whMeta"></span>
+        <div class="wt-cam-actions">
+          <button class="wt-cam-btn" id="wtCamCancel">Cancel</button>
+          <button class="wt-cam-shutter" id="wtCamShutter" aria-label="Capture"></button>
+          <button class="wt-cam-btn" id="wtCamFlip" aria-label="Flip camera">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+          </button>
+        </div>
       </div>
-      <input type="file" id="whImportFile" accept=".json" style="display:none">
+
+      <!-- Photo viewer — has two modes: single (one photo) and compare (two photos side-by-side) -->
+      <div class="wt-viewer" id="wtViewer" data-mode="single" aria-hidden="true">
+
+        <!-- SINGLE MODE -->
+        <div class="wt-viewer-single">
+          <div class="wt-viewer-stage">
+            <img id="wtViewerImg" alt="" style="max-width:100%; max-height:100%; object-fit:contain;">
+          </div>
+          <div class="wt-viewer-meta">
+            <div class="wt-viewer-date" id="wtViewerDate">—</div>
+            <div class="wt-viewer-weight" id="wtViewerWeight">—</div>
+          </div>
+          <div class="wt-viewer-actions">
+            <button class="wt-viewer-btn wt-viewer-compare" id="wtViewerCompare">Compare</button>
+            <button class="wt-viewer-btn wt-viewer-close" id="wtViewerClose">Close</button>
+            <button class="wt-viewer-btn wt-viewer-delete" id="wtViewerDelete">Delete</button>
+          </div>
+        </div>
+
+        <!-- COMPARE MODE -->
+        <div class="wt-viewer-compare-view">
+          <div class="wt-compare-stage">
+            <div class="wt-compare-side" id="wtCmpSideA">
+              <img id="wtCmpImgA" alt="">
+              <div class="wt-compare-meta-line" id="wtCmpMetaA">—</div>
+            </div>
+            <button type="button" class="wt-compare-side wt-compare-other" id="wtCmpSideB" title="Tap to compare to a different photo" aria-label="Compare to a different photo">
+              <img id="wtCmpImgB" alt="">
+              <div class="wt-compare-meta-line" id="wtCmpMetaB">—</div>
+            </button>
+          </div>
+          <div class="wt-compare-headline" id="wtCompareHeadline">—</div>
+          <div class="wt-viewer-actions">
+            <button class="wt-viewer-btn wt-viewer-back" id="wtCompareBack">← Back</button>
+            <button class="wt-viewer-btn wt-viewer-close" id="wtCompareClose">Close</button>
+            <button class="wt-viewer-btn wt-viewer-delete" id="wtCompareDelete">Delete</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Workout History — one unified view over public.workout_history,
+           regardless of where each entry came from (Lyfta import today,
+           Strava auto-sync later, or manual entry). Every source is
+           normalized to the same shape before it's saved (see whNormalizeWorkout
+           in the script below), so the lists/PRs/chart never need to
+           know or care where a given workout came from. -->
+      <div class="po-sub-section">
+        <div class="po-sub-title">Workout History</div>
+
+        <div class="wh-stats-group">
+          <div class="wh-block">
+            <div class="wh-block-title">Recent sessions</div>
+            <div id="whRecentList">
+              <div class="po-empty">No workouts yet.</div>
+            </div>
+          </div>
+
+          <div class="wh-block">
+            <div class="wh-block-title">All-time PRs</div>
+            <div id="whPrList">
+              <div class="po-empty">No PR data yet.</div>
+            </div>
+          </div>
+
+          <div class="wh-block">
+            <div class="wh-block-title">Weekly frequency</div>
+            <div class="wh-freq-wrap">
+              <div class="po-empty" id="whFreqEmpty">Log or import workouts to see this.</div>
+              <svg class="wh-freq-svg hidden" id="whFreqSvg" viewBox="0 0 300 130" preserveAspectRatio="none"></svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="wh-actions">
+          <div class="wh-actions-btns">
+            <button class="po-btn-primary" id="whAddOpenBtn" type="button" style="width:auto; padding:11px 16px;">+ Log workout</button>
+            <button class="po-btn-secondary" id="whImportBtn" type="button">Import Lyfta JSON</button>
+          </div>
+          <span class="wh-meta" id="whMeta"></span>
+        </div>
+        <input type="file" id="whImportFile" accept=".json" style="display:none">
+      </div>
     </div>
+
   </div>
 </div>
 
