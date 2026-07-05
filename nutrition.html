@@ -182,11 +182,23 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
 .combo-items-list li input { width: 72px; }
 .combo-items-list li .unit { color: var(--text-tertiary); font-size: 11px; width: 26px; }
 
+/* ===== Goal calculator ===== */
+.seg { display: inline-flex; border: 1px solid rgba(255,255,255,0.10); border-radius: 11px; overflow: hidden; flex-shrink: 0; }
+.seg.full { display: flex; width: 100%; }
+.seg button { border: 0; background: transparent; color: var(--text-tertiary); font-family: inherit; font-size: 13px; font-weight: 600; padding: 11px 14px; cursor: pointer; transition: background 0.15s, color 0.15s; flex: 1; }
+.seg button.on { background: rgba(255,255,255,0.12); color: var(--text-primary); }
+.calc-result { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-top: 18px; }
+.calc-result .cr-item { background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 10px; text-align: center; }
+.calc-result .cr-item .cr-k { font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); }
+.calc-result .cr-item .cr-v { font-size: 16px; font-weight: 700; color: var(--text-primary); margin-top: 4px; font-variant-numeric: tabular-nums; }
+.calc-note { font-size: 11.5px; color: var(--text-tertiary); line-height: 1.5; margin-top: 12px; min-height: 14px; }
+
 @media (max-width: 480px) {
   body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
   .gm-card { padding: 16px; }
   .energy-desc { display: none; }
   .modal .row4 { grid-template-columns: repeat(2,1fr); }
+  .calc-result { grid-template-columns: repeat(2,1fr); }
 }
 </style>
 </head>
@@ -262,6 +274,7 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
     <div class="gm-card">
       <div class="modal-actions" style="justify-content:flex-start; margin-top:0;">
         <button class="gm-ghost" id="btnEditGoals" type="button">Edit goals</button>
+        <button class="gm-ghost" id="btnCalcGoals" type="button">🎯 Calculate my goals</button>
       </div>
       <div class="daily-note" id="goalsNote" style="margin-top:12px;"></div>
     </div>
@@ -344,6 +357,48 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
   </div>
 </div>
 
+<!-- MODAL: Calculate goals from body profile -->
+<div class="modal-backdrop" id="modalCalc">
+  <div class="modal">
+    <h3>Calculate my goals</h3>
+    <div class="sub">Uses the Mifflin-St Jeor BMR formula, an activity multiplier, and ISSN protein guidance for active people (1.6–2.2 g/kg) to estimate daily targets.</div>
+
+    <label>Weight (kg)</label>
+    <input class="gm-input" id="calcWeight" type="number" min="0" step="0.1" placeholder="e.g. 75">
+    <label>Height (cm)</label>
+    <input class="gm-input" id="calcHeight" type="number" min="0" placeholder="e.g. 175">
+    <label>Age</label>
+    <input class="gm-input" id="calcAge" type="number" min="0" placeholder="years">
+    <label>Sex</label>
+    <div class="seg full" id="calcSexSeg">
+      <button type="button" data-s="m">Male</button>
+      <button type="button" data-s="f">Female</button>
+    </div>
+    <label>Active hours / week</label>
+    <input class="gm-input" id="calcActivity" type="number" min="0" step="0.5" placeholder="e.g. 5">
+    <label>Goal</label>
+    <div class="seg full" id="calcGoalSeg">
+      <button type="button" data-g="cut">Lose fat</button>
+      <button type="button" data-g="maintain">Maintain</button>
+      <button type="button" data-g="bulk">Build muscle</button>
+    </div>
+
+    <div class="calc-result" id="calcResult" style="display:none">
+      <div class="cr-item"><div class="cr-k">Kcal</div><div class="cr-v" id="crKcal">0</div></div>
+      <div class="cr-item"><div class="cr-k">Protein</div><div class="cr-v" id="crProtein">0g</div></div>
+      <div class="cr-item"><div class="cr-k">Carbs</div><div class="cr-v" id="crCarbs">0g</div></div>
+      <div class="cr-item"><div class="cr-k">Fat</div><div class="cr-v" id="crFat">0g</div></div>
+    </div>
+    <div class="calc-note" id="calcNote"></div>
+
+    <div class="modal-actions">
+      <button class="gm-ghost" data-close>Cancel</button>
+      <button class="gm-ghost" id="btnRunCalc" type="button">Calculate</button>
+      <button class="gm-add" id="btnApplyCalc" type="button" style="display:none">Apply to goals</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function () {
   'use strict';
@@ -352,7 +407,7 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
   const uid = (p) => p+Date.now()+Math.floor(Math.random()*1000);
 
   /* ============ Storage ============ */
-  const FOODS_KEY='nut:foods', COMBOS_KEY='nut:combos', LOG_KEY='nut:log', GOALS_KEY='nut:goals';
+  const FOODS_KEY='nut:foods', COMBOS_KEY='nut:combos', LOG_KEY='nut:log', GOALS_KEY='nut:goals', PROFILE_KEY='nut:profile';
   function loadJSON(k,f){ try { const v=JSON.parse(localStorage.getItem(k)); return v==null?f:v; } catch(e){ return f; } }
   function saveJSON(k,v){ localStorage.setItem(k, JSON.stringify(v)); }
 
@@ -617,6 +672,118 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
     renderAll();
   });
 
+  /* ============ Goal calculator ============
+     base   : BMR via Mifflin-St Jeor (1990) — the formula with the best accuracy
+              validated against measured resting energy expenditure, better than
+              Harris-Benedict for most adults.
+              men:   10*kg + 6.25*cm - 5*age + 5
+              women: 10*kg + 6.25*cm - 5*age - 161
+     tdee   : BMR * activity multiplier, bucketed from hours of exercise/week
+              (same "active hours/week" input already used by the water tracker),
+              using the standard sedentary..very-active multiplier range (1.2-1.9).
+     goal   : maintain = TDEE; lose fat = 20% deficit; build muscle = 15% surplus
+              — moderate, sustainable rates rather than aggressive crash values.
+     protein: 1.8 g/kg bodyweight, within the ISSN position stand range of
+              1.4-2.0 g/kg/day for people who train (Jager et al. 2017).
+     fat    : 27% of total kcal (within the 20-35% general guideline range).
+     carbs  : remaining kcal after protein + fat.
+  ============================================================ */
+  function latestBodyWeightKg(){
+    try {
+      const log = JSON.parse(localStorage.getItem('po_coach_weights'));
+      if (!Array.isArray(log) || log.length===0) return null;
+      const sorted = log.slice().sort((a,b)=>(a.dateKey||'').localeCompare(b.dateKey||''));
+      const last = sorted[sorted.length-1];
+      return (last && last.weight>0) ? last.weight : null;
+    } catch(e){ return null; }
+  }
+  function getCalcProfile(){
+    const saved = loadJSON(PROFILE_KEY, null);
+    if (saved) return saved;
+    const water = loadJSON('po_water_v1', null);
+    const p = (water && water.profile) || {};
+    return {
+      weightKg: latestBodyWeightKg() || p.weightKg || null,
+      heightCm: p.heightCm || null,
+      age: p.age || null,
+      sex: p.sex === 'f' ? 'f' : 'm',
+      activityHrsPerWeek: p.activityHrsPerWeek != null ? p.activityHrsPerWeek : 3,
+      goal: 'maintain'
+    };
+  }
+  function activityMultiplier(hrsPerWeek){
+    const h = hrsPerWeek || 0;
+    if (h <= 0) return 1.2;
+    if (h <= 3) return 1.375;
+    if (h <= 6) return 1.55;
+    if (h <= 9) return 1.725;
+    return 1.9;
+  }
+  function goalMultiplier(goal){
+    if (goal==='cut') return 0.8;
+    if (goal==='bulk') return 1.15;
+    return 1.0;
+  }
+  function computeGoals(profile){
+    const bmr = 10*profile.weightKg + 6.25*profile.heightCm - 5*profile.age + (profile.sex==='f' ? -161 : 5);
+    const tdee = bmr * activityMultiplier(profile.activityHrsPerWeek);
+    const kcal = Math.round(tdee * goalMultiplier(profile.goal));
+    const protein = Math.round(profile.weightKg * 1.8);
+    const fat = Math.round((kcal*0.27)/9);
+    const carbs = Math.max(0, Math.round((kcal - protein*4 - fat*9)/4));
+    return { kcal, protein, carbs, fat, bmr: Math.round(bmr), tdee: Math.round(tdee) };
+  }
+
+  let calcSex = 'm', calcGoal = 'maintain', lastCalcResult = null;
+  function setCalcSex(s){ calcSex=s; $('calcSexSeg').querySelectorAll('button').forEach(b=>b.classList.toggle('on', b.dataset.s===s)); }
+  function setCalcGoal(g){ calcGoal=g; $('calcGoalSeg').querySelectorAll('button').forEach(b=>b.classList.toggle('on', b.dataset.g===g)); }
+  $('calcSexSeg').querySelectorAll('button').forEach(b=>b.addEventListener('click', ()=>setCalcSex(b.dataset.s)));
+  $('calcGoalSeg').querySelectorAll('button').forEach(b=>b.addEventListener('click', ()=>setCalcGoal(b.dataset.g)));
+
+  $('btnCalcGoals').addEventListener('click', ()=>{
+    const p = getCalcProfile();
+    $('calcWeight').value = p.weightKg || '';
+    $('calcHeight').value = p.heightCm || '';
+    $('calcAge').value = p.age || '';
+    $('calcActivity').value = p.activityHrsPerWeek != null ? p.activityHrsPerWeek : '';
+    setCalcSex(p.sex === 'f' ? 'f' : 'm');
+    setCalcGoal(p.goal || 'maintain');
+    $('calcResult').style.display = 'none';
+    $('calcNote').textContent = '';
+    $('btnApplyCalc').style.display = 'none';
+    lastCalcResult = null;
+    openModal('modalCalc');
+  });
+  $('btnRunCalc').addEventListener('click', ()=>{
+    const weightKg = parseFloat($('calcWeight').value);
+    const heightCm = parseFloat($('calcHeight').value);
+    const age = parseFloat($('calcAge').value);
+    const activityHrsPerWeek = parseFloat($('calcActivity').value) || 0;
+    if (!(weightKg>0) || !(heightCm>0) || !(age>0)){
+      $('calcNote').textContent = 'Enter weight, height and age to calculate.';
+      return;
+    }
+    const profile = { weightKg, heightCm, age, sex: calcSex, activityHrsPerWeek, goal: calcGoal };
+    const r = computeGoals(profile);
+    lastCalcResult = { profile, r };
+    $('crKcal').textContent = r.kcal;
+    $('crProtein').textContent = r.protein+'g';
+    $('crCarbs').textContent = r.carbs+'g';
+    $('crFat').textContent = r.fat+'g';
+    $('calcResult').style.display = '';
+    const goalLabel = calcGoal==='cut' ? '20% deficit for fat loss' : calcGoal==='bulk' ? '15% surplus for muscle gain' : 'maintenance';
+    $('calcNote').textContent = 'BMR '+r.bmr+' kcal · TDEE '+r.tdee+' kcal · '+goalLabel+'.';
+    $('btnApplyCalc').style.display = '';
+  });
+  $('btnApplyCalc').addEventListener('click', ()=>{
+    if (!lastCalcResult) return;
+    goals = { kcal: lastCalcResult.r.kcal, protein: lastCalcResult.r.protein, carbs: lastCalcResult.r.carbs, fat: lastCalcResult.r.fat };
+    saveJSON(GOALS_KEY, goals);
+    saveJSON(PROFILE_KEY, lastCalcResult.profile);
+    closeModal('modalCalc');
+    renderAll();
+  });
+
   /* ============ Ring tap = scroll to macro detail (simple "interactive" affordance) ============ */
   $('ringWrap').addEventListener('click', ()=>{
     document.querySelector('.tile-grid').scrollIntoView({behavior:'smooth', block:'center'});
@@ -630,7 +797,7 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
 
   /* ============ Cloud sync ============ */
   if (window.initCloudSync) {
-    window.initCloudSync({ appKey:'nutrition', syncedKeys:[FOODS_KEY, COMBOS_KEY, LOG_KEY, GOALS_KEY],
+    window.initCloudSync({ appKey:'nutrition', syncedKeys:[FOODS_KEY, COMBOS_KEY, LOG_KEY, GOALS_KEY, PROFILE_KEY],
       onApplied:function(){
         foods = loadJSON(FOODS_KEY, foods);
         combos = loadJSON(COMBOS_KEY, combos);
