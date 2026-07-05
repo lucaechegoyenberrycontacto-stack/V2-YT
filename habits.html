@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="lock.js"></script>
+<script src="/api/config"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050506">
+<title>Habits · Dashboard</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js" defer></script>
+<script src="topbar.js" defer></script>
+
+<style>
+:root {
+  --text-primary: #FAFAFA;
+  --text-secondary: #B8B6B0;
+  --text-tertiary: #76746E;
+  --hb-clean: #6BE3A4;
+  --hb-relapse: #FF6B6B;
+  --hb-screen: #7DD3FC;
+  --hb-goal: #F2C063;
+  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0; background: #050506; color: var(--text-secondary);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+}
+body {
+  min-height: 100vh; position: relative; overflow-x: hidden;
+  padding: max(28px, env(safe-area-inset-top)) 20px 60px;
+}
+body::before {
+  content: ''; position: fixed; inset: 0;
+  background:
+    radial-gradient(circle at 82% 14%, rgba(224,118,88,0.16), transparent 45%),
+    radial-gradient(circle at 18% 90%, rgba(180,180,200,0.06), transparent 50%);
+  filter: blur(40px); pointer-events: none; z-index: -2;
+  animation: drift 36s ease-in-out infinite alternate;
+}
+body::after {
+  content: ''; position: fixed; inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
+  background-size: 3px 3px; pointer-events: none; z-index: -1;
+}
+@keyframes drift { 0%{transform:translate3d(0,0,0)} 100%{transform:translate3d(-22px,14px,0)} }
+
+.page { max-width: 720px; margin: 0 auto; }
+.dash-title {
+  margin: 0 0 18px; font-size: 28px; font-weight: 700; letter-spacing: -0.025em;
+  background: linear-gradient(180deg, #FFFFFF 0%, #C7C4BC 120%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+@media (max-width: 480px) { .dash-title { font-size: 22px; } }
+
+.section { margin-top: 8px; margin-bottom: 28px; }
+.section-title {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-tertiary); display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+}
+.section-title::before { content: ''; width: 18px; height: 1px; background: var(--text-tertiary); opacity: 0.6; }
+.section-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0.08), transparent); }
+
+.hb-card {
+  position: relative;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 18px; padding: 20px;
+  backdrop-filter: blur(24px) saturate(1.2); -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+}
+
+/* ---------- Stat tiles (streaks / weekly avg) ---------- */
+.hb-stats-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+.hb-stat {
+  background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px; padding: 14px 12px; text-align: center;
+}
+.hb-stat-label { font-size: 9.5px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700; margin-bottom: 8px; }
+.hb-stat-val { font-size: 24px; font-weight: 700; color: var(--text-primary); line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+
+/* ---------- Day editor (mark today / correct a past day) ---------- */
+.hb-editor { padding-bottom: 18px; margin-bottom: 18px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.hb-editor-date-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.hb-editor-date { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+.hb-editor-back {
+  border: 0; background: transparent; color: var(--text-tertiary); font-family: inherit;
+  font-size: 11.5px; cursor: pointer; text-decoration: underline; padding: 0;
+}
+.hb-editor-back:hover { color: var(--text-primary); }
+.hb-toggle-row { display: flex; gap: 8px; }
+.hb-toggle-btn {
+  flex: 1; padding: 12px 10px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.025); color: var(--text-secondary);
+  font-family: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.hb-toggle-btn:hover { background: rgba(255,255,255,0.05); }
+.hb-toggle-btn.on.hb-clean-btn { border-color: rgba(107,227,164,0.55); background: rgba(107,227,164,0.14); color: var(--hb-clean); }
+.hb-toggle-btn.on.hb-relapse-btn { border-color: rgba(255,107,107,0.55); background: rgba(255,107,107,0.14); color: var(--hb-relapse); }
+.hb-note {
+  width: 100%; margin-top: 10px; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.28);
+  color: var(--text-primary); font-family: inherit; font-size: 13px; outline: none;
+  resize: vertical; transition: border-color 0.18s;
+}
+.hb-note:focus { border-color: rgba(255,255,255,0.40); }
+
+/* ---------- Monthly calendar ---------- */
+.hb-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.hb-cal-nav {
+  width: 30px; height: 30px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03); color: var(--text-secondary);
+  font-size: 15px; cursor: pointer; transition: background 0.15s, color 0.15s;
+}
+.hb-cal-nav:hover { background: rgba(255,255,255,0.07); color: var(--text-primary); }
+.hb-cal-nav:disabled { opacity: 0.3; cursor: default; }
+.hb-cal-nav:disabled:hover { background: rgba(255,255,255,0.03); color: var(--text-secondary); }
+.hb-cal-month { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+.hb-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+.hb-cal-dow { font-size: 10px; text-align: center; color: var(--text-tertiary); font-weight: 700; letter-spacing: 0.04em; padding-bottom: 4px; }
+.hb-cal-day {
+  aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+  border-radius: 9px; font-size: 12px; font-variant-numeric: tabular-nums;
+  background: rgba(255,255,255,0.03); color: var(--text-tertiary);
+  border: 1px solid transparent; cursor: default;
+}
+.hb-cal-day.hb-empty { background: transparent; }
+.hb-cal-day.hb-clean { background: rgba(107,227,164,0.22); color: var(--hb-clean); cursor: pointer; }
+.hb-cal-day.hb-relapse { background: rgba(255,107,107,0.20); color: var(--hb-relapse); cursor: pointer; }
+.hb-cal-day.hb-past-empty { cursor: pointer; }
+.hb-cal-day.hb-past-empty:hover, .hb-cal-day.hb-clean:hover, .hb-cal-day.hb-relapse:hover { filter: brightness(1.25); }
+.hb-cal-day.hb-today { border-color: rgba(255,255,255,0.5); font-weight: 700; }
+.hb-cal-day.hb-editing { box-shadow: 0 0 0 2px rgba(255,255,255,0.6) inset; }
+
+/* ---------- Screen time ---------- */
+.hb-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.hb-field { flex: 1; min-width: 110px; display: flex; flex-direction: column; gap: 6px; }
+.hb-field-label { font-size: 10px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary); }
+.hb-input {
+  padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(0,0,0,0.28); color: var(--text-primary); font-family: inherit;
+  font-size: 13.5px; outline: none; transition: border-color 0.18s; color-scheme: dark;
+}
+.hb-input:focus { border-color: rgba(255,255,255,0.40); }
+.hb-save-btn {
+  padding: 10px 20px; border: 1px solid rgba(255,255,255,0.85); border-radius: 12px;
+  background: linear-gradient(180deg, #FFF, #E8E5DD); color: #0A0A0B;
+  font-family: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 6px 20px rgba(0,0,0,0.30);
+  transition: transform 0.12s; align-self: flex-end;
+}
+.hb-save-btn:hover { transform: translateY(-1px); }
+.hb-status { font-size: 11.5px; color: var(--text-tertiary); min-height: 16px; margin: -6px 0 8px; }
+
+.hb-chart-head { display: flex; justify-content: space-between; align-items: baseline; margin: 18px 0 12px; flex-wrap: wrap; gap: 8px; }
+.hb-chart-eye { font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-tertiary); }
+.hb-chart-legend { display: flex; gap: 12px; flex-wrap: wrap; }
+.hb-leg-item { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; color: var(--text-secondary); font-weight: 500; }
+.hb-leg-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+.hb-leg-dot.d-screen { background: var(--hb-screen); }
+.hb-leg-dot.d-goal { background: var(--hb-goal); }
+.hb-chart-empty { font-size: 12.5px; color: var(--text-tertiary); font-style: italic; text-align: center; padding: 20px 10px; }
+.hb-chart-wrap { position: relative; }
+.hb-week-svg { width: 100%; height: 260px; display: block; overflow: visible; }
+.hb-week-svg.hidden { display: none; }
+.hb-week-grid { stroke: rgba(255,255,255,0.06); stroke-width: 1; }
+.hb-week-yaxis-label { font-size: 11px; fill: var(--text-tertiary); font-family: var(--font-mono); }
+.hb-week-daylabel { font-size: 11px; fill: var(--text-tertiary); font-family: var(--font-mono); }
+.hb-line-screen { fill: none; stroke: var(--hb-screen); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.hb-line-goal { fill: none; stroke: var(--hb-goal); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.hb-dot { cursor: pointer; fill: var(--hb-screen); stroke: #050506; stroke-width: 1; }
+.hb-dot-hit { fill: rgba(0,0,0,0.001); pointer-events: all; cursor: pointer; }
+.hb-week-tooltip {
+  position: absolute; display: none; pointer-events: none;
+  transform: translate(-50%, calc(-100% - 10px));
+  background: rgba(20,20,24,0.97); border: 1px solid rgba(255,255,255,0.14);
+  color: var(--text-primary); font-size: 11px; font-weight: 700;
+  font-family: var(--font-mono); padding: 5px 9px; border-radius: 8px;
+  white-space: nowrap; box-shadow: 0 6px 18px rgba(0,0,0,0.45); z-index: 5;
+}
+.hb-avg-row { display: flex; align-items: center; gap: 14px; margin-bottom: 4px; }
+.hb-avg-stat { background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 12px 16px; text-align: center; }
+.hb-avg-label { font-size: 9.5px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700; margin-bottom: 6px; }
+.hb-avg-val { font-size: 20px; font-weight: 700; color: var(--text-primary); line-height: 1; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1 class="dash-title">Habits</h1>
+
+  <!-- ===== NoFap ===== -->
+  <div class="section">
+    <div class="section-title">NoFap</div>
+    <div class="hb-card">
+
+      <div class="hb-stats-row">
+        <div class="hb-stat"><div class="hb-stat-label">Current Streak</div><div class="hb-stat-val" id="nofapCurrentStreak">0</div></div>
+        <div class="hb-stat"><div class="hb-stat-label">Longest Streak</div><div class="hb-stat-val" id="nofapLongestStreak">0</div></div>
+      </div>
+
+      <div class="hb-editor">
+        <div class="hb-editor-date-row">
+          <span class="hb-editor-date" id="nofapEditorDate">Today</span>
+          <button type="button" class="hb-editor-back" id="nofapBackToToday" style="display:none">back to today</button>
+        </div>
+        <div class="hb-toggle-row">
+          <button type="button" class="hb-toggle-btn hb-clean-btn" id="nofapCleanBtn">Día limpio ✓</button>
+          <button type="button" class="hb-toggle-btn hb-relapse-btn" id="nofapRelapseBtn">Recaída</button>
+        </div>
+        <textarea id="nofapNote" class="hb-note" placeholder="Nota opcional…" rows="2" style="display:none"></textarea>
+      </div>
+
+      <div class="hb-cal">
+        <div class="hb-cal-head">
+          <button type="button" class="hb-cal-nav" id="nofapPrevMonth">‹</button>
+          <span class="hb-cal-month" id="nofapMonthLabel">—</span>
+          <button type="button" class="hb-cal-nav" id="nofapNextMonth">›</button>
+        </div>
+        <div class="hb-cal-grid" id="nofapCalGrid"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ===== Screen Time ===== -->
+  <div class="section">
+    <div class="section-title">Screen Time</div>
+    <div class="hb-card">
+
+      <div class="hb-row">
+        <label class="hb-field">
+          <span class="hb-field-label">Hours today</span>
+          <input type="number" min="0" step="0.1" id="screenHoursInput" class="hb-input" placeholder="e.g. 3.5">
+        </label>
+        <label class="hb-field">
+          <span class="hb-field-label">Daily goal (h)</span>
+          <input type="number" min="0" step="0.1" id="screenGoalInput" class="hb-input" placeholder="e.g. 2">
+        </label>
+        <button type="button" class="hb-save-btn" id="screenSaveBtn">Save</button>
+      </div>
+      <div class="hb-status" id="screenStatus"></div>
+
+      <div class="hb-avg-row">
+        <div class="hb-avg-stat"><div class="hb-avg-label">This week avg</div><div class="hb-avg-val" id="screenWeekAvg">—</div></div>
+      </div>
+
+      <div class="hb-chart-head">
+        <span class="hb-chart-eye">This week</span>
+        <div class="hb-chart-legend">
+          <span class="hb-leg-item"><span class="hb-leg-dot d-screen"></span>Screen time</span>
+          <span class="hb-leg-item"><span class="hb-leg-dot d-goal"></span>Goal</span>
+        </div>
+      </div>
+      <div id="screenWeekEmpty" class="hb-chart-empty" style="display:none">No screen time logged yet this week.</div>
+      <div class="hb-chart-wrap" id="screenChartWrap">
+        <svg class="hb-week-svg hidden" id="screenWeekSvg" viewBox="0 0 300 260" preserveAspectRatio="none"></svg>
+        <div class="hb-week-tooltip" id="screenWeekTooltip"></div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const HABITS_KEY = 'po_habits_v1';
+
+  function loadJSON(k, f) { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? f : v; } catch (e) { return f; } }
+  function saveJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+
+  function defaultHabits() {
+    return { nofap: { logs: {} }, screenTime: { logs: {}, goalHours: 2 } };
+  }
+  let state = loadJSON(HABITS_KEY, defaultHabits());
+  if (!state.nofap) state.nofap = { logs: {} };
+  if (!state.nofap.logs) state.nofap.logs = {};
+  if (!state.screenTime) state.screenTime = { logs: {}, goalHours: 2 };
+  if (!state.screenTime.logs) state.screenTime.logs = {};
+  if (!(state.screenTime.goalHours > 0)) state.screenTime.goalHours = 2;
+
+  function persist() { saveJSON(HABITS_KEY, state); }
+
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  function dateKey(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+  function todayStr() { return dateKey(new Date()); }
+  function isNextCalendarDay(a, b) {
+    const [ay, am, ad] = a.split('-').map(Number);
+    const [by, bm, bd] = b.split('-').map(Number);
+    return (new Date(by, bm - 1, bd) - new Date(ay, am - 1, ad)) === 86400000;
+  }
+
+  /* ============================================================
+     NOFAP
+     ============================================================ */
+  let editingDate = todayStr();
+  let calYear, calMonth; // calMonth is 0-based, defaults set in initCalendar()
+  function initCalendar() {
+    const now = new Date();
+    calYear = now.getFullYear();
+    calMonth = now.getMonth();
+  }
+  initCalendar();
+
+  function computeCurrentStreak(logs) {
+    let d = new Date();
+    if (!logs[dateKey(d)]) d.setDate(d.getDate() - 1); // today not logged yet — don't penalize
+    let streak = 0;
+    while (true) {
+      const entry = logs[dateKey(d)];
+      if (entry && entry.clean) { streak++; d.setDate(d.getDate() - 1); }
+      else break;
+    }
+    return streak;
+  }
+  function computeLongestStreak(logs) {
+    const dates = Object.keys(logs).sort();
+    let longest = 0, run = 0, prev = null;
+    dates.forEach((k) => {
+      const entry = logs[k];
+      if (entry && entry.clean) {
+        run = (prev && isNextCalendarDay(prev, k)) ? run + 1 : 1;
+        if (run > longest) longest = run;
+      } else {
+        run = 0;
+      }
+      prev = k;
+    });
+    return longest;
+  }
+
+  function formatEditorDate(dstr) {
+    if (dstr === todayStr()) return 'Today';
+    const [y, m, d] = dstr.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  function renderEditor() {
+    $('nofapEditorDate').textContent = formatEditorDate(editingDate);
+    $('nofapBackToToday').style.display = editingDate === todayStr() ? 'none' : '';
+    const entry = state.nofap.logs[editingDate];
+    $('nofapCleanBtn').classList.toggle('on', !!(entry && entry.clean));
+    $('nofapRelapseBtn').classList.toggle('on', !!(entry && entry.clean === false));
+    const note = $('nofapNote');
+    if (entry && entry.clean === false) {
+      note.style.display = '';
+      note.value = entry.note || '';
+    } else {
+      note.style.display = 'none';
+      note.value = '';
+    }
+  }
+  function markDay(dstr, clean) {
+    const prevNote = (state.nofap.logs[dstr] && state.nofap.logs[dstr].note) || '';
+    state.nofap.logs[dstr] = { clean: clean, note: clean ? '' : prevNote };
+    persist();
+    renderNofap();
+  }
+  $('nofapCleanBtn').addEventListener('click', () => markDay(editingDate, true));
+  $('nofapRelapseBtn').addEventListener('click', () => markDay(editingDate, false));
+  $('nofapNote').addEventListener('input', () => {
+    const entry = state.nofap.logs[editingDate];
+    if (entry && entry.clean === false) { entry.note = $('nofapNote').value; persist(); }
+  });
+  $('nofapBackToToday').addEventListener('click', () => {
+    editingDate = todayStr();
+    const now = new Date(); calYear = now.getFullYear(); calMonth = now.getMonth();
+    renderNofap();
+  });
+
+  const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const DOW_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+  function renderCalendar() {
+    $('nofapMonthLabel').textContent = MONTH_NAMES[calMonth] + ' ' + calYear;
+    const now = new Date();
+    const isCurrentMonth = calYear === now.getFullYear() && calMonth === now.getMonth();
+    $('nofapNextMonth').disabled = isCurrentMonth;
+
+    const firstOfMonth = new Date(calYear, calMonth, 1);
+    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+    const leadingBlanks = (firstOfMonth.getDay() + 6) % 7; // Mon=0..Sun=6
+
+    let html = DOW_LABELS.map(l => '<div class="hb-cal-dow">' + l + '</div>').join('');
+    for (let i = 0; i < leadingBlanks; i++) html += '<div class="hb-cal-day hb-empty"></div>';
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dstr = calYear + '-' + pad2(calMonth + 1) + '-' + pad2(day);
+      const entry = state.nofap.logs[dstr];
+      const isFuture = dstr > todayStr();
+      let cls = 'hb-cal-day';
+      if (entry && entry.clean) cls += ' hb-clean';
+      else if (entry && entry.clean === false) cls += ' hb-relapse';
+      else if (!isFuture) cls += ' hb-past-empty';
+      if (dstr === todayStr()) cls += ' hb-today';
+      if (dstr === editingDate) cls += ' hb-editing';
+      html += '<div class="' + cls + '" data-date="' + dstr + '" data-future="' + isFuture + '">' + day + '</div>';
+    }
+    $('nofapCalGrid').innerHTML = html;
+    $('nofapCalGrid').querySelectorAll('.hb-cal-day[data-date]').forEach((el) => {
+      if (el.dataset.future === 'true') return;
+      el.addEventListener('click', () => { editingDate = el.dataset.date; renderNofap(); });
+    });
+  }
+
+  function renderNofap() {
+    $('nofapCurrentStreak').textContent = computeCurrentStreak(state.nofap.logs);
+    $('nofapLongestStreak').textContent = computeLongestStreak(state.nofap.logs);
+    renderEditor();
+    renderCalendar();
+  }
+  $('nofapPrevMonth').addEventListener('click', () => {
+    calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; }
+    renderCalendar();
+  });
+  $('nofapNextMonth').addEventListener('click', () => {
+    if ($('nofapNextMonth').disabled) return;
+    calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; }
+    renderCalendar();
+  });
+
+  /* ============================================================
+     SCREEN TIME
+     ============================================================ */
+  function currentWeekKeys() {
+    const now = new Date();
+    const dow = (now.getDay() + 6) % 7; // 0=Mon..6=Sun
+    const monday = new Date(now); monday.setDate(now.getDate() - dow);
+    const out = [];
+    for (let i = 0; i < 7; i++) { const d = new Date(monday); d.setDate(monday.getDate() + i); out.push(dateKey(d)); }
+    return out;
+  }
+  function dayLabel(dstr) {
+    const [y, m, d] = dstr.split('-').map(Number);
+    return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(y, m - 1, d).getDay()];
+  }
+
+  function fillScreenForm() {
+    const today = state.screenTime.logs[todayStr()];
+    $('screenHoursInput').value = (today != null) ? today : '';
+    $('screenGoalInput').value = state.screenTime.goalHours;
+  }
+  $('screenSaveBtn').addEventListener('click', () => {
+    const hrs = parseFloat($('screenHoursInput').value);
+    const goal = parseFloat($('screenGoalInput').value);
+    const status = $('screenStatus');
+    if (!(hrs >= 0)) { status.textContent = 'Enter today\'s hours first.'; return; }
+    state.screenTime.logs[todayStr()] = hrs;
+    if (goal > 0) state.screenTime.goalHours = goal;
+    persist();
+    status.textContent = 'Saved ✓';
+    setTimeout(() => { status.textContent = ''; }, 1800);
+    renderScreenTime();
+  });
+
+  function hideScreenTooltip() { const t = $('screenWeekTooltip'); if (t) t.style.display = 'none'; }
+  function showScreenTooltip(dotEl) {
+    const tip = $('screenWeekTooltip'), wrap = $('screenChartWrap');
+    const value = Number(dotEl.getAttribute('data-value'));
+    tip.textContent = value.toFixed(1) + 'h';
+    tip.style.display = 'block';
+    const wrapRect = wrap.getBoundingClientRect(), dotRect = dotEl.getBoundingClientRect();
+    tip.style.left = (dotRect.left + dotRect.width / 2 - wrapRect.left) + 'px';
+    tip.style.top = (dotRect.top - wrapRect.top) + 'px';
+  }
+  document.addEventListener('click', (e) => { if (!e.target.closest('.hb-dot, .hb-dot-hit')) hideScreenTooltip(); });
+
+  const SCREEN_Y_MAX = 10, SCREEN_Y_STEP = 2;
+
+  function renderScreenChart() {
+    const svg = $('screenWeekSvg'), emptyEl = $('screenWeekEmpty');
+    const keys = currentWeekKeys();
+    const logs = state.screenTime.logs;
+    const goal = state.screenTime.goalHours;
+
+    if (!keys.some(k => logs[k] != null)) {
+      svg.innerHTML = ''; svg.classList.add('hidden');
+      emptyEl.style.display = 'block'; hideScreenTooltip();
+      return;
+    }
+    emptyEl.style.display = 'none'; svg.classList.remove('hidden');
+
+    const n = keys.length;
+    const W = svg.getBoundingClientRect().width || 600, H = 260;
+    svg.setAttribute('viewBox', '0 0 ' + W.toFixed(1) + ' ' + H);
+    const padLeft = 32, padRight = 14, padTop = 16, padBottom = 28;
+    const plotW = W - padLeft - padRight, plotH = H - padTop - padBottom;
+    const xAt = (i) => padLeft + plotW * (n === 1 ? 0.5 : i / (n - 1));
+    const yAt = (v) => padTop + plotH * (1 - Math.min(v, SCREEN_Y_MAX) / SCREEN_Y_MAX);
+
+    let html = '';
+    for (let v = 0; v <= SCREEN_Y_MAX; v += SCREEN_Y_STEP) {
+      const y = yAt(v);
+      html += '<line class="hb-week-grid" x1="' + padLeft + '" y1="' + y.toFixed(1) + '" x2="' + (W - padRight).toFixed(1) + '" y2="' + y.toFixed(1) + '"></line>'
+        + '<text class="hb-week-yaxis-label" x="' + (padLeft - 8) + '" y="' + (y + 3).toFixed(1) + '" text-anchor="end">' + v + '</text>';
+    }
+    if (goal > 0 && goal <= SCREEN_Y_MAX) {
+      const gy = yAt(goal);
+      html += '<line class="hb-line-goal" x1="' + padLeft + '" y1="' + gy.toFixed(1) + '" x2="' + (W - padRight).toFixed(1) + '" y2="' + gy.toFixed(1) + '"></line>';
+    }
+
+    const vals = keys.map(k => (logs[k] != null ? Number(logs[k]) : null));
+    let d = '', dots = '', started = false;
+    vals.forEach((v, i) => {
+      if (v == null) { started = false; return; }
+      const x = xAt(i), y = yAt(v);
+      d += (started ? ' L ' : 'M ') + x.toFixed(1) + ' ' + y.toFixed(1);
+      started = true;
+      const attrs = ' cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" data-value="' + v + '"';
+      dots += '<circle class="hb-dot-hit" r="13"' + attrs + '></circle><circle class="hb-dot" r="4.5"' + attrs + '></circle>';
+    });
+    html += (d ? '<path class="hb-line-screen" d="' + d + '"></path>' : '') + dots;
+
+    keys.forEach((k, i) => {
+      html += '<text class="hb-week-daylabel" x="' + xAt(i).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="middle">' + dayLabel(k) + '</text>';
+    });
+    svg.innerHTML = html;
+    svg.querySelectorAll('.hb-dot, .hb-dot-hit').forEach((dot) => {
+      dot.addEventListener('mouseenter', () => showScreenTooltip(dot));
+      dot.addEventListener('mouseleave', hideScreenTooltip);
+      dot.addEventListener('click', (e) => { e.stopPropagation(); showScreenTooltip(dot); });
+    });
+  }
+
+  function renderScreenStats() {
+    const keys = currentWeekKeys();
+    const vals = keys.map(k => state.screenTime.logs[k]).filter(v => v != null).map(Number);
+    $('screenWeekAvg').textContent = vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1) + 'h' : '—';
+  }
+
+  function renderScreenTime() {
+    fillScreenForm();
+    renderScreenChart();
+    renderScreenStats();
+  }
+
+  /* ============================================================
+     INIT + CLOUD SYNC
+     ============================================================ */
+  function renderAll() { renderNofap(); renderScreenTime(); }
+  renderAll();
+
+  window.addEventListener('storage', renderAll);
+
+  document.addEventListener('DOMContentLoaded', function () {
+    if (typeof initCloudSync !== 'function') return;
+    initCloudSync({
+      appKey: 'habits',
+      syncedKeys: [HABITS_KEY],
+      onApplied: function () {
+        state = loadJSON(HABITS_KEY, defaultHabits());
+        if (!state.nofap) state.nofap = { logs: {} };
+        if (!state.nofap.logs) state.nofap.logs = {};
+        if (!state.screenTime) state.screenTime = { logs: {}, goalHours: 2 };
+        if (!state.screenTime.logs) state.screenTime.logs = {};
+        renderAll();
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>
