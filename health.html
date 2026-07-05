@@ -551,7 +551,7 @@ main {
     .sleep-leg-dot.d-total { background: var(--sleep-total); }
     .sleep-week-empty { font-size: 12.5px; color: var(--text-tertiary); font-style: italic; text-align: center; padding: 20px 10px; }
     .sleep-week-chart-wrap { position: relative; }
-    .sleep-week-svg { width: 100%; height: 190px; display: block; overflow: visible; }
+    .sleep-week-svg { width: 100%; height: 400px; display: block; overflow: visible; }
     .sleep-week-svg.hidden { display: none; }
     .sleep-week-grid { stroke: rgba(255,255,255,0.06); stroke-width: 1; }
     .sleep-week-yaxis-label { font-size: 9px; fill: var(--text-tertiary); font-family: var(--font-mono); }
@@ -641,7 +641,7 @@ main {
         </div>
         <div id="sleepWeekEmpty" class="sleep-week-empty" style="display:none">Aún no hay datos de sueño — registra tu primera noche arriba.</div>
         <div class="sleep-week-chart-wrap" id="sleepWeekChartWrap">
-          <svg class="sleep-week-svg hidden" id="sleepWeekSvg" viewBox="0 0 300 190" preserveAspectRatio="none"></svg>
+          <svg class="sleep-week-svg hidden" id="sleepWeekSvg" viewBox="0 0 300 400" preserveAspectRatio="none"></svg>
           <div class="sleep-week-tooltip" id="sleepWeekTooltip"></div>
         </div>
       </div>
@@ -808,8 +808,12 @@ main {
       };
 
       // Fixed 0–12h Y axis — never rescale, nobody sleeps more than 12h.
+      // H is 400 (vs. an original 190) so each 2h grid step gets real
+      // vertical room — width stays at 300 since the SVG already
+      // stretches to 100% of the card via preserveAspectRatio="none",
+      // so growing W wouldn't add any actual on-screen width.
       const n = keys.length;
-      const W = 300, H = 190;
+      const W = 300, H = 400;
       const padLeft = 24, padRight = 10, padTop = 16, padBottom = 32;
       const plotW = W - padLeft - padRight;
       const plotH = H - padTop - padBottom;
