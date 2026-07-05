@@ -212,11 +212,11 @@ body.topbar-modal-open {
 
   const bottombarHtml = `
 <nav class="bottombar" id="bottombar" role="navigation" aria-label="Main tabs">
-  <a href="home.html" class="bottombar-tab" data-page="main">
+  <a href="index.html" class="bottombar-tab" data-page="main">
     <span class="bottombar-tab-icon">🏠</span>
     <span>Home</span>
   </a>
-  <a href="index.html" class="bottombar-tab" data-page="apps">
+  <a href="apps.html" class="bottombar-tab" data-page="apps">
     <span class="bottombar-tab-icon">🗂️</span>
     <span>Apps</span>
   </a>
@@ -249,8 +249,8 @@ body.topbar-modal-open {
     const p = (window.location.pathname || '').toLowerCase();
     if (p.endsWith('health.html')) return 'health';
     if (p.endsWith('gym.html')) return 'fitness';
-    if (p.endsWith('index.html')) return 'apps';
-    if (p.endsWith('home.html') || p === '' || p === '/') return 'main';
+    if (p.endsWith('apps.html')) return 'apps';
+    if (p.endsWith('index.html') || p === '' || p === '/') return 'main';
     return 'main'; // anything else unrecognized still falls back to main
   }
 

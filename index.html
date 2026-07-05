@@ -6,18 +6,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#050506">
-<title>Dashboard</title>
+<title>Home · Dashboard</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="sync.js" defer></script>
 <script src="topbar.js" defer></script>
 
 <style>
-/* ===== Shared design tokens (same as the rest of the dashboard) ===== */
+/* ===== Shared design tokens (copied from template.html — do not diverge) ===== */
 :root {
   --text-primary: #FAFAFA;
   --text-secondary: #B8B6B0;
   --text-tertiary: #76746E;
+  --success: #6BE3A4;
+  --warning: #F2C063;
+  --danger:  #FF6B6B;
   --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
@@ -29,466 +32,552 @@ html, body {
   font-family: var(--font);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
 }
 body {
-  min-height: 100vh; position: relative; overflow-x: hidden;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
   padding: max(28px, env(safe-area-inset-top)) 20px 60px;
 }
-/* Soft drifting glow + dot texture (matches the other pages). */
 body::before {
-  content: ''; position: fixed; inset: 0;
+  content: '';
+  position: fixed; inset: 0;
   background:
-    radial-gradient(circle at 82% 14%, rgba(224,118,88,0.16), transparent 45%),
-    radial-gradient(circle at 18% 90%, rgba(180,180,200,0.06), transparent 50%);
-  filter: blur(40px); pointer-events: none; z-index: -2;
+    radial-gradient(circle at 82% 14%, rgba(224, 118, 88, 0.16), transparent 45%),
+    radial-gradient(circle at 18% 90%, rgba(180, 180, 200, 0.06), transparent 50%);
+  filter: blur(40px);
+  pointer-events: none;
+  z-index: -2;
   animation: drift 36s ease-in-out infinite alternate;
 }
 body::after {
-  content: ''; position: fixed; inset: 0;
+  content: '';
+  position: fixed; inset: 0;
   background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
-  background-size: 3px 3px; pointer-events: none; z-index: -1;
+  background-size: 3px 3px;
+  pointer-events: none;
+  z-index: -1;
 }
-@keyframes drift { 0%{transform:translate3d(0,0,0)} 100%{transform:translate3d(-22px,14px,0)} }
+@keyframes drift {
+  0%   { transform: translate3d(0,0,0); }
+  100% { transform: translate3d(-22px, 14px, 0); }
+}
 
 .page { max-width: 1100px; margin: 0 auto; }
-.dash-title {
-  margin: 0 0 18px; font-size: 28px; font-weight: 700; letter-spacing: -0.025em;
-  background: linear-gradient(180deg, #FFFFFF 0%, #C7C4BC 120%);
-  -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent; color: transparent;
-}
-@media (max-width: 480px) { .dash-title { font-size: 22px; } }
 
-/* ===== BENTO GRID ===== */
-.bento {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  grid-auto-rows: 168px;
-  grid-auto-flow: dense;
-  gap: 14px;
+.section { margin-top: 8px; }
+.section-title {
+  font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-tertiary);
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 12px;
 }
-.tile {
-  --accent: #6BE3A4;                 /* each tile overrides this */
-  position: relative; overflow: hidden;
-  display: flex; flex-direction: column;
+.section-title::before {
+  content: ''; width: 18px; height: 1px;
+  background: var(--text-tertiary); opacity: 0.6;
+}
+.section-title::after {
+  content: ''; flex: 1; height: 1px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.08), transparent);
+}
+
+.gm-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 16px;
   padding: 20px;
-  border-radius: 18px;
-  text-decoration: none;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.06);
+  margin-bottom: 14px;
   backdrop-filter: blur(24px) saturate(1.2);
   -webkit-backdrop-filter: blur(24px) saturate(1.2);
   box-shadow: 0 12px 40px rgba(0,0,0,0.45);
-  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  overflow: hidden;
 }
-/* The "its own style" bit — a faint accent glow per tile. */
-.tile::before {
-  content: ''; position: absolute; inset: 0; pointer-events: none;
-  background: radial-gradient(circle at 78% 18%,
-              color-mix(in srgb, var(--accent) 22%, transparent), transparent 55%);
-  opacity: 0.7; transition: opacity 0.18s ease;
-}
-.tile:hover {
-  transform: translateY(-3px);
-  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
-  box-shadow: 0 16px 48px rgba(0,0,0,0.55);
-}
-.tile:hover::before { opacity: 1; }
 
-/* Tile sizes */
-.tile.big  { grid-column: span 2; grid-row: span 2; }
-.tile.wide { grid-column: span 2; }
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+}
+.stat {
+  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px; padding: 14px;
+  text-decoration: none; color: inherit; display: block;
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.stat:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.14); }
+.stat-num {
+  font-size: 26px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em; color: var(--text-primary); line-height: 1;
+  font-family: var(--font-mono);
+}
+.stat-label {
+  margin-top: 6px;
+  font-size: 10.5px; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.stat-sub {
+  margin-top: 4px;
+  font-size: 10px; color: var(--text-tertiary);
+}
+/* Status tints — driven off --success/--warning/--danger only, no new colors. */
+.stat.stat-good { border-color: rgba(107,227,164,0.35); background: rgba(107,227,164,0.07); }
+.stat.stat-warn { border-color: rgba(242,192,99,0.35); background: rgba(242,192,99,0.07); }
+.stat.stat-bad  { border-color: rgba(255,107,107,0.35); background: rgba(255,107,107,0.07); }
+.stat.stat-good .stat-num { color: var(--success); }
+.stat.stat-warn .stat-num { color: var(--warning); }
+.stat.stat-bad  .stat-num { color: var(--danger); }
 
-/* Tile contents */
-.tile-top { display: flex; align-items: flex-start; justify-content: space-between; }
-.tile-num {
-  font-family: var(--font-mono); font-size: 12px; font-weight: 600;
-  letter-spacing: 0.08em; color: var(--text-tertiary);
+/* ===== Home-page-specific bits ===== */
+.home-welcome {
+  font-size: 11px; color: var(--text-tertiary);
+  letter-spacing: 0.02em; margin: 0 0 18px;
 }
-.tile-emoji {
-  font-size: 26px; line-height: 1;
-  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--accent) 60%, transparent));
+.home-clock-row {
+  display: flex; flex-wrap: wrap; align-items: center;
+  justify-content: space-between; gap: 20px;
 }
-.tile-spacer { flex: 1; }
-.tile-title {
-  font-size: 22px; font-weight: 700; letter-spacing: -0.02em;
-  color: var(--text-primary); margin: 0 0 4px;
+.home-clock-block { min-width: 200px; }
+.home-clock {
+  font-family: var(--font-mono); font-size: 44px; font-weight: 700;
+  color: var(--text-primary); letter-spacing: -0.02em; line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
-.tile.big .tile-title { font-size: 28px; }
-.tile-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.tile-sub {
-  font-size: 13px; color: var(--text-tertiary);
+.home-date {
+  margin-top: 8px; font-size: 13px; color: var(--text-secondary);
 }
-.tile-arrow {
-  font-size: 18px; color: var(--accent);
-  transition: transform 0.18s ease; flex-shrink: 0;
+.home-quote-block {
+  flex: 1; min-width: 220px; max-width: 440px;
+  padding-left: 20px; border-left: 1px solid rgba(255,255,255,0.08);
 }
-.tile:hover .tile-arrow { transform: translateX(4px); }
-
-/* ===== Responsive: collapse the bento on small screens ===== */
-@media (max-width: 720px) {
-  .bento { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 150px; }
-  .tile.big { grid-column: span 2; grid-row: span 1; }
-  .tile.big .tile-title { font-size: 22px; }
+.home-quote {
+  font-size: 14px; font-style: italic; color: var(--text-secondary); line-height: 1.5;
 }
-@media (max-width: 440px) {
+.home-quote-author {
+  margin-top: 8px; font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary);
+}
+@media (max-width: 560px) {
+  .home-clock { font-size: 34px; }
+  .home-quote-block { border-left: none; border-top: 1px solid rgba(255,255,255,0.08); padding-left: 0; padding-top: 16px; }
+}
+@media (max-width: 480px) {
   body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
-  .bento { grid-template-columns: 1fr; grid-auto-rows: 132px; }
-  .tile.big, .tile.wide { grid-column: span 1; }
+  .gm-card { padding: 16px; }
 }
-
-/* ===== Header row + gear ===== */
-.hub-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
-.hub-head .dash-title { margin: 0; }
-.gear-btn {
-  width: 42px; height: 42px; flex-shrink: 0;
-  display: inline-flex; align-items: center; justify-content: center;
-  border-radius: 12px; border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(255,255,255,0.04); color: var(--text-secondary);
-  cursor: pointer; transition: background 0.15s, color 0.15s, transform 0.1s;
-  -webkit-tap-highlight-color: transparent;
-}
-.gear-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
-.gear-btn:active { transform: scale(0.94) rotate(35deg); }
-.gear-btn svg { width: 22px; height: 22px; }
-
-/* ===== Settings modal ===== */
-.modal-bg {
-  position: fixed; inset: 0; z-index: 120; display: none;
-  align-items: center; justify-content: center; padding: 20px;
-  background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-}
-.modal-bg.show { display: flex; }
-.modal {
-  width: 100%; max-width: 460px; max-height: 88vh; overflow-y: auto;
-  background: #0e0e10; border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 18px; padding: 22px; box-shadow: 0 24px 70px rgba(0,0,0,0.6);
-}
-.modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
-.modal-title { font-size: 18px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em; }
-.modal-close { border: 0; background: transparent; color: var(--text-tertiary); font-size: 26px; line-height: 1; cursor: pointer; padding: 0 4px; }
-.modal-close:hover { color: var(--text-primary); }
-.field { margin-bottom: 14px; }
-.field-label { font-size: 11px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 7px; display: block; }
-.field-row { display: flex; gap: 8px; align-items: center; }
-.set-input {
-  flex: 1; min-width: 0; padding: 11px 13px;
-  border: 1px solid rgba(255,255,255,0.08); border-radius: 11px;
-  background: rgba(0,0,0,0.3); color: var(--text-primary);
-  font-family: inherit; font-size: 14px; outline: none; transition: border-color 0.2s;
-}
-.set-input:focus { border-color: rgba(255,255,255,0.28); }
-.seg { display: inline-flex; border: 1px solid rgba(255,255,255,0.10); border-radius: 11px; overflow: hidden; flex-shrink: 0; }
-.seg button { border: 0; background: transparent; color: var(--text-tertiary); font-family: inherit; font-size: 13px; font-weight: 600; padding: 11px 14px; cursor: pointer; transition: background 0.15s, color 0.15s; }
-.seg button.on { background: rgba(255,255,255,0.12); color: var(--text-primary); }
-.set-save {
-  width: 100%; margin-top: 6px; padding: 13px; border: 0; border-radius: 12px;
-  background: linear-gradient(180deg,#FFFFFF,#E8E5DD); color: #0A0A0B;
-  font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 8px 22px rgba(0,0,0,0.25);
-  transition: filter 0.15s, transform 0.1s;
-}
-.set-save:hover { filter: brightness(1.05); }
-.set-save:active { transform: translateY(1px); }
-.set-status { text-align: center; font-size: 12px; color: var(--success); min-height: 16px; margin-top: 8px; }
 </style>
 </head>
 <body>
 <div class="page">
 
-  <div class="hub-head">
-    <h1 class="dash-title">Luca Dashboard</h1>
-    <button class="gear-btn" id="settingsOpen" type="button" aria-label="Settings">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="3"/>
-        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-      </svg>
-    </button>
-  </div>
+  <div class="home-welcome">Bienvenido a tu dashboard, Luca</div>
 
-  <div class="bento">
-
-    <!-- Big tile -->
-    <a class="tile big" href="main.html" style="--accent:#6BE3A4">
-      <div class="tile-top">
-        <span class="tile-num">·01</span>
-        <span class="tile-emoji">🏠</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Main</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Goals & daily plan</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
-
-    <!-- Wide tile -->
-    <a class="tile wide" href="gym.html" style="--accent:#7DD3FC">
-      <div class="tile-top">
-        <span class="tile-num">·02</span>
-        <span class="tile-emoji">💪</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Fitness</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Workouts, splits, sessions</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
-
-    <!-- Small tile -->
-    <a class="tile" href="health.html" style="--accent:#A7F3D0">
-      <div class="tile-top">
-        <span class="tile-num">·03</span>
-        <span class="tile-emoji">💊</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Health</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Supplements & vitals</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
-
-    <!-- Small tile -->
-    <a class="tile" href="po-water.html" style="--accent:#60A5FA">
-      <div class="tile-top">
-        <span class="tile-num">·04</span>
-        <span class="tile-emoji">💧</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Water</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Hydration</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
-
-    <!-- Wide tile -->
-    <a class="tile wide" href="finance.html" style="--accent:#F2C063">
-      <div class="tile-top">
-        <span class="tile-num">·05</span>
-        <span class="tile-emoji">📊</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Finance</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Net worth & spending</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
-
-    <!-- Small tile -->
-    <a class="tile" href="caffeine.html" style="--accent:#C9A36B">
-      <div class="tile-top">
-        <span class="tile-num">·06</span>
-        <span class="tile-emoji">☕</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Caffeine</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Intake & timing</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
-
-    <!-- Small tile -->
-    <a class="tile" href="nutrition.html" style="--accent:#FF9F6B">
-      <div class="tile-top">
-        <span class="tile-num">·07</span>
-        <span class="tile-emoji">🥗</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Nutrition</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Macros & meals</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
-
-    <!-- Wide tile -->
-    <a class="tile wide" href="nova-lite.html" style="--accent:#A78BFA">
-      <div class="tile-top">
-        <span class="tile-num">·08</span>
-        <span class="tile-emoji">🧠</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Nova</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Your AI mentor</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
-
-    <!-- Small tile -->
-    <a class="tile" href="habits.html" style="--accent:#FB7185">
-      <div class="tile-top">
-        <span class="tile-num">·09</span>
-        <span class="tile-emoji">🔥</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Habits</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Streaks & screen time</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
-
-  </div>
-</div>
-
-<!-- ===== Settings / Your Data ===== -->
-<div class="modal-bg" id="settingsBg">
-  <div class="modal" role="dialog" aria-label="Your data">
-    <div class="modal-head">
-      <span class="modal-title">Your Data</span>
-      <button class="modal-close" id="settingsClose" type="button" aria-label="Close">×</button>
-    </div>
-
-    <div class="field">
-      <label class="field-label">Height</label>
-      <div class="field-row">
-        <input class="set-input" id="heightA" type="number" min="0" inputmode="decimal" placeholder="cm">
-        <input class="set-input" id="heightB" type="number" min="0" inputmode="decimal" placeholder="in" style="display:none">
-        <div class="seg" id="heightUnitSeg">
-          <button type="button" data-u="cm" class="on">cm</button>
-          <button type="button" data-u="ft">ft/in</button>
+  <div class="section">
+    <div class="gm-card">
+      <div class="home-clock-row">
+        <div class="home-clock-block">
+          <div class="home-clock" id="homeClock">00:00:00</div>
+          <div class="home-date" id="homeDate">—</div>
+        </div>
+        <div class="home-quote-block">
+          <div class="home-quote" id="homeQuoteText">"…"</div>
+          <div class="home-quote-author" id="homeQuoteAuthor">— </div>
         </div>
       </div>
     </div>
-
-    <div class="field">
-      <label class="field-label">Weight</label>
-      <div class="field-row">
-        <input class="set-input" id="weight" type="number" min="0" inputmode="decimal" placeholder="weight">
-        <div class="seg" id="weightUnitSeg">
-          <button type="button" data-u="kg" class="on">kg</button>
-          <button type="button" data-u="lb">lb</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="field">
-      <label class="field-label">Age</label>
-      <input class="set-input" id="age" type="number" min="0" inputmode="numeric" placeholder="years">
-    </div>
-
-    <div class="field">
-      <label class="field-label">Sex</label>
-      <div class="seg" id="sexSeg" style="width:100%;display:flex">
-        <button type="button" data-s="m" style="flex:1">Male</button>
-        <button type="button" data-s="f" style="flex:1">Female</button>
-      </div>
-    </div>
-
-    <div class="field">
-      <label class="field-label">Active hours / week</label>
-      <input class="set-input" id="activity" type="number" min="0" inputmode="decimal" placeholder="e.g. 5">
-    </div>
-
-    <button class="set-save" id="settingsSave" type="button">Save</button>
-    <div class="set-status" id="settingsStatus"></div>
   </div>
-</div>
+
+  <div class="section">
+    <div class="section-title">Hoy</div>
+    <div class="stat-grid">
+      <a class="stat" id="statWater" href="po-water.html">
+        <div class="stat-num" id="statWaterNum">—</div>
+        <div class="stat-label">Agua</div>
+      </a>
+      <a class="stat" id="statSleep" href="health.html#sleep">
+        <div class="stat-num" id="statSleepNum">—</div>
+        <div class="stat-label">Sueño</div>
+        <div class="stat-sub" id="statSleepSub"></div>
+      </a>
+      <a class="stat" id="statGoals" href="main.html">
+        <div class="stat-num" id="statGoalsNum">—</div>
+        <div class="stat-label">Goals</div>
+      </a>
+      <a class="stat" id="statCalories" href="nutrition.html">
+        <div class="stat-num" id="statCaloriesNum">—</div>
+        <div class="stat-label">Calorías</div>
+      </a>
+      <a class="stat" id="statGym" href="gym.html">
+        <div class="stat-num" id="statGymNum">—</div>
+        <div class="stat-label">Actividad</div>
+        <div class="stat-sub" id="statGymSub"></div>
+      </a>
+    </div>
+  </div>
+
+</div><!-- /.page -->
 
 <script>
 (function () {
   'use strict';
   const $ = (id) => document.getElementById(id);
-  const WATER_KEY = 'po_water_v1';
 
-  function loadJSON(k, f) { try { return JSON.parse(localStorage.getItem(k)) || f; } catch (e) { return f; } }
-  function saveJSON(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
+  /* ============================================================
+     CLOCK + DATE
+     ============================================================ */
+  function updateClock() {
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    const ss = String(now.getSeconds()).padStart(2, '0');
+    $('homeClock').textContent = hh + ':' + mm + ':' + ss;
+    const dateStr = now.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    $('homeDate').textContent = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
 
-  // Mirror of topbar.js defaultWaterState so we never clobber the water tracker.
-  function defaultWater() {
-    return { unit:'bottle', bottleMl:500, glassMl:250, weightUnit:'kg',
-      profile:{ weightKg:75, age:25, sex:'m', activityHrsPerWeek:5 },
-      caffeineMgPerDay:200, substances:[], logs:{} };
+  /* ============================================================
+     STOIC QUOTES — real, sourced quotes (Marco Aurelio, Séneca,
+     Epicteto), cross-checked against Wikiquote. One picked at
+     random on every load (Math.random, not date-based).
+     ============================================================ */
+  const STOIC_QUOTES = [
+    { t: "Antes de empezar a hablar, procura que en tu rostro pueda leerse lo que vas a decir", a: "Marco Aurelio" },
+    { t: "¡Asia, Europa: rincones del mundo; todo el océano: una gota del universo!", a: "Marco Aurelio" },
+    { t: "Aunque debieras vivir tres mil años y aun diez veces otros tantos, acuérdate siempre que no se pierde otra vida que la que se vive", a: "Marco Aurelio" },
+    { t: "Crecer en común, no pensar en común", a: "Marco Aurelio" },
+    { t: "Cuando el dolor es insoportable, nos destruye; cuando no nos destruye, es que es soportable", a: "Marco Aurelio" },
+    { t: "El arte de vivir se asemeja más a la lucha que a la danza en lo que se refiere a estar firmemente dispuesto", a: "Marco Aurelio" },
+    { t: "El dolor no puede ser nunca ni insoportable ni de larga duración, a menos que tú lo agrandas a fuerza de la imaginación", a: "Marco Aurelio" },
+    { t: "El mejor modo de vengar la injuria es no parecerse al que la infirió", a: "Marco Aurelio" },
+    { t: "El mundo no es más que transformación, y la vida, opinión solamente", a: "Marco Aurelio" },
+    { t: "El perseguir imposibles es locura", a: "Marco Aurelio" },
+    { t: "El que peca, peca contra sí; el que comete una injusticia, se la hace a sí mismo", a: "Marco Aurelio" },
+    { t: "El recuerdo de todas las cosas queda en un instante sepultado en la eternidad", a: "Marco Aurelio" },
+    { t: "El tiempo es como un río, formado por los hechos, que adquiere violenta corriente", a: "Marco Aurelio" },
+    { t: "En ninguna parte puede hallar el hombre un retiro tan apacible y tranquilo como en la intimidad de su alma", a: "Marco Aurelio" },
+    { t: "Es ridículo no intentar evitar tu propia maldad, lo cual es posible", a: "Marco Aurelio" },
+    { t: "Hay que ser derecho, no enderezado", a: "Marco Aurelio" },
+    { t: "La dulzura es una fuerza invencible cuando es sincera, sin afectación y sin disfraz", a: "Marco Aurelio" },
+    { t: "La filosofía consiste en velar el dios interior", a: "Marco Aurelio" },
+    { t: "La muerte, como el nacimiento, es un misterio de la naturaleza", a: "Marco Aurelio" },
+    { t: "Lo que no es dañino a la ciudad tampoco daña al ciudadano", a: "Marco Aurelio" },
+    { t: "Lo que no es útil al enjambre tampoco lo es para la abeja", a: "Marco Aurelio" },
+    { t: "Los hombres fueron hechos los unos para los otros, así que, instrúyelos o sopórtalos", a: "Marco Aurelio" },
+    { t: "Mira bien dentro de ti. Allí está la fuente del bien, jamás exhausta si la vas ahondando", a: "Marco Aurelio" },
+    { t: "No actúes en la idea de que vas a vivir diez mil años", a: "Marco Aurelio" },
+    { t: "Olvidaste también que todo es opinión; que cada uno vive únicamente el momento presente", a: "Marco Aurelio" },
+    { t: "Ten presente que la filosofía no quiere sino lo que quiere tu naturaleza", a: "Marco Aurelio" },
+    { t: "Te queda muy poco tiempo de vida. Vive, pues, como en una montaña", a: "Marco Aurelio" },
+
+    { t: "Admira a los que han emprendido cosas grandes aunque hayan fracasado", a: "Séneca" },
+    { t: "Ajeno es todo lo que nos viene en deseo", a: "Séneca" },
+    { t: "A la opinión y fama démosle su lugar debido", a: "Séneca" },
+    { t: "Comienzan como vicios, y acaban como costumbres", a: "Séneca" },
+    { t: "Ama si quieres que te amen", a: "Séneca" },
+    { t: "A quien beneficia el crimen, ése es el autor", a: "Séneca" },
+    { t: "Aquel que tú crees que ha muerto, no ha hecho más que adelantarse en el camino", a: "Séneca" },
+    { t: "A veces es bueno tener algo de loco", a: "Séneca" },
+    { t: "Cesarás de temer cuando ceses de esperar", a: "Séneca" },
+    { t: "Compra solamente lo necesario; lo superfluo, aunque cueste sólo un céntimo, es caro", a: "Séneca" },
+    { t: "Con facilidad se adquiere lo preciso para la vida", a: "Séneca" },
+    { t: "Cuando el sol se eclipsa para desaparecer, se ve mejor su grandeza", a: "Séneca" },
+    { t: "Cuando una arte del todo cae, lo demás no está seguro", a: "Séneca" },
+    { t: "Cuenta los días de tu vida, y verás cuán pocos y desechados han sido", a: "Séneca" },
+    { t: "Dar consejo al hombre avisado es superfluo; darlo al ignorante es poca cosa", a: "Séneca" },
+    { t: "Decir lo que sentimos, sentir lo que decimos", a: "Séneca" },
+    { t: "Demasiado pronto muere al hombre para llegar a conocer las cosas inmortales", a: "Séneca" },
+    { t: "Después de la muerte no hay nada. Y la propia muerte no es nada", a: "Séneca" },
+    { t: "Doloroso es que comencemos a vivir cuando morimos", a: "Séneca" },
+    { t: "El arrepentimiento es el remordimiento aceptado", a: "Séneca" },
+    { t: "El artista encuentra mayor placer en pintar que en contemplar el cuadro", a: "Séneca" },
+    { t: "El azar tiene mucho poder sobre nosotros", a: "Séneca" },
+    { t: "El día que me vea más fuerte que la fortuna, ya nadie podrá conmigo", a: "Séneca" },
+    { t: "El dolor de una herida es igual en los cuerpos grandes que en los pequeños", a: "Séneca" },
+    { t: "El éxito hace parecer honestos algunos crímenes", a: "Séneca" },
+    { t: "El gobierno más difícil es el de uno mismo", a: "Séneca" },
+    { t: "El honor prohíbe acciones que la ley tolera", a: "Séneca" },
+    { t: "El lenguaje de la verdad es simple", a: "Séneca" },
+    { t: "El que teme es un esclavo del miedo", a: "Séneca" },
+    { t: "El tirano ha de experimentar forzosamente todos los temores que inspira", a: "Séneca" },
+    { t: "El trabajo es el alimento de las almas nobles", a: "Séneca" },
+    { t: "El valor es siempre ambicioso de peligros", a: "Séneca" },
+    { t: "Enseñando se aprende", a: "Séneca" },
+    { t: "En tres tiempos se divide la vida: en presente, pasado y futuro", a: "Séneca" },
+    { t: "Errar es humano; pero perseverar en el error es diabólico", a: "Séneca" },
+    { t: "Estar en ocio muy prolongado, no es reposo, sino pereza", a: "Séneca" },
+    { t: "Estar sujeto a uno mismo es la más penosa esclavitud", a: "Séneca" },
+    { t: "Estudiad, no por saber más, sino por saberlo mejor", a: "Séneca" },
+    { t: "Felicidad es no necesitarla", a: "Séneca" },
+    { t: "Forzosamente debe temer a muchos el que es temido por muchos", a: "Séneca" },
+    { t: "Grandes riquezas, gran esclavitud", a: "Séneca" },
+    { t: "Hay cosas que, para saberlas bien, no basta con haberlas aprendido", a: "Séneca" },
+    { t: "Hay que cambiar de alma, no de clima", a: "Séneca" },
+    { t: "Importa mucho más lo que tú piensas de ti mismo que lo que los otros opinen", a: "Séneca" },
+    { t: "Incierto es el lugar en donde la muerte te espera; espérala, pues, en todo lugar", a: "Séneca" },
+    { t: "Industria es la aparente simpleza", a: "Séneca" },
+    { t: "Ingrato es quien niega el beneficio recibido", a: "Séneca" },
+    { t: "La amistad siempre es provechosa, pero el amor algunas veces es perjudicial", a: "Séneca" },
+    { t: "La avaricia es como la llama, cuya violencia aumenta en proporción al incendio", a: "Séneca" },
+
+    { t: "Acusar a los demás de los infortunios propios es un signo de falta de educación", a: "Epicteto" },
+    { t: "Confiamos porque somos precavidos", a: "Epicteto" },
+    { t: "Cuando hayas de sentenciar procura olvidar a los litigantes y acordarte sólo de la causa", a: "Epicteto" },
+    { t: "Cuando los placeres se exageran, truécanse en dolor", a: "Epicteto" },
+    { t: "Cuando sea llegada mi hora, moriré; pero moriré como debe morir un hombre que no hace más que devolver lo que se le confió", a: "Epicteto" },
+    { t: "Debemos rehuir la amistad de los malos y la enemistad de los buenos", a: "Epicteto" },
+    { t: "De no hablar sino cuando fuere preciso, raramente despegaríamos los labios", a: "Epicteto" },
+    { t: "Dos cosas hay que quitarle al hombre: la vanidad y la desconfianza", a: "Epicteto" },
+    { t: "El deseo y la felicidad no pueden vivir juntos", a: "Epicteto" },
+    { t: "El dolor y la muerte no son terribles, sino el miedo al dolor o a la muerte", a: "Epicteto" },
+    { t: "El necio, entre otros males, posee éste: siempre trata de comenzar su vida", a: "Epicteto" },
+    { t: "El tiempo libra a los necios de la aflicción y el buen juicio a los sanos", a: "Epicteto" },
+    { t: "En la mayoría de los hombres, la calma es letargia, la emoción es furor", a: "Epicteto" },
+    { t: "En la prosperidad es muy fácil encontrar amigos, en la adversidad no hay nada más difícil", a: "Epicteto" },
+    { t: "¿Es la libertad algo más que el derecho a vivir como se desee?", a: "Epicteto" },
+    { t: "Hombre, si eres alguien, ve a pasearte solo, conversa contigo mismo", a: "Epicteto" },
+    { t: "La cosa más difícil es conocernos a nosotros mismos. La más fácil, hablar mal de los demás", a: "Epicteto" },
+    { t: "La envidia es el adversario de los más afortunados", a: "Epicteto" },
+    { t: "La felicidad consiste en ser libre, es decir, en no desear nada", a: "Epicteto" },
+    { t: "La verdad triunfa por sí misma, la mentira necesita siempre complicidad", a: "Epicteto" },
+    { t: "Lo importante no es lo que se come, sino cómo se come", a: "Epicteto" },
+    { t: "Lo que perturba al hombre no son las cosas, sino los juicios relativos a las cosas", a: "Epicteto" },
+    { t: "Los hábitos contraídos no se corrigen sino con hábitos opuestos", a: "Epicteto" },
+    { t: "Los placeres raros son los que más nos deleitan", a: "Epicteto" },
+    { t: "Nada posees que no te haya sido dado", a: "Epicteto" },
+    { t: "Ninguna persona es libre, si no es su propio amo", a: "Epicteto" },
+    { t: "No debemos sujetar nuestra nave con una sola ancla ni nuestra vida con una sola esperanza", a: "Epicteto" },
+    { t: "No hay que tener miedo de la pobreza, ni del destierro ni de la cárcel, ni de la muerte", a: "Epicteto" },
+    { t: "No pretendas que las cosas sean como las deseas. Deséalas como son", a: "Epicteto" },
+    { t: "No podemos evitar el cometer errores, pero sí podemos poner constantemente atención", a: "Epicteto" },
+    { t: "No se llega a campeón sin sudar", a: "Epicteto" },
+    { t: "Nuestro bien y nuestro mal no existen más que en nuestra voluntad", a: "Epicteto" },
+    { t: "Para engrandecer a tu pueblo no has de elevar los tejados de sus viviendas", a: "Epicteto" },
+    { t: "Prefiere la satisfacción duradera a la gratificación inmediata", a: "Epicteto" },
+    { t: "Si hablan mal de ti con fundamento, corrígete; de lo contrario, échate a reír", a: "Epicteto" },
+    { t: "Si quieres algo bueno, búscalo en ti mismo", a: "Epicteto" },
+    { t: "Si quieres ser bueno, cree primero que eres malo", a: "Epicteto" },
+    { t: "Si quieres ser escritor, escribe", a: "Epicteto" },
+    { t: "Soy una parte del todo, como la hora es una parte del día", a: "Epicteto" },
+    { t: "Todo tiene dos asas: una por la que se la puede llevar y otra por la que no se puede", a: "Epicteto" },
+    { t: "Un hombre no puede ser dueño de otro hombre", a: "Epicteto" },
+    { t: "Vela por tus pensamientos cuando estés solo y por tus palabras", a: "Epicteto" }
+  ];
+
+  function showRandomQuote() {
+    const q = STOIC_QUOTES[Math.floor(Math.random() * STOIC_QUOTES.length)];
+    $('homeQuoteText').textContent = '"' + q.t + '"';
+    $('homeQuoteAuthor').textContent = '— ' + q.a;
+  }
+  showRandomQuote();
+
+  /* ============================================================
+     SHARED DATE HELPERS — same formulas as topbar.js / health.html
+     ============================================================ */
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  function calendarDateKey(d) {
+    d = d || new Date();
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+  }
+  // Goals' day rolls over at 6 AM, not midnight — exact replica of
+  // topbar.js activeDateKey().
+  function activeDateKey() {
+    const now = new Date();
+    const d = new Date(now);
+    if (now.getHours() < 6) d.setDate(d.getDate() - 1);
+    return calendarDateKey(d);
   }
 
-  /* ---------- unit state ---------- */
-  let heightUnit = 'cm';   // 'cm' | 'ft'
-  let weightUnit = 'kg';   // 'kg' | 'lb'
-  let sex = 'm';
-
-  function setHeightUnit(u) {
-    heightUnit = u;
-    $('heightUnitSeg').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.u === u));
-    const a = $('heightA'), b = $('heightB');
-    if (u === 'cm') { a.placeholder = 'cm'; b.style.display = 'none'; }
-    else { a.placeholder = 'ft'; b.placeholder = 'in'; b.style.display = ''; }
-  }
-  function setWeightUnit(u) {
-    weightUnit = u;
-    $('weightUnitSeg').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.u === u));
-  }
-  function setSex(s) {
-    sex = s;
-    $('sexSeg').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.s === s));
+  function setStat(id, text, status, subText) {
+    const el = $(id);
+    el.className = 'stat' + (status ? ' stat-' + status : '');
+    $(id + 'Num').textContent = text;
+    if (subText !== undefined) { const sub = $(id + 'Sub'); if (sub) sub.textContent = subText; }
   }
 
-  function getHeightCm() {
-    if (heightUnit === 'cm') { const v = parseFloat($('heightA').value); return v > 0 ? v : null; }
-    const ft = parseFloat($('heightA').value) || 0;
-    const inch = parseFloat($('heightB').value) || 0;
-    const cm = ft * 30.48 + inch * 2.54;
-    return cm > 0 ? Math.round(cm) : null;
+  /* ============================================================
+     AGUA — exact replica of topbar.js getWaterProgress() + classifyStatus()
+     ============================================================ */
+  function getWaterProgress() {
+    let state = null;
+    try { state = JSON.parse(localStorage.getItem('po_water_v1')); } catch (e) {}
+    if (!state) return { done: 0, total: 0 };
+    const todayKey = calendarDateKey();
+    const done = (state.logs || {})[todayKey] || 0;
+    const p = state.profile || { weightKg: 75 };
+    const wKg = state.weightUnit === 'lb' ? (p.weightKg || 0) / 2.20462 : (p.weightKg || 0);
+    const base = wKg * 35;
+    const exercise = (p.activityHrsPerWeek || 0) / 7 * 500;
+    const caffeine = Math.max(0, (state.caffeineMgPerDay || 0) - 200) * 1.5;
+    const subs = (state.substances || []).reduce((s, x) => {
+      const dose = (x && x.dose != null ? x.dose : (x && x.defaultDose)) || 0;
+      return s + Math.max(0, dose * ((x && x.mlPerUnit) || 0));
+    }, 0);
+    let adjust = 0;
+    if (p.sex === 'm') adjust += 200;
+    if ((p.age || 0) >= 50) adjust += 100;
+    const totalMl = base + exercise + caffeine + subs + adjust;
+    let unitVol;
+    if (state.unit === 'glass') unitVol = state.glassMl || 250;
+    else if (state.unit === 'oz') unitVol = 30;
+    else if (state.unit === 'ml') unitVol = 1;
+    else unitVol = state.bottleMl || 500;
+    const total = Math.max(1, Math.ceil(totalMl / unitVol));
+    return { done, total };
   }
-  function fillHeight(cm) {
-    if (!cm) { $('heightA').value = ''; $('heightB').value = ''; return; }
-    if (heightUnit === 'cm') { $('heightA').value = Math.round(cm); }
-    else { const totalIn = cm / 2.54; $('heightA').value = Math.floor(totalIn / 12); $('heightB').value = Math.round(totalIn % 12); }
+  function classifyWaterStatus(done, total) {
+    if (total === 0) return 'idle';
+    if (done >= total) return 'good';
+    if (done >= total * 0.5) return 'warn';
+    const h = new Date().getHours();
+    if (h >= 18 && done < total * 0.5) return 'miss';
+    return 'warn';
+  }
+  function renderWaterStat() {
+    const w = getWaterProgress();
+    const kind = classifyWaterStatus(w.done, w.total);
+    const status = kind === 'good' ? 'good' : kind === 'miss' ? 'bad' : kind === 'warn' ? 'warn' : null;
+    setStat('statWater', (w.total ? w.done + '/' + w.total : '0/0'), status);
   }
 
-  /* ---------- load existing profile into the form ---------- */
-  function populate() {
-    const w = loadJSON(WATER_KEY, defaultWater());
-    const p = w.profile || {};
-    setWeightUnit(w.weightUnit === 'lb' ? 'lb' : 'kg');
-    setHeightUnit(p.heightUnit === 'ft' ? 'ft' : 'cm');
-    setSex(p.sex === 'f' ? 'f' : 'm');
-    fillHeight(p.heightCm || null);
-    if (p.weightKg) $('weight').value = weightUnit === 'lb' ? Math.round(p.weightKg * 2.20462) : Math.round(p.weightKg);
-    else $('weight').value = '';
-    $('age').value = p.age || '';
-    $('activity').value = (p.activityHrsPerWeek != null ? p.activityHrsPerWeek : '');
+  /* ============================================================
+     SUEÑO — exact replica of health.html dateKey()/durationHours()
+     ============================================================ */
+  function minutesSinceMidnight(hhmm) {
+    if (!hhmm) return null;
+    const parts = hhmm.split(':').map(Number);
+    const h = parts[0], m = parts[1];
+    if (isNaN(h) || isNaN(m)) return null;
+    return h * 60 + m;
+  }
+  function durationHours(bedTime, wakeTime) {
+    const b = minutesSinceMidnight(bedTime), w = minutesSinceMidnight(wakeTime);
+    if (b == null || w == null) return null;
+    let diff = w - b;
+    if (diff <= 0) diff += 24 * 60;
+    return diff / 60;
+  }
+  function renderSleepStat() {
+    let entries = [];
+    try { const v = JSON.parse(localStorage.getItem('sleepEntries')); if (Array.isArray(v)) entries = v; } catch (e) {}
+    if (!entries.length) { setStat('statSleep', '—', null, ''); return; }
+
+    const todayKey = calendarDateKey();
+    let entry = entries.find(e => e.date === todayKey);
+    let isLastNight = false;
+    if (!entry) {
+      entry = entries.slice().sort((a, b) => (a.date < b.date ? 1 : -1))[0];
+      isLastNight = true;
+    }
+    const hours = entry ? durationHours(entry.bedTime, entry.wakeTime) : null;
+    if (hours == null) { setStat('statSleep', '—', null, ''); return; }
+
+    const status = hours >= 7 ? 'good' : hours >= 6 ? 'warn' : 'bad';
+    setStat('statSleep', hours.toFixed(1) + 'h', status, isLastNight ? '(anoche)' : '');
   }
 
-  /* ---------- save back into po_water_v1 (merge, never overwrite logs) ---------- */
-  function save() {
-    const w = loadJSON(WATER_KEY, defaultWater());
-    w.profile = w.profile || {};
-    const cm = getHeightCm();
-    if (cm) { w.profile.heightCm = cm; w.profile.heightUnit = heightUnit; }
-    const wv = parseFloat($('weight').value);
-    if (wv > 0) { w.profile.weightKg = weightUnit === 'lb' ? +(wv / 2.20462).toFixed(1) : wv; w.weightUnit = weightUnit; }
-    const age = parseInt($('age').value, 10); if (age > 0) w.profile.age = age;
-    w.profile.sex = sex;
-    const act = parseFloat($('activity').value); if (act >= 0 && !isNaN(act)) w.profile.activityHrsPerWeek = act;
-    saveJSON(WATER_KEY, w);
-    const s = $('settingsStatus'); s.textContent = 'Saved ✓';
-    setTimeout(() => { s.textContent = ''; }, 1800);
+  /* ============================================================
+     GOALS DE HOY — exact replica of topbar.js getGoalsProgress()
+     ============================================================ */
+  function renderGoalsStat() {
+    const key = 'goals:' + activeDateKey();
+    let goals = [];
+    try { goals = JSON.parse(localStorage.getItem(key)) || []; } catch (e) {}
+    const total = Array.isArray(goals) ? goals.length : 0;
+    const done = total ? goals.filter(g => g && g.done).length : 0;
+    const status = total === 0 ? null : (done === total ? 'good' : (done > 0 ? 'warn' : null));
+    setStat('statGoals', done + '/' + total, status);
   }
 
-  /* ---------- open / close ---------- */
-  function open() { populate(); $('settingsBg').classList.add('show'); }
-  function close() { $('settingsBg').classList.remove('show'); }
-  $('settingsOpen').addEventListener('click', open);
-  $('settingsClose').addEventListener('click', close);
-  $('settingsBg').addEventListener('click', (e) => { if (e.target === $('settingsBg')) close(); });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
-  $('settingsSave').addEventListener('click', save);
-  $('heightUnitSeg').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
-    const cm = getHeightCm(); setHeightUnit(b.dataset.u); fillHeight(cm);
-  }));
-  $('weightUnitSeg').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
-    const v = parseFloat($('weight').value);
-    const kg = v > 0 ? (weightUnit === 'lb' ? v / 2.20462 : v) : null;
-    setWeightUnit(b.dataset.u);
-    if (kg) $('weight').value = weightUnit === 'lb' ? Math.round(kg * 2.20462) : Math.round(kg);
-  }));
-  $('sexSeg').querySelectorAll('button').forEach(b => b.addEventListener('click', () => setSex(b.dataset.s)));
+  /* ============================================================
+     CALORÍAS — replicates nutrition.html's todaysLog()/macrosFor()
+     (entries store {foodId, qty} items, not a raw kcal field, so
+     kcal has to be looked up per-food same as nutrition.html does)
+     plus health.html's burned:YYYY-MM-DD offset.
+     ============================================================ */
+  function kcalForItem(foods, foodId, qty) {
+    const f = foods.find(x => x.id === foodId);
+    if (!f) return 0;
+    const scale = f.unit === 'unit' ? qty : qty / 100;
+    return (f.kcal || 0) * scale;
+  }
+  function renderCaloriesStat() {
+    let log = [], foods = [], goals = null;
+    try { log = JSON.parse(localStorage.getItem('nut:log')) || []; } catch (e) {}
+    try { foods = JSON.parse(localStorage.getItem('nut:foods')) || []; } catch (e) {}
+    try { goals = JSON.parse(localStorage.getItem('nut:goals')); } catch (e) {}
+    const goalKcal = (goals && goals.kcal) || 2200; // same fallback as nutrition.html's DEFAULT_GOALS.kcal
+
+    const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
+    const todaysEntries = log.filter(l => l.ts >= midnight.getTime());
+    let consumed = 0;
+    todaysEntries.forEach(entry => {
+      (entry.items || []).forEach(it => { consumed += kcalForItem(foods, it.foodId, it.qty); });
+    });
+
+    let burned = 0;
+    const bv = localStorage.getItem('burned:' + calendarDateKey());
+    if (bv != null && bv !== '') { const n = parseFloat(bv); if (!isNaN(n)) burned = n; }
+
+    const net = Math.round(consumed - burned);
+    const ratio = goalKcal > 0 ? net / goalKcal : 0;
+    const hour = new Date().getHours();
+    let status;
+    if (ratio >= 0.9 && ratio <= 1.1) status = 'good';
+    else if (ratio > 1.25) status = 'bad';
+    else if (ratio < 0.5 && hour >= 20) status = 'bad';
+    else status = 'warn';
+
+    setStat('statCalories', net + ' / ' + goalKcal + ' kcal', status);
+  }
+
+  /* ============================================================
+     ACTIVIDAD FÍSICA — exact replica of gym.html's log shape
+     (state.logs[exerciseId] = [{date, weight, reps}, ...])
+     ============================================================ */
+  function renderGymStat() {
+    let state = null;
+    try { state = JSON.parse(localStorage.getItem('po_coach_v1')); } catch (e) {}
+    if (!state || !state.logs) { setStat('statGym', '0 sets', null, '0 kg movidos'); return; }
+
+    const todayStr = calendarDateKey();
+    let sets = 0, volume = 0;
+    Object.keys(state.logs).forEach(exId => {
+      (state.logs[exId] || []).forEach(l => {
+        if (l && typeof l.date === 'string' && l.date.slice(0, 10) === todayStr) {
+          sets++;
+          volume += (Number(l.weight) || 0) * (Number(l.reps) || 0);
+        }
+      });
+    });
+    const unit = state.units === 'lb' ? 'lb' : 'kg';
+    const hour = new Date().getHours();
+    const status = sets > 0 ? 'good' : (hour >= 20 ? 'warn' : null);
+    setStat('statGym', sets + ' sets', status, Math.round(volume).toLocaleString('es-ES') + ' ' + unit + ' movidos');
+  }
+
+  /* ============================================================
+     INIT — read-only, no writes, no initCloudSync (per spec).
+     ============================================================ */
+  function renderAllStats() {
+    renderWaterStat();
+    renderSleepStat();
+    renderGoalsStat();
+    renderCaloriesStat();
+    renderGymStat();
+  }
+  renderAllStats();
+
+  // Other tabs/pages write these keys — refresh when they change or
+  // when this tab regains focus, same convention as topbar.js.
+  window.addEventListener('storage', renderAllStats);
+  window.addEventListener('focus', renderAllStats);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) renderAllStats(); });
 })();
 </script>
 </body>
