@@ -557,6 +557,8 @@ main {
       .sleep-week-inner {
         max-width: 1000px; margin: 0 auto; padding: 24px 32px;
         box-sizing: border-box; background: var(--bg-card);
+        backdrop-filter: blur(24px) saturate(1.2);
+        -webkit-backdrop-filter: blur(24px) saturate(1.2);
         border-radius: 18px; box-shadow: 0 12px 40px rgba(0,0,0,0.35);
       }
     }
@@ -804,7 +806,7 @@ main {
       return (d ? '<path class="sleep-line-' + kind + '" d="' + d + '"></path>' : '') + dots;
     }
 
-    const SLEEP_Y_MAX = 12, SLEEP_Y_STEP = 1;
+    const SLEEP_Y_MAX = 10, SLEEP_Y_STEP = 1;
 
     function hideSleepTooltip() {
       const tip = $('sleepWeekTooltip');
@@ -860,7 +862,7 @@ main {
         deep:  keys.map(k => (byDate[k] && byDate[k].deepHours  != null) ? byDate[k].deepHours  : null),
       };
 
-      // Fixed 0–12h Y axis — never rescale, nobody sleeps more than 12h.
+      // Fixed 0–10h Y axis — never rescale.
       // W matches the ACTUAL rendered pixel width of the chart (not an
       // arbitrary fixed unit) so widening the container via the
       // .sleep-week-breakout CSS genuinely spreads the 7 days across
