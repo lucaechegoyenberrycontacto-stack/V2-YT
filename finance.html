@@ -517,7 +517,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 /* Two-column overview row: line chart + donut */
 .nw-overview-grid {
   display: grid;
-  grid-template-columns: 1.6fr 1fr;
+  grid-template-columns: 1.3fr 1fr 0.7fr;
   gap: 12px;
   margin: 14px 0 18px;
   align-items: stretch;
@@ -611,6 +611,50 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   color: var(--text-primary); font-weight: 700;
   font-family: var(--font-mono);
   font-size: 10.5px;
+}
+
+/* USD/ARS quote widget — third column of .nw-overview-grid, same
+   card language as .nw-donut-wrap (bg, radius, header/label style). */
+.nw-ars-wrap {
+  padding: 14px 16px 12px;
+  background: rgba(255, 255, 255, 0.025);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+}
+.nw-ars-refresh {
+  background: none; border: none;
+  color: var(--text-tertiary); cursor: pointer;
+  font-size: 13px; padding: 0 2px; line-height: 1;
+  transition: color 0.15s;
+}
+.nw-ars-refresh:hover { color: var(--text-primary); }
+.nw-ars-refresh.loading { animation: nwArsSpin 0.8s linear infinite; opacity: 0.6; pointer-events: none; }
+@keyframes nwArsSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.nw-ars-table { display: flex; flex-direction: column; margin-top: 6px; }
+.nw-ars-col-head {
+  display: grid; grid-template-columns: 1fr auto auto; gap: 8px;
+  padding: 0 0 4px;
+}
+.nw-ars-col-head span:not(:first-child) {
+  font-size: 8.5px; letter-spacing: 0.12em; font-weight: 800;
+  text-transform: uppercase; color: var(--text-tertiary);
+  font-family: var(--font-mono); text-align: right;
+}
+.nw-ars-row {
+  display: grid; grid-template-columns: 1fr auto auto; gap: 8px;
+  align-items: center; padding: 5px 0;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+.nw-ars-type { font-size: 11px; color: var(--text-secondary); font-weight: 600; }
+.nw-ars-val {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-weight: 700; color: var(--text-primary); font-size: 12px;
+  text-align: right; min-width: 52px;
+}
+.nw-ars-updated {
+  margin-top: 8px; font-size: 9.5px; color: var(--text-tertiary);
+  text-align: center; font-style: italic;
 }
 
 /* ===== Activity log ===== */
@@ -1607,6 +1651,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
           <option value="USD">USD</option>
           <option value="EUR">EUR</option>
           <option value="GBP">GBP</option>
+          <option value="ARS">ARS</option>
         </select>
       </div>
     </div>
@@ -1672,6 +1717,27 @@ input[type="date"]::-webkit-calendar-picker-indicator {
         </div>
         <div class="nw-donut-empty" id="nwDonutEmpty">Add an account to see your breakdown</div>
         <div class="nw-donut-legend" id="nwDonutLegend"></div>
+      </div>
+
+      <div class="nw-ars-wrap">
+        <div class="nw-chart-head">
+          <span class="nw-chart-label">USD ARS</span>
+          <button type="button" class="nw-ars-refresh" id="arsRefreshBtn" title="Refrescar cotización" aria-label="Refrescar cotización">↻</button>
+        </div>
+        <div class="nw-ars-table">
+          <div class="nw-ars-col-head"><span></span><span>Compra</span><span>Venta</span></div>
+          <div class="nw-ars-row">
+            <span class="nw-ars-type">Oficial</span>
+            <span class="nw-ars-val" id="arsOficialCompra">—</span>
+            <span class="nw-ars-val" id="arsOficialVenta">—</span>
+          </div>
+          <div class="nw-ars-row">
+            <span class="nw-ars-type">Blue</span>
+            <span class="nw-ars-val" id="arsBlueCompra">—</span>
+            <span class="nw-ars-val" id="arsBlueVenta">—</span>
+          </div>
+        </div>
+        <div class="nw-ars-updated" id="arsUpdated">—</div>
       </div>
     </div>
 
@@ -1969,6 +2035,85 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     } catch (e) {}
   }
   loadExchangeRates();
+
+  // ============================================================
+  // ARS RATES (dolarapi.com) — oficial + blue peso quotes. Cached
+  // 24h in localStorage; feeds exchangeRates.ARS for the net worth
+  // currency selector and a small standalone quote widget.
+  // ============================================================
+  const ARS_RATES_KEY = 'ars_rates';
+  const ARS_RATES_TS_KEY = 'ars_rates_ts';
+  const ARS_CACHE_MS = 24 * 60 * 60 * 1000;
+
+  async function fetchArsRates() {
+    const [oficialRes, blueRes] = await Promise.all([
+      fetch('https://dolarapi.com/v1/dolares/oficial'),
+      fetch('https://dolarapi.com/v1/dolares/blue')
+    ]);
+    const oficial = await oficialRes.json();
+    const blue = await blueRes.json();
+    return {
+      oficial: { compra: oficial.compra, venta: oficial.venta },
+      blue: { compra: blue.compra, venta: blue.venta },
+      ts: Date.now()
+    };
+  }
+
+  function applyArsRates(data) {
+    if (data && data.oficial && data.oficial.venta) exchangeRates.ARS = data.oficial.venta;
+    renderAllNetWorth();
+    renderArsWidget();
+  }
+
+  async function loadArsRates(force) {
+    const cachedTs = storeGet(ARS_RATES_TS_KEY);
+    const cached = storeGet(ARS_RATES_KEY);
+    if (!force && cached && cachedTs && (Date.now() - cachedTs < ARS_CACHE_MS)) {
+      applyArsRates(cached);
+      return;
+    }
+    try {
+      const data = await fetchArsRates();
+      storeSet(ARS_RATES_KEY, data);
+      storeSet(ARS_RATES_TS_KEY, data.ts);
+      applyArsRates(data);
+    } catch (e) {
+      if (cached) applyArsRates(cached);
+      else renderArsWidget();
+    }
+  }
+
+  function renderArsWidget() {
+    const data = storeGet(ARS_RATES_KEY);
+    const ts = storeGet(ARS_RATES_TS_KEY);
+    const fmt = (n) => (typeof n === 'number') ? n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    set('arsOficialCompra', data && data.oficial ? fmt(data.oficial.compra) : '—');
+    set('arsOficialVenta',  data && data.oficial ? fmt(data.oficial.venta)  : '—');
+    set('arsBlueCompra',    data && data.blue    ? fmt(data.blue.compra)    : '—');
+    set('arsBlueVenta',     data && data.blue    ? fmt(data.blue.venta)    : '—');
+    const updatedEl = document.getElementById('arsUpdated');
+    if (updatedEl) {
+      if (!ts) {
+        updatedEl.textContent = 'Sin datos';
+      } else {
+        const mins = Math.round((Date.now() - ts) / 60000);
+        updatedEl.textContent = 'Actualizado hace ' + (mins < 60 ? mins + 'm' : Math.round(mins / 60) + 'h');
+      }
+    }
+  }
+  loadArsRates();
+
+  const arsRefreshBtn = document.getElementById('arsRefreshBtn');
+  if (arsRefreshBtn) {
+    arsRefreshBtn.addEventListener('click', async () => {
+      arsRefreshBtn.classList.add('loading');
+      const updatedEl = document.getElementById('arsUpdated');
+      if (updatedEl) updatedEl.textContent = 'Actualizando…';
+      await loadArsRates(true);
+      arsRefreshBtn.classList.remove('loading');
+    });
+  }
 
   function fmtMoney(amountCHF) {
     const symbol = currencyEl ? currencyEl.value : 'CHF';
