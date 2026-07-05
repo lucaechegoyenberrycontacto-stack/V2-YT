@@ -247,6 +247,27 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
     </div>
   </div>
 
+  <!-- CALORIE BALANCE -->
+  <div class="section">
+    <div class="section-title">Calorie Balance</div>
+    <div class="gm-card">
+      <div class="energy-head">
+        <div class="ring">
+          <svg viewBox="0 0 92 92">
+            <circle class="ring-track" cx="46" cy="46" r="40"></circle>
+            <circle class="ring-fill" id="balanceRingFill" cx="46" cy="46" r="40"></circle>
+          </svg>
+          <div class="ring-num"><b id="balanceRingNum">—</b><span>net kcal</span></div>
+        </div>
+        <div class="energy-label">
+          <span class="energy-state" id="balanceBreakdown">—</span>
+          <span class="energy-when" id="balanceStatus"></span>
+        </div>
+        <div class="energy-desc">Calories consumed minus calories burned today, compared to your daily goal.</div>
+      </div>
+    </div>
+  </div>
+
   <!-- LOG A MEAL -->
   <div class="section">
     <div class="section-title">Log a Meal</div>
@@ -526,7 +547,53 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
     });
   }
 
-  function renderAll(){ renderRing(); renderTiles(); renderGoalsNote(); renderLog(); }
+  /* ============ Calorie Balance (consumed - burned vs goal) ============
+     Reads 'burned:YYYY-MM-DD' from localStorage — written by the "Calories
+     Burned" card in health.html (same key format, no cutoff hour, plain
+     local calendar day). Shown neutral/gray if nothing's logged yet today,
+     rather than silently treating missing data as 0 burned.
+  ============================================================ */
+  function pad2n(n){ return String(n).padStart(2,'0'); }
+  function todayDateKey(){ const d=new Date(); return d.getFullYear()+'-'+pad2n(d.getMonth()+1)+'-'+pad2n(d.getDate()); }
+  function getBurnedToday(){
+    const v = localStorage.getItem('burned:'+todayDateKey());
+    if (v==null || v==='') return null;
+    const n = parseFloat(v);
+    return isNaN(n) ? null : n;
+  }
+  function renderBalance(){
+    const consumed = Math.round(dailyTotals().kcal);
+    const burned = getBurnedToday();
+    const fill = $('balanceRingFill');
+    fill.setAttribute('stroke-dasharray', RING_C);
+    if (burned == null){
+      fill.setAttribute('stroke-dashoffset', RING_C);
+      fill.style.stroke = 'rgba(255,255,255,0.15)';
+      $('balanceRingNum').textContent = '—';
+      $('balanceBreakdown').textContent = 'Log calories burned in Health to see your balance.';
+      $('balanceStatus').textContent = '';
+      return;
+    }
+    const net = consumed - burned;
+    const target = goals.kcal;
+    const pct = clamp(target>0 ? net/target : 0, 0, 1.3);
+    const dash = Math.max(0, Math.min(pct,1))*RING_C;
+    fill.setAttribute('stroke-dashoffset', RING_C - dash);
+    let color = '#6BE3A4';
+    if (net > target) color = '#FF6B6B'; else if (pct > 0.85) color = '#F2C063';
+    fill.style.stroke = color;
+    $('balanceRingNum').textContent = (net<0?'−':'') + Math.abs(Math.round(net));
+
+    const diff = burned - consumed; // positive = deficit, negative = surplus
+    const balanceLabel = diff >= 0 ? ('Deficit of '+Math.round(diff)) : ('Surplus of '+Math.round(-diff));
+    $('balanceBreakdown').textContent = 'Consumed '+consumed+' · Burned '+Math.round(burned)+' · '+balanceLabel;
+
+    const overBy = net - target;
+    $('balanceStatus').textContent = overBy > 0 ? ('⚠️ '+Math.round(overBy)+' kcal over your target') : '✅ On track for your goal';
+  }
+  window.addEventListener('storage', (e)=>{ if (!e.key || e.key.indexOf('burned:')===0) renderBalance(); });
+
+  function renderAll(){ renderRing(); renderTiles(); renderGoalsNote(); renderLog(); renderBalance(); }
 
   /* ============ Search: combos first, then foods ============ */
   function renderResults(q){
