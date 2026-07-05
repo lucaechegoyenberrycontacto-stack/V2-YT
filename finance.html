@@ -2023,12 +2023,15 @@ input[type="date"]::-webkit-calendar-picker-indicator {
       const res = await fetch('https://open.er-api.com/v6/latest/CHF');
       const data = await res.json();
       if (data && data.rates) {
-        exchangeRates = {
+        // Merge in place — don't replace the object outright, or a rate
+        // set independently (e.g. ARS from loadArsRates) that resolved
+        // first gets wiped out when this fetch lands second.
+        Object.assign(exchangeRates, {
           CHF: 1,
           USD: data.rates.USD || 1,
           EUR: data.rates.EUR || 1,
           GBP: data.rates.GBP || 1
-        };
+        });
         renderAllNetWorth();
         if (typeof renderSubs === 'function') renderSubs();
       }
@@ -2065,6 +2068,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     renderArsWidget();
   }
 
+  let arsRetried = false;
   async function loadArsRates(force) {
     const cachedTs = storeGet(ARS_RATES_TS_KEY);
     const cached = storeGet(ARS_RATES_KEY);
@@ -2078,8 +2082,16 @@ input[type="date"]::-webkit-calendar-picker-indicator {
       storeSet(ARS_RATES_TS_KEY, data.ts);
       applyArsRates(data);
     } catch (e) {
+      console.error('ARS rates fetch failed', e);
       if (cached) applyArsRates(cached);
       else renderArsWidget();
+      // A transient failure on the silent page-load fetch (no `force`)
+      // would otherwise sit unfixed for 24h until someone notices and
+      // hits the manual refresh button — retry once, shortly after.
+      if (!force && !arsRetried) {
+        arsRetried = true;
+        setTimeout(() => loadArsRates(true), 4000);
+      }
     }
   }
 
