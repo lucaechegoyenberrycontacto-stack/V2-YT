@@ -39,6 +39,7 @@
   --sleep-rem: #D6F3FF;
   --sleep-light: #7DD3FC;
   --sleep-deep: #1D4ED8;
+  --sleep-total: #FF6B6B;
 
   --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -535,27 +536,32 @@ main {
     .sleep-save-btn { width: 100%; margin-top: 4px; padding: 12px; border: 1px solid rgba(255,255,255,0.85); border-radius: 12px; background: linear-gradient(180deg, #FFF, #E8E5DD); color: #0A0A0B; font-family: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 6px 20px rgba(0,0,0,0.30); transition: transform 0.12s; }
     .sleep-save-btn:hover { transform: translateY(-1px); }
     .sleep-save-status { text-align: center; font-size: 11.5px; color: var(--text-tertiary); min-height: 16px; margin-top: 8px; }
-    /* Weekly stacked chart — same colors/segmented-bar pattern the old
-       Whoop sleep-stages bar used (rem/light/deep), just vertical & x7. */
+    /* Weekly line chart — 4 series (rem/light/deep/total), same stage
+       colors as the legend. Lines break wherever a day has no value for
+       that series, instead of interpolating across missing nights. */
     .sleep-week { margin-top: 22px; padding-top: 22px; border-top: 1px solid rgba(255,255,255,0.05); }
     .sleep-week-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
     .sleep-week-eye { font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-tertiary); }
-    .sleep-week-legend { display: flex; gap: 12px; }
+    .sleep-week-legend { display: flex; gap: 12px; flex-wrap: wrap; }
     .sleep-leg-item { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; color: var(--text-secondary); font-weight: 500; }
     .sleep-leg-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
     .sleep-leg-dot.d-rem { background: var(--sleep-rem); }
     .sleep-leg-dot.d-light { background: var(--sleep-light); }
     .sleep-leg-dot.d-deep { background: var(--sleep-deep); }
+    .sleep-leg-dot.d-total { background: var(--sleep-total); }
     .sleep-week-empty { font-size: 12.5px; color: var(--text-tertiary); font-style: italic; text-align: center; padding: 20px 10px; }
-    .sleep-week-chart { display: flex; align-items: flex-end; gap: 8px; height: 130px; padding-top: 6px; }
-    .sleep-week-day { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; height: 100%; justify-content: flex-end; }
-    .sleep-week-bar { width: 100%; max-width: 30px; display: flex; flex-direction: column-reverse; border-radius: 4px; overflow: hidden; background: rgba(255,255,255,0.03); min-height: 4px; }
-    .sleep-week-seg { width: 100%; }
-    .sleep-seg-rem   { background: var(--sleep-rem); }
-    .sleep-seg-light { background: var(--sleep-light); }
-    .sleep-seg-deep  { background: var(--sleep-deep); }
-    .sleep-seg-total { background: var(--text-tertiary); }
-    .sleep-week-label { font-size: 9.5px; color: var(--text-tertiary); font-family: var(--font-mono); }
+    .sleep-week-svg { width: 100%; height: 130px; display: block; }
+    .sleep-week-svg.hidden { display: none; }
+    .sleep-week-grid { stroke: rgba(255,255,255,0.05); stroke-width: 1; }
+    .sleep-line-rem   { fill: none; stroke: var(--sleep-rem);   stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .sleep-line-light { fill: none; stroke: var(--sleep-light); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .sleep-line-deep  { fill: none; stroke: var(--sleep-deep);  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .sleep-line-total { fill: none; stroke: var(--sleep-total); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    .sleep-dot-rem   { fill: var(--sleep-rem); }
+    .sleep-dot-light { fill: var(--sleep-light); }
+    .sleep-dot-deep  { fill: var(--sleep-deep); }
+    .sleep-dot-total { fill: var(--sleep-total); stroke: var(--bg); stroke-width: 1; }
+    .sleep-week-daylabel { font-size: 9.5px; fill: var(--text-tertiary); font-family: var(--font-mono); }
     /* Stats */
     .sleep-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-top: 18px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,0.05); }
     .sleep-stat { background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.04); border-radius: 12px; padding: 12px 10px; text-align: center; }
@@ -616,10 +622,11 @@ main {
             <span class="sleep-leg-item"><span class="sleep-leg-dot d-rem"></span>REM</span>
             <span class="sleep-leg-item"><span class="sleep-leg-dot d-light"></span>Light</span>
             <span class="sleep-leg-item"><span class="sleep-leg-dot d-deep"></span>Deep</span>
+            <span class="sleep-leg-item"><span class="sleep-leg-dot d-total"></span>Total</span>
           </div>
         </div>
         <div id="sleepWeekEmpty" class="sleep-week-empty" style="display:none">Aún no hay datos de sueño — registra tu primera noche arriba.</div>
-        <div id="sleepWeekChart" class="sleep-week-chart"></div>
+        <svg class="sleep-week-svg hidden" id="sleepWeekSvg" viewBox="0 0 300 130" preserveAspectRatio="none"></svg>
       </div>
 
       <div class="sleep-stats" id="sleepStats">
@@ -709,42 +716,62 @@ main {
       return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(y, m - 1, d).getDay()];
     }
 
+    // Builds one series' <path> (broken wherever a value is null, instead
+    // of interpolating across a night with no data) plus its dots.
+    function buildSeriesLine(vals, kind, xAt, yAt) {
+      let d = '', dots = '', started = false;
+      vals.forEach((v, i) => {
+        if (v == null) { started = false; return; }
+        const x = xAt(i), y = yAt(v);
+        d += (started ? ' L ' : 'M ') + x.toFixed(1) + ' ' + y.toFixed(1);
+        started = true;
+        dots += '<circle class="sleep-dot-' + kind + '" cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="2.8"></circle>';
+      });
+      return (d ? '<path class="sleep-line-' + kind + '" d="' + d + '"></path>' : '') + dots;
+    }
+
     function renderWeekChart(entries) {
-      const wrap = $('sleepWeekChart');
+      const svg = $('sleepWeekSvg');
       const emptyEl = $('sleepWeekEmpty');
       const keys = last7DayKeys();
       const byDate = {};
       entries.forEach(e => { byDate[e.date] = e; });
 
       if (!keys.some(k => byDate[k])) {
-        wrap.innerHTML = '';
+        svg.innerHTML = '';
+        svg.classList.add('hidden');
         emptyEl.style.display = 'block';
         return;
       }
       emptyEl.style.display = 'none';
+      svg.classList.remove('hidden');
 
-      const durations = keys.map(k => (byDate[k] ? durationHours(byDate[k].bedTime, byDate[k].wakeTime) : null) || 0);
-      const maxHours = Math.max.apply(null, durations.concat([1]));
+      const series = {
+        total: keys.map(k => byDate[k] ? durationHours(byDate[k].bedTime, byDate[k].wakeTime) : null),
+        rem:   keys.map(k => (byDate[k] && byDate[k].remHours   != null) ? byDate[k].remHours   : null),
+        light: keys.map(k => (byDate[k] && byDate[k].lightHours != null) ? byDate[k].lightHours : null),
+        deep:  keys.map(k => (byDate[k] && byDate[k].deepHours  != null) ? byDate[k].deepHours  : null),
+      };
+      const allVals = [].concat(series.total, series.rem, series.light, series.deep).filter(v => v != null);
+      const maxVal = Math.max.apply(null, allVals.concat([1]));
 
-      wrap.innerHTML = keys.map((k, i) => {
-        const e = byDate[k];
-        const hours = durations[i];
-        const heightPct = Math.max(hours > 0 ? 6 : 3, Math.round(100 * hours / maxHours));
-        let segsHtml = '';
-        if (e && (e.remHours || e.lightHours || e.deepHours)) {
-          const total = (e.remHours || 0) + (e.lightHours || 0) + (e.deepHours || 0);
-          const pct = (v) => total ? (100 * v / total) : 0;
-          segsHtml = '<div class="sleep-week-seg sleep-seg-rem" style="height:' + pct(e.remHours || 0) + '%"></div>'
-            + '<div class="sleep-week-seg sleep-seg-light" style="height:' + pct(e.lightHours || 0) + '%"></div>'
-            + '<div class="sleep-week-seg sleep-seg-deep" style="height:' + pct(e.deepHours || 0) + '%"></div>';
-        } else if (e) {
-          segsHtml = '<div class="sleep-week-seg sleep-seg-total" style="height:100%"></div>';
-        }
-        return '<div class="sleep-week-day">'
-          + '<div class="sleep-week-bar" style="height:' + heightPct + '%">' + segsHtml + '</div>'
-          + '<div class="sleep-week-label">' + dayLabel(k) + '</div>'
-          + '</div>';
-      }).join('');
+      const n = keys.length;
+      const W = 300, H = 130, padX = 14, padTop = 10, padBottom = 26;
+      const plotH = H - padTop - padBottom;
+      const xAt = (i) => padX + (W - padX * 2) * (n === 1 ? 0.5 : i / (n - 1));
+      const yAt = (v) => padTop + plotH * (1 - v / maxVal);
+
+      let html = '<line class="sleep-week-grid" x1="0" y1="' + padTop.toFixed(1) + '" x2="' + W + '" y2="' + padTop.toFixed(1) + '"></line>'
+        + '<line class="sleep-week-grid" x1="0" y1="' + (padTop + plotH / 2).toFixed(1) + '" x2="' + W + '" y2="' + (padTop + plotH / 2).toFixed(1) + '"></line>'
+        + '<line class="sleep-week-grid" x1="0" y1="' + (padTop + plotH).toFixed(1) + '" x2="' + W + '" y2="' + (padTop + plotH).toFixed(1) + '"></line>';
+      html += buildSeriesLine(series.rem, 'rem', xAt, yAt);
+      html += buildSeriesLine(series.light, 'light', xAt, yAt);
+      html += buildSeriesLine(series.deep, 'deep', xAt, yAt);
+      html += buildSeriesLine(series.total, 'total', xAt, yAt);
+      keys.forEach((k, i) => {
+        html += '<text class="sleep-week-daylabel" x="' + xAt(i).toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle">' + dayLabel(k) + '</text>';
+      });
+      svg.innerHTML = html;
     }
 
     // ---------- Stats ----------
