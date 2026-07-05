@@ -36,6 +36,10 @@
   --tag-stack: #D8AB30;
   --tag-stack-bg: rgba(216, 171, 48, 0.15);
 
+  --sleep-rem: #D6F3FF;
+  --sleep-light: #7DD3FC;
+  --sleep-deep: #1D4ED8;
+
   --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
@@ -539,17 +543,17 @@ main {
     .sleep-week-legend { display: flex; gap: 12px; }
     .sleep-leg-item { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; color: var(--text-secondary); font-weight: 500; }
     .sleep-leg-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
-    .sleep-leg-dot.d-rem { background: var(--text-primary); }
-    .sleep-leg-dot.d-light { background: var(--text-tertiary); }
-    .sleep-leg-dot.d-deep { background: var(--text-secondary); }
+    .sleep-leg-dot.d-rem { background: var(--sleep-rem); }
+    .sleep-leg-dot.d-light { background: var(--sleep-light); }
+    .sleep-leg-dot.d-deep { background: var(--sleep-deep); }
     .sleep-week-empty { font-size: 12.5px; color: var(--text-tertiary); font-style: italic; text-align: center; padding: 20px 10px; }
     .sleep-week-chart { display: flex; align-items: flex-end; gap: 8px; height: 130px; padding-top: 6px; }
     .sleep-week-day { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; height: 100%; justify-content: flex-end; }
     .sleep-week-bar { width: 100%; max-width: 30px; display: flex; flex-direction: column-reverse; border-radius: 4px; overflow: hidden; background: rgba(255,255,255,0.03); min-height: 4px; }
     .sleep-week-seg { width: 100%; }
-    .sleep-seg-rem   { background: var(--text-primary); }
-    .sleep-seg-light { background: var(--text-tertiary); }
-    .sleep-seg-deep  { background: var(--text-secondary); }
+    .sleep-seg-rem   { background: var(--sleep-rem); }
+    .sleep-seg-light { background: var(--sleep-light); }
+    .sleep-seg-deep  { background: var(--sleep-deep); }
     .sleep-seg-total { background: var(--text-tertiary); }
     .sleep-week-label { font-size: 9.5px; color: var(--text-tertiary); font-family: var(--font-mono); }
     /* Stats */
@@ -580,16 +584,16 @@ main {
       </div>
       <div class="sleep-form-row sleep-form-row-3">
         <label class="sleep-field">
-          <span class="sleep-field-label">REM (min)</span>
-          <input type="number" min="0" id="sleepRem" class="sleep-input" placeholder="optional">
+          <span class="sleep-field-label">REM (hours)</span>
+          <input type="number" min="0" step="0.1" id="sleepRem" class="sleep-input" placeholder="optional">
         </label>
         <label class="sleep-field">
-          <span class="sleep-field-label">Light (min)</span>
-          <input type="number" min="0" id="sleepLight" class="sleep-input" placeholder="optional">
+          <span class="sleep-field-label">Light (hours)</span>
+          <input type="number" min="0" step="0.1" id="sleepLight" class="sleep-input" placeholder="optional">
         </label>
         <label class="sleep-field">
-          <span class="sleep-field-label">Deep (min)</span>
-          <input type="number" min="0" id="sleepDeep" class="sleep-input" placeholder="optional">
+          <span class="sleep-field-label">Deep (hours)</span>
+          <input type="number" min="0" step="0.1" id="sleepDeep" class="sleep-input" placeholder="optional">
         </label>
       </div>
       <div class="sleep-form-row" style="flex-direction:column; align-items:stretch;">
@@ -675,9 +679,9 @@ main {
 
       const entry = {
         date, bedTime, wakeTime,
-        remMin: $('sleepRem').value ? Number($('sleepRem').value) : null,
-        lightMin: $('sleepLight').value ? Number($('sleepLight').value) : null,
-        deepMin: $('sleepDeep').value ? Number($('sleepDeep').value) : null,
+        remHours: $('sleepRem').value ? Number($('sleepRem').value) : null,
+        lightHours: $('sleepLight').value ? Number($('sleepLight').value) : null,
+        deepHours: $('sleepDeep').value ? Number($('sleepDeep').value) : null,
         feeling: selectedFeeling,
         loggedAt: new Date().toISOString(),
       };
@@ -727,12 +731,12 @@ main {
         const hours = durations[i];
         const heightPct = Math.max(hours > 0 ? 6 : 3, Math.round(100 * hours / maxHours));
         let segsHtml = '';
-        if (e && (e.remMin || e.lightMin || e.deepMin)) {
-          const total = (e.remMin || 0) + (e.lightMin || 0) + (e.deepMin || 0);
+        if (e && (e.remHours || e.lightHours || e.deepHours)) {
+          const total = (e.remHours || 0) + (e.lightHours || 0) + (e.deepHours || 0);
           const pct = (v) => total ? (100 * v / total) : 0;
-          segsHtml = '<div class="sleep-week-seg sleep-seg-rem" style="height:' + pct(e.remMin || 0) + '%"></div>'
-            + '<div class="sleep-week-seg sleep-seg-light" style="height:' + pct(e.lightMin || 0) + '%"></div>'
-            + '<div class="sleep-week-seg sleep-seg-deep" style="height:' + pct(e.deepMin || 0) + '%"></div>';
+          segsHtml = '<div class="sleep-week-seg sleep-seg-rem" style="height:' + pct(e.remHours || 0) + '%"></div>'
+            + '<div class="sleep-week-seg sleep-seg-light" style="height:' + pct(e.lightHours || 0) + '%"></div>'
+            + '<div class="sleep-week-seg sleep-seg-deep" style="height:' + pct(e.deepHours || 0) + '%"></div>';
         } else if (e) {
           segsHtml = '<div class="sleep-week-seg sleep-seg-total" style="height:100%"></div>';
         }
@@ -754,11 +758,11 @@ main {
       const durations = recent.map(e => durationHours(e.bedTime, e.wakeTime)).filter(v => v != null);
       avgEl.textContent = durations.length ? (durations.reduce((a, b) => a + b, 0) / durations.length).toFixed(1) + 'h' : '—';
 
-      const withStages = recent.filter(e => e.remMin || e.lightMin || e.deepMin);
+      const withStages = recent.filter(e => e.remHours || e.lightHours || e.deepHours);
       if (withStages.length) {
         const remPcts = withStages.map(e => {
-          const total = (e.remMin || 0) + (e.lightMin || 0) + (e.deepMin || 0);
-          return total ? (100 * (e.remMin || 0) / total) : 0;
+          const total = (e.remHours || 0) + (e.lightHours || 0) + (e.deepHours || 0);
+          return total ? (100 * (e.remHours || 0) / total) : 0;
         });
         remEl.textContent = Math.round(remPcts.reduce((a, b) => a + b, 0) / remPcts.length) + '%';
       } else {
