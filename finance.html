@@ -2331,6 +2331,12 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     other:  { name: 'Other',    color: '#B794F4' },
     subs:   { name: 'Subs/yr',  color: '#FF8A8A' }
   };
+  // Per-account color overrides for the donut — takes precedence over the
+  // parent category's color when an account name matches (case-insensitive).
+  const NW_SLICE_COLOR_OVERRIDES = {
+    'efectivo': '#22C55E',
+    'uala':     '#B22234' // "Old Glory Red" — the red in the US flag
+  };
   function donutArcPath(cx, cy, rOuter, rInner, startAngle, endAngle) {
     const x1o = cx + rOuter * Math.cos(startAngle);
     const y1o = cy + rOuter * Math.sin(startAngle);
@@ -2366,10 +2372,12 @@ input[type="date"]::-webkit-calendar-picker-indicator {
       items.forEach((it, i) => {
         const v = Number(it.amount) || 0;
         if (v > 0) {
+          const name = String(it.name || '(unnamed)');
+          const color = NW_SLICE_COLOR_OVERRIDES[name.toLowerCase()] || meta.color;
           slices.push({
             key: cat.key + '::' + i,
-            name: String(it.name || '(unnamed)'),
-            color: meta.color,
+            name: name,
+            color: color,
             value: v
           });
         }
