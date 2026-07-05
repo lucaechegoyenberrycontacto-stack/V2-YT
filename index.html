@@ -134,9 +134,12 @@ body::after {
 
 /* ===== Home-page-specific bits ===== */
 .home-welcome {
-  font-size: 11px; color: var(--text-tertiary);
-  letter-spacing: 0.02em; margin: 0 0 18px;
+  font-family: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', serif;
+  font-style: italic;
+  font-size: 26px; color: #6B8E23;
+  letter-spacing: 0.01em; margin: 0 0 22px;
 }
+@media (max-width: 480px) { .home-welcome { font-size: 20px; } }
 .home-clock-row {
   display: flex; flex-wrap: wrap; align-items: center;
   justify-content: space-between; gap: 20px;
