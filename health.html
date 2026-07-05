@@ -36,10 +36,10 @@
   --tag-stack: #D8AB30;
   --tag-stack-bg: rgba(216, 171, 48, 0.15);
 
-  --sleep-rem: #D6F3FF;
+  --sleep-rem: #9FE8FF;
   --sleep-light: #7DD3FC;
   --sleep-deep: #1D4ED8;
-  --sleep-total: #FF6B6B;
+  --sleep-total: #B91C1C;
 
   --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -540,7 +540,7 @@ main {
        colors as the legend. Lines break wherever a day has no value for
        that series, instead of interpolating across missing nights. */
     .sleep-week { margin-top: 22px; padding-top: 22px; border-top: 1px solid rgba(255,255,255,0.05); }
-    .sleep-week-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
+    .sleep-week-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 20px; flex-wrap: wrap; gap: 8px; }
     .sleep-week-eye { font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-tertiary); }
     .sleep-week-legend { display: flex; gap: 12px; flex-wrap: wrap; }
     .sleep-leg-item { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; color: var(--text-secondary); font-weight: 500; }
@@ -550,18 +550,32 @@ main {
     .sleep-leg-dot.d-deep { background: var(--sleep-deep); }
     .sleep-leg-dot.d-total { background: var(--sleep-total); }
     .sleep-week-empty { font-size: 12.5px; color: var(--text-tertiary); font-style: italic; text-align: center; padding: 20px 10px; }
-    .sleep-week-svg { width: 100%; height: 130px; display: block; }
+    .sleep-week-chart-wrap { position: relative; }
+    .sleep-week-svg { width: 100%; height: 190px; display: block; overflow: visible; }
     .sleep-week-svg.hidden { display: none; }
-    .sleep-week-grid { stroke: rgba(255,255,255,0.05); stroke-width: 1; }
+    .sleep-week-grid { stroke: rgba(255,255,255,0.06); stroke-width: 1; }
+    .sleep-week-yaxis-label { font-size: 9px; fill: var(--text-tertiary); font-family: var(--font-mono); }
     .sleep-line-rem   { fill: none; stroke: var(--sleep-rem);   stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
     .sleep-line-light { fill: none; stroke: var(--sleep-light); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
     .sleep-line-deep  { fill: none; stroke: var(--sleep-deep);  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
     .sleep-line-total { fill: none; stroke: var(--sleep-total); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    .sleep-dot { cursor: pointer; }
     .sleep-dot-rem   { fill: var(--sleep-rem); }
     .sleep-dot-light { fill: var(--sleep-light); }
     .sleep-dot-deep  { fill: var(--sleep-deep); }
     .sleep-dot-total { fill: var(--sleep-total); stroke: var(--bg); stroke-width: 1; }
+    /* Invisible larger circle behind each dot so mobile taps land reliably
+       without making the visible marker itself bigger. */
+    .sleep-dot-hit { fill: rgba(0,0,0,0.001); pointer-events: all; cursor: pointer; }
     .sleep-week-daylabel { font-size: 9.5px; fill: var(--text-tertiary); font-family: var(--font-mono); }
+    .sleep-week-tooltip {
+      position: absolute; display: none; pointer-events: none;
+      transform: translate(-50%, calc(-100% - 10px));
+      background: rgba(20,20,24,0.97); border: 1px solid rgba(255,255,255,0.14);
+      color: var(--text-primary); font-size: 11px; font-weight: 700;
+      font-family: var(--font-mono); padding: 5px 9px; border-radius: 8px;
+      white-space: nowrap; box-shadow: 0 6px 18px rgba(0,0,0,0.45); z-index: 5;
+    }
     /* Stats */
     .sleep-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-top: 18px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,0.05); }
     .sleep-stat { background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.04); border-radius: 12px; padding: 12px 10px; text-align: center; }
@@ -626,7 +640,10 @@ main {
           </div>
         </div>
         <div id="sleepWeekEmpty" class="sleep-week-empty" style="display:none">Aún no hay datos de sueño — registra tu primera noche arriba.</div>
-        <svg class="sleep-week-svg hidden" id="sleepWeekSvg" viewBox="0 0 300 130" preserveAspectRatio="none"></svg>
+        <div class="sleep-week-chart-wrap" id="sleepWeekChartWrap">
+          <svg class="sleep-week-svg hidden" id="sleepWeekSvg" viewBox="0 0 300 190" preserveAspectRatio="none"></svg>
+          <div class="sleep-week-tooltip" id="sleepWeekTooltip"></div>
+        </div>
       </div>
 
       <div class="sleep-stats" id="sleepStats">
@@ -717,7 +734,9 @@ main {
     }
 
     // Builds one series' <path> (broken wherever a value is null, instead
-    // of interpolating across a night with no data) plus its dots.
+    // of interpolating across a night with no data) plus its dots. Each
+    // dot gets a paired invisible larger circle so mobile taps land
+    // reliably without enlarging the visible marker.
     function buildSeriesLine(vals, kind, xAt, yAt) {
       let d = '', dots = '', started = false;
       vals.forEach((v, i) => {
@@ -725,10 +744,44 @@ main {
         const x = xAt(i), y = yAt(v);
         d += (started ? ' L ' : 'M ') + x.toFixed(1) + ' ' + y.toFixed(1);
         started = true;
-        dots += '<circle class="sleep-dot-' + kind + '" cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="2.8"></circle>';
+        const attrs = ' cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" data-kind="' + kind + '" data-value="' + v + '"';
+        dots += '<circle class="sleep-dot-hit" r="9"' + attrs + '></circle>'
+          + '<circle class="sleep-dot sleep-dot-' + kind + '" r="3"' + attrs + '></circle>';
       });
       return (d ? '<path class="sleep-line-' + kind + '" d="' + d + '"></path>' : '') + dots;
     }
+
+    const SLEEP_Y_MAX = 12, SLEEP_Y_STEP = 2;
+
+    function hideSleepTooltip() {
+      const tip = $('sleepWeekTooltip');
+      if (tip) tip.style.display = 'none';
+    }
+    function showSleepTooltip(dotEl) {
+      const tip = $('sleepWeekTooltip');
+      const wrap = $('sleepWeekChartWrap');
+      const kind = dotEl.getAttribute('data-kind');
+      const value = Number(dotEl.getAttribute('data-value'));
+      const label = kind.charAt(0).toUpperCase() + kind.slice(1);
+      tip.textContent = label + ': ' + value.toFixed(1) + 'h';
+      tip.style.display = 'block';
+      const wrapRect = wrap.getBoundingClientRect();
+      const dotRect = dotEl.getBoundingClientRect();
+      tip.style.left = (dotRect.left + dotRect.width / 2 - wrapRect.left) + 'px';
+      tip.style.top = (dotRect.top - wrapRect.top) + 'px';
+    }
+    function wireSleepDotEvents() {
+      $('sleepWeekSvg').querySelectorAll('.sleep-dot, .sleep-dot-hit').forEach((dot) => {
+        dot.addEventListener('mouseenter', () => showSleepTooltip(dot));
+        dot.addEventListener('mouseleave', hideSleepTooltip);
+        dot.addEventListener('click', (e) => { e.stopPropagation(); showSleepTooltip(dot); });
+      });
+    }
+    // Tap/click anywhere outside a dot dismisses the tooltip — registered
+    // once, not per render.
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.sleep-dot, .sleep-dot-hit')) hideSleepTooltip();
+    });
 
     function renderWeekChart(entries) {
       const svg = $('sleepWeekSvg');
@@ -741,6 +794,7 @@ main {
         svg.innerHTML = '';
         svg.classList.add('hidden');
         emptyEl.style.display = 'block';
+        hideSleepTooltip();
         return;
       }
       emptyEl.style.display = 'none';
@@ -752,26 +806,31 @@ main {
         light: keys.map(k => (byDate[k] && byDate[k].lightHours != null) ? byDate[k].lightHours : null),
         deep:  keys.map(k => (byDate[k] && byDate[k].deepHours  != null) ? byDate[k].deepHours  : null),
       };
-      const allVals = [].concat(series.total, series.rem, series.light, series.deep).filter(v => v != null);
-      const maxVal = Math.max.apply(null, allVals.concat([1]));
 
+      // Fixed 0–12h Y axis — never rescale, nobody sleeps more than 12h.
       const n = keys.length;
-      const W = 300, H = 130, padX = 14, padTop = 10, padBottom = 26;
+      const W = 300, H = 190;
+      const padLeft = 24, padRight = 10, padTop = 16, padBottom = 32;
+      const plotW = W - padLeft - padRight;
       const plotH = H - padTop - padBottom;
-      const xAt = (i) => padX + (W - padX * 2) * (n === 1 ? 0.5 : i / (n - 1));
-      const yAt = (v) => padTop + plotH * (1 - v / maxVal);
+      const xAt = (i) => padLeft + plotW * (n === 1 ? 0.5 : i / (n - 1));
+      const yAt = (v) => padTop + plotH * (1 - Math.min(v, SLEEP_Y_MAX) / SLEEP_Y_MAX);
 
-      let html = '<line class="sleep-week-grid" x1="0" y1="' + padTop.toFixed(1) + '" x2="' + W + '" y2="' + padTop.toFixed(1) + '"></line>'
-        + '<line class="sleep-week-grid" x1="0" y1="' + (padTop + plotH / 2).toFixed(1) + '" x2="' + W + '" y2="' + (padTop + plotH / 2).toFixed(1) + '"></line>'
-        + '<line class="sleep-week-grid" x1="0" y1="' + (padTop + plotH).toFixed(1) + '" x2="' + W + '" y2="' + (padTop + plotH).toFixed(1) + '"></line>';
+      let html = '';
+      for (let v = 0; v <= SLEEP_Y_MAX; v += SLEEP_Y_STEP) {
+        const y = yAt(v);
+        html += '<line class="sleep-week-grid" x1="' + padLeft + '" y1="' + y.toFixed(1) + '" x2="' + (W - padRight) + '" y2="' + y.toFixed(1) + '"></line>'
+          + '<text class="sleep-week-yaxis-label" x="' + (padLeft - 6) + '" y="' + (y + 3).toFixed(1) + '" text-anchor="end">' + v + '</text>';
+      }
       html += buildSeriesLine(series.rem, 'rem', xAt, yAt);
       html += buildSeriesLine(series.light, 'light', xAt, yAt);
       html += buildSeriesLine(series.deep, 'deep', xAt, yAt);
       html += buildSeriesLine(series.total, 'total', xAt, yAt);
       keys.forEach((k, i) => {
-        html += '<text class="sleep-week-daylabel" x="' + xAt(i).toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle">' + dayLabel(k) + '</text>';
+        html += '<text class="sleep-week-daylabel" x="' + xAt(i).toFixed(1) + '" y="' + (H - 10) + '" text-anchor="middle">' + dayLabel(k) + '</text>';
       });
       svg.innerHTML = html;
+      wireSleepDotEvents();
     }
 
     // ---------- Stats ----------
