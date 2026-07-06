@@ -107,6 +107,8 @@ const CONFIG = {
   --good: #6ee7b7;
   --warn: #fbbf24;
   --bad: #ff8a8a;
+  --steps-accent: #67e8f9;
+  --steps-accent-fill: rgba(103, 232, 249, 0.28);
   --font: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
   --font-mono: ui-monospace, SF Mono, Menlo, Consolas, monospace;
 }
@@ -1045,18 +1047,136 @@ img, video, canvas, svg { max-width: 100%; }
   height: 2px;
 }
 
-/* Steps chart — reuses .wt-line/.wt-dot/.wt-dot-today (identical line/dot
-   look) and .wh-freq-grid/.wh-freq-yaxis-label/.wh-freq-label/.wh-freq-val
-   (identical grid/label look) from the charts above. Only the area fill
-   needs its own rule since .wt-area points at the weight chart's own
-   <defs> gradient id. */
+/* Steps module — its own celeste accent (--steps-accent), distinct from
+   the green --good used by the Weight module, so the two read apart at a
+   glance. Reuses .wh-freq-grid/.wh-freq-yaxis-label/.wh-freq-label/
+   .wh-freq-val for grid/label typography (identical look to the charts
+   above) but has its own line/dot/area classes since .wt-line/.wt-dot/
+   .wt-dot-today are green and shared with the Weight chart. */
 .steps-chart-head {
   display: flex; align-items: center; justify-content: space-between;
   gap: 10px; margin-bottom: 14px;
 }
 .steps-range-seg { flex: 0 0 150px; width: 150px; padding: 3px; gap: 2px; }
+.steps-chart-wrap { position: relative; }
 .steps-chart-svg { width: 100%; height: 380px; display: block; }
-.steps-chart-area { fill: url(#stepsChartFill); }
+.steps-chart-svg.hidden { display: none; }
+.steps-chart-area { fill: url(#stepsChartFill); transition: d 0.3s ease; }
+.steps-line {
+  fill: none; stroke: var(--steps-accent); stroke-width: 2;
+  stroke-linecap: round; stroke-linejoin: round; transition: d 0.3s ease;
+}
+.steps-dot {
+  fill: var(--steps-accent); stroke: var(--bg-card); stroke-width: 1.5;
+  transition: cx 0.3s ease, cy 0.3s ease, r 0.2s ease, opacity 0.2s ease;
+}
+.steps-dot-today { fill: #fff; stroke: var(--steps-accent); stroke-width: 2; }
+.steps-grid-line, .steps-grid-label { transition: y 0.3s ease; }
+.steps-point-val, .steps-point-label { transition: opacity 0.2s ease; }
+
+/* Two-column desktop layout: log/summary on the left, chart on the right.
+   Below 1024px it collapses to one stacked column, matching the page's
+   existing po-groups breakpoint above. */
+.steps-layout { display: flex; flex-direction: column; gap: 22px; }
+@media (min-width: 1024px) {
+  .steps-layout {
+    display: grid;
+    grid-template-columns: minmax(280px, 1fr) 1.65fr;
+    gap: 28px;
+    align-items: start;
+  }
+}
+
+/* Date pills (Hoy / Ayer / Elegir fecha) replace the native <input type=date>. */
+.steps-date-row { position: relative; margin-bottom: 14px; }
+.steps-date-seg { gap: 4px; }
+.steps-pill-cal { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.steps-cal-icon { width: 14px; height: 14px; flex: 0 0 auto; }
+/* Active state uses the steps accent instead of the shared white gradient,
+   so it doesn't get confused with the Semana/Mes segmented control. */
+.steps-date-seg .po-seg-btn.active {
+  background: var(--steps-accent); color: #073138;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 4px 12px rgba(0,0,0,0.35);
+}
+
+.steps-bar-fill { background: var(--steps-accent); }
+.steps-goal-row { display: flex; align-items: center; gap: 6px; position: relative; }
+.steps-goal-edit-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; padding: 0; border: none; border-radius: 6px;
+  background: transparent; color: var(--text-3); cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.steps-goal-edit-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-1); }
+.steps-goal-edit-btn svg { width: 13px; height: 13px; }
+
+.steps-input-notice { font-size: 11.5px; margin-top: 6px; color: var(--warn); }
+.steps-save-btn { background: var(--steps-accent); color: #073138; }
+
+.steps-empty {
+  position: absolute; inset: 0; display: flex; align-items: center;
+  justify-content: center; text-align: center; padding: 0 24px;
+  color: var(--text-3); font-size: 13px; font-style: italic;
+}
+.steps-empty.hidden { display: none; }
+
+/* Popovers — shared base for the calendar and goal-edit panels. Anchored
+   inside a position:relative wrapper around the trigger's row so they
+   scroll naturally with the page instead of needing scroll-reposition JS. */
+.steps-popover {
+  position: absolute; top: calc(100% + 8px); left: 0; z-index: 45;
+  width: min(300px, calc(100vw - 64px));
+  background: var(--bg-card); border: 1px solid var(--border-strong);
+  border-radius: 14px; padding: 16px;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+  opacity: 0; transform: scale(0.96) translateY(-4px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  pointer-events: none;
+}
+.steps-popover.open { opacity: 1; transform: scale(1) translateY(0); pointer-events: auto; }
+.steps-popover.hidden { display: none; }
+.steps-popover-label {
+  display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--text-3); margin-bottom: 8px;
+}
+.steps-popover-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.steps-popover-btn-cancel, .steps-popover-btn-save {
+  border: none; border-radius: 10px; padding: 9px 14px;
+  font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.steps-popover-btn-cancel { background: rgba(255,255,255,0.06); color: var(--text-2); }
+.steps-popover-btn-cancel:hover { background: rgba(255,255,255,0.1); color: var(--text-1); }
+.steps-popover-btn-save { background: var(--steps-accent); color: #073138; }
+
+.steps-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.steps-cal-month { font-size: 13px; font-weight: 700; color: var(--text-1); }
+.steps-cal-nav {
+  width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text-2); font-size: 15px; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.steps-cal-nav:hover { background: rgba(255,255,255,0.09); color: var(--text-1); }
+.steps-cal-nav:disabled { opacity: 0.3; cursor: default; pointer-events: none; }
+.steps-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.steps-cal-dow {
+  text-align: center; font-size: 9.5px; font-weight: 700; color: var(--text-4);
+  padding: 4px 0; text-transform: uppercase;
+}
+.steps-cal-cell { aspect-ratio: 1; }
+.steps-cal-day {
+  width: 100%; height: 100%; border: none; border-radius: 8px;
+  background: transparent; color: var(--text-2); font-family: inherit;
+  font-size: 12.5px; font-variant-numeric: tabular-nums; cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.steps-cal-day:hover { background: rgba(255,255,255,0.08); color: var(--text-1); }
+.steps-cal-day.today { color: var(--steps-accent); font-weight: 700; }
+.steps-cal-day.selected { background: var(--steps-accent); color: #073138; font-weight: 700; }
+.steps-cal-day:disabled { color: var(--text-4); opacity: 0.35; cursor: default; }
 
 /* Composition estimate */
 .wt-comp {
@@ -1551,35 +1671,80 @@ img, video, canvas, svg { max-width: 100%; }
         <div class="po-sub-section">
           <div class="po-sub-title">Pasos diarios</div>
 
-          <div class="wt-row">
-            <span class="wt-num" id="stepsNum" style="font-family: var(--font-mono);">—</span>
-            <span class="wt-unit" id="stepsUnitLabel">pasos hoy</span>
-          </div>
+          <div class="steps-layout">
+            <div class="steps-col-summary">
+              <div class="steps-date-row">
+                <div class="po-seg-control steps-date-seg" id="stepsDateSeg" role="group" aria-label="Elegir día">
+                  <button type="button" class="po-seg-btn active" id="stepsPillToday" aria-pressed="true">Hoy</button>
+                  <button type="button" class="po-seg-btn" id="stepsPillYesterday" aria-pressed="false">Ayer</button>
+                  <button type="button" class="po-seg-btn steps-pill-cal" id="stepsPillCalendar" aria-pressed="false" aria-haspopup="dialog" aria-expanded="false">
+                    <svg class="steps-cal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    <span id="stepsPillCalendarLabel">Elegir fecha</span>
+                  </button>
+                </div>
 
-          <div class="wt-comp-bars" style="margin: 10px 0 6px;">
-            <div class="wt-comp-bar" id="stepsBarFill" style="width:0%; background: var(--good);"></div>
-          </div>
-          <div class="wt-comp-foot" id="stepsGoalLabel" style="cursor:pointer; text-decoration: underline dotted;" title="Tocá para cambiar tu meta diaria">0 / 8000 pasos</div>
+                <div class="steps-popover hidden" id="stepsCalPopover" role="dialog" aria-modal="false" aria-label="Elegir fecha">
+                  <div class="steps-cal-head">
+                    <button type="button" class="steps-cal-nav" id="stepsCalPrev" aria-label="Mes anterior">‹</button>
+                    <div class="steps-cal-month" id="stepsCalMonthLabel"></div>
+                    <button type="button" class="steps-cal-nav" id="stepsCalNext" aria-label="Mes siguiente">›</button>
+                  </div>
+                  <div class="steps-cal-grid" id="stepsCalGrid"></div>
+                </div>
+              </div>
 
-          <div class="wt-input-row">
-            <input type="date" class="wt-input" id="stepsDateInput" aria-label="Fecha" style="max-width:180px; margin-bottom:8px;">
-            <div class="wt-input-top">
-              <input type="number" step="1" min="0" class="wt-input" id="stepsInput" placeholder="Ej: 8000" inputmode="numeric" aria-label="Pasos">
-              <button class="wt-save-btn" id="stepsSaveBtn">Guardar</button>
+              <div class="wt-row">
+                <span class="wt-num" id="stepsNum" style="font-family: var(--font-mono);">—</span>
+                <span class="wt-unit" id="stepsUnitLabel">pasos hoy</span>
+              </div>
+
+              <div class="wt-comp-bars" style="margin: 10px 0 6px;">
+                <div class="wt-comp-bar steps-bar-fill" id="stepsBarFill" style="width:0%;"></div>
+              </div>
+
+              <div class="steps-goal-row">
+                <div class="wt-comp-foot" id="stepsGoalLabel">0 / 8000 pasos</div>
+                <button type="button" class="steps-goal-edit-btn" id="stepsGoalEditBtn" aria-haspopup="dialog" aria-expanded="false" title="Editar meta diaria" aria-label="Editar meta diaria">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+                </button>
+
+                <div class="steps-popover hidden" id="stepsGoalPopover" role="dialog" aria-modal="false" aria-label="Editar meta diaria">
+                  <label class="steps-popover-label" for="stepsGoalInput">Meta diaria de pasos</label>
+                  <input type="number" class="wt-input" id="stepsGoalInput" min="1" step="500">
+                  <div class="steps-popover-actions">
+                    <button type="button" class="steps-popover-btn-cancel" id="stepsGoalCancelBtn">Cancelar</button>
+                    <button type="button" class="steps-popover-btn-save" id="stepsGoalSaveBtn">Guardar meta</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="wt-input-row">
+                <div class="wt-input-top">
+                  <input type="number" step="1" min="0" class="wt-input" id="stepsInput" placeholder="Ej: 8000" inputmode="numeric" aria-label="Pasos">
+                  <button class="wt-save-btn steps-save-btn" id="stepsSaveBtn">Guardar</button>
+                </div>
+                <div class="steps-input-notice hidden" id="stepsHighNotice">Es un número inusualmente alto — revisá que esté bien.</div>
+                <div class="steps-input-notice hidden" id="stepsDirtyNotice">Tenés cambios sin guardar</div>
+              </div>
+
+              <div id="stepsHistWrap" style="margin-top:16px;"></div>
             </div>
-          </div>
 
-          <div id="stepsHistWrap" style="margin-top:16px;"></div>
-
-          <div class="steps-chart-block" style="margin-top:22px;">
-            <div class="steps-chart-head">
-              <div class="wh-block-title" style="margin-bottom:0;">Pasos por día</div>
-              <div class="po-seg-control steps-range-seg" id="stepsRangeSeg">
-                <button type="button" class="po-seg-btn active" data-range="week">Semana</button>
-                <button type="button" class="po-seg-btn" data-range="month">Mes</button>
+            <div class="steps-col-chart">
+              <div class="steps-chart-block">
+                <div class="steps-chart-head">
+                  <div class="wh-block-title" style="margin-bottom:0;">Pasos por día</div>
+                  <div class="po-seg-control steps-range-seg" id="stepsRangeSeg">
+                    <button type="button" class="po-seg-btn active" data-range="week">Semana</button>
+                    <button type="button" class="po-seg-btn" data-range="month">Mes</button>
+                  </div>
+                </div>
+                <div class="steps-chart-wrap" id="stepsChartWrap">
+                  <svg class="steps-chart-svg" id="stepsChartSvg" viewBox="0 0 700 380" preserveAspectRatio="none"></svg>
+                  <div class="steps-empty hidden" id="stepsEmpty">Registrá tu primer día para empezar a ver tu progreso.</div>
+                </div>
               </div>
             </div>
-            <svg class="steps-chart-svg" id="stepsChartSvg" viewBox="0 0 700 380" preserveAspectRatio="none"></svg>
           </div>
         </div>
       </div>
@@ -3541,7 +3706,7 @@ img, video, canvas, svg { max-width: 100%; }
     const wrap = $('stepsHistWrap');
     const keys = Object.keys(stepsData).sort().reverse().slice(0, 7);
     if (!keys.length) {
-      wrap.innerHTML = '<div class="po-empty">No hay pasos registrados todavía.</div>';
+      wrap.innerHTML = '<div class="po-empty">Registrá tu primer día para empezar a ver tu progreso.</div>';
       return;
     }
     wrap.innerHTML = keys.map(k => {
@@ -3566,6 +3731,7 @@ img, video, canvas, svg { max-width: 100%; }
   let stepsChartMode = 'week';
   const STEPS_DOW_LABELS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
   const STEPS_MONTH_LABELS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+  const STEPS_MONTH_FULL_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
   function formatShortDateEs(d) { return d.getDate() + ' ' + STEPS_MONTH_LABELS[d.getMonth()].toLowerCase(); }
 
   function stepsWeekData() {
@@ -3598,8 +3764,52 @@ img, video, canvas, svg { max-width: 100%; }
     return points;
   }
 
-  function stepsRenderChart() {
+  // Chart SVG — the grid/line/area/dot elements are built ONCE and reused
+  // across renders (attributes updated in place) instead of being torn
+  // down via innerHTML each time, so the CSS transitions on d/cx/cy/y
+  // (declared in .steps-line/.steps-dot/.steps-grid-line etc.) actually
+  // animate between the old and new shape instead of popping instantly.
+  const STEPS_CHART_MAX_POINTS = 7; // week=7 points, month=6 — pool sized to the larger
+  let stepsChartEls = null;
+
+  function stepsEnsureChartSkeleton() {
+    if (stepsChartEls) return stepsChartEls;
     const svg = $('stepsChartSvg');
+    let html = '<defs><linearGradient id="stepsChartFill" x1="0" y1="0" x2="0" y2="1">'
+      + '<stop offset="0%" style="stop-color:var(--steps-accent-fill)"></stop>'
+      + '<stop offset="100%" style="stop-color:var(--steps-accent);stop-opacity:0"></stop>'
+      + '</linearGradient></defs>';
+    for (let i = 0; i < 4; i++) {
+      html += '<line class="wh-freq-grid steps-grid-line" x1="0" y1="0" x2="0" y2="0"></line>';
+      html += '<text class="wh-freq-yaxis-label steps-grid-label" x="0" y="0" text-anchor="end"></text>';
+    }
+    html += '<path class="steps-chart-area" d=""></path>';
+    html += '<path class="steps-line" d=""></path>';
+    for (let i = 0; i < STEPS_CHART_MAX_POINTS; i++) {
+      html += '<circle class="steps-dot" cx="0" cy="0" r="3"></circle>';
+      html += '<text class="wh-freq-val steps-point-val" x="0" y="0" text-anchor="middle"></text>';
+      html += '<text class="wh-freq-label steps-point-label" x="0" y="0" text-anchor="middle"></text>';
+    }
+    svg.innerHTML = html;
+    stepsChartEls = {
+      gridLines: Array.from(svg.querySelectorAll('.steps-grid-line')),
+      gridLabels: Array.from(svg.querySelectorAll('.steps-grid-label')),
+      area: svg.querySelector('.steps-chart-area'),
+      line: svg.querySelector('.steps-line'),
+      dots: Array.from(svg.querySelectorAll('.steps-dot')),
+      vals: Array.from(svg.querySelectorAll('.steps-point-val')),
+      labels: Array.from(svg.querySelectorAll('.steps-point-label'))
+    };
+    return stepsChartEls;
+  }
+
+  function stepsRenderChart() {
+    const hasAnyData = Object.keys(stepsData).length > 0;
+    $('stepsEmpty').classList.toggle('hidden', hasAnyData);
+    $('stepsChartSvg').classList.toggle('hidden', !hasAnyData);
+    if (!hasAnyData) return;
+
+    const els = stepsEnsureChartSkeleton();
     const data = stepsChartMode === 'month' ? stepsMonthData() : stepsWeekData();
     const W = 700, H = 380;
     const padLeft = 54, padRight = 16, padTop = 20, padBottom = 34;
@@ -3607,17 +3817,23 @@ img, video, canvas, svg { max-width: 100%; }
     const plotH = H - padTop - padBottom;
     const n = data.length;
 
-    // Fixed 1000-step gradations (1k..10k), stretching past 10k only if a
-    // logged day/month average actually exceeds it.
+    // Same underlying 1000-step-increment scale as before (1k..10k,
+    // stretching past 10k only if a logged day/month average exceeds it),
+    // but only 4 evenly spaced horizontal references are drawn instead of
+    // one per 1000 steps.
     const axisStep = 1000;
     const rawMax = Math.max(10000, ...data.map(d => d.value));
     const niceMax = Math.ceil(rawMax / axisStep) * axisStep;
-
-    let grid = '';
-    for (let v = axisStep; v <= niceMax; v += axisStep) {
+    for (let i = 0; i < 4; i++) {
+      const v = Math.round((niceMax * (i + 1)) / 4);
       const y = padTop + plotH - (v / niceMax) * plotH;
-      grid += '<line class="wh-freq-grid" x1="' + padLeft + '" y1="' + y.toFixed(1) + '" x2="' + (W - padRight) + '" y2="' + y.toFixed(1) + '"></line>'
-        + '<text class="wh-freq-yaxis-label" x="' + (padLeft - 10) + '" y="' + (y + 3).toFixed(1) + '" text-anchor="end">' + v.toLocaleString() + '</text>';
+      els.gridLines[i].setAttribute('x1', padLeft);
+      els.gridLines[i].setAttribute('x2', W - padRight);
+      els.gridLines[i].setAttribute('y1', y.toFixed(1));
+      els.gridLines[i].setAttribute('y2', y.toFixed(1));
+      els.gridLabels[i].setAttribute('x', padLeft - 10);
+      els.gridLabels[i].setAttribute('y', (y + 3).toFixed(1));
+      els.gridLabels[i].textContent = v.toLocaleString();
     }
 
     const xFor = (i) => n === 1 ? padLeft + plotW / 2 : padLeft + (i / (n - 1)) * plotW;
@@ -3629,67 +3845,260 @@ img, video, canvas, svg { max-width: 100%; }
       + ' L ' + points[points.length - 1].x.toFixed(2) + ' ' + baseY
       + ' L ' + points[0].x.toFixed(2) + ' ' + baseY + ' Z';
 
-    let html = '<defs><linearGradient id="stepsChartFill" x1="0" y1="0" x2="0" y2="1">'
-      + '<stop offset="0%" stop-color="#6ee7b7" stop-opacity="0.28"/>'
-      + '<stop offset="100%" stop-color="#6ee7b7" stop-opacity="0"/>'
-      + '</linearGradient></defs>';
-    html += grid;
-    html += '<path class="steps-chart-area" d="' + areaPath + '"></path>';
-    html += '<path class="wt-line" d="' + linePath + '"></path>';
-    points.forEach((p) => {
-      html += '<circle class="' + (p.isCurrent ? 'wt-dot-today' : 'wt-dot') + '" cx="' + p.x.toFixed(2) + '" cy="' + p.y.toFixed(2) + '" r="' + (p.isCurrent ? 5 : 3) + '"></circle>';
-      if (p.v > 0) html += '<text class="wh-freq-val" x="' + p.x.toFixed(2) + '" y="' + (p.y - 10).toFixed(2) + '" text-anchor="middle">' + p.v.toLocaleString() + '</text>';
-      html += '<text class="wh-freq-label" x="' + p.x.toFixed(2) + '" y="' + (padTop + plotH + 22) + '" text-anchor="middle">' + p.label + '</text>';
-    });
-    svg.innerHTML = html;
+    els.line.setAttribute('d', linePath);
+    els.area.setAttribute('d', areaPath);
+
+    for (let i = 0; i < STEPS_CHART_MAX_POINTS; i++) {
+      const dot = els.dots[i], val = els.vals[i], label = els.labels[i];
+      if (i >= n) {
+        dot.style.opacity = '0';
+        val.style.opacity = '0';
+        label.style.opacity = '0';
+        continue;
+      }
+      const p = points[i];
+      dot.classList.toggle('steps-dot-today', p.isCurrent);
+      dot.setAttribute('cx', p.x.toFixed(2));
+      dot.setAttribute('cy', p.y.toFixed(2));
+      dot.setAttribute('r', p.isCurrent ? 5 : 3);
+      dot.style.opacity = '1';
+      val.setAttribute('x', p.x.toFixed(2));
+      val.setAttribute('y', (p.y - 10).toFixed(2));
+      val.textContent = p.v > 0 ? p.v.toLocaleString() : '';
+      val.style.opacity = p.v > 0 ? '1' : '0';
+      label.setAttribute('x', p.x.toFixed(2));
+      label.setAttribute('y', padTop + plotH + 22);
+      label.textContent = p.label;
+      label.style.opacity = '1';
+    }
   }
 
+  // ------------------------------------------------------------
+  // Shared popover helper — both the calendar and the goal-edit panel
+  // open/close/focus-trap through this, instead of duplicating the
+  // Escape/click-outside/focus logic twice.
+  // ------------------------------------------------------------
+  let stepsActivePopover = null; // { panel, trigger }
+
+  function stepsPopoverKeydown(e) {
+    if (!stepsActivePopover) return;
+    if (e.key === 'Escape') { e.preventDefault(); stepsCloseAllPopovers(); return; }
+    if (e.key === 'Tab') {
+      const focusables = Array.from(stepsActivePopover.panel.querySelectorAll('button:not([disabled]), input:not([disabled])'));
+      if (!focusables.length) return;
+      const first = focusables[0], last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  }
+  function stepsPopoverOutsideClick(e) {
+    if (!stepsActivePopover) return;
+    const { panel, trigger } = stepsActivePopover;
+    if (panel.contains(e.target) || trigger.contains(e.target)) return;
+    stepsCloseAllPopovers();
+  }
+  function stepsOpenPopover(trigger, panel, focusEl) {
+    stepsCloseAllPopovers();
+    panel.classList.remove('hidden');
+    // Guarded: if the popover is closed again before this frame fires (e.g.
+    // opened and immediately dismissed), don't let a stale callback re-add
+    // 'open' after the close already ran.
+    requestAnimationFrame(() => {
+      if (stepsActivePopover && stepsActivePopover.panel === panel) panel.classList.add('open');
+    });
+    trigger.setAttribute('aria-expanded', 'true');
+    stepsActivePopover = { panel, trigger };
+    const target = focusEl || panel.querySelector('button:not([disabled]), input:not([disabled])');
+    if (target) target.focus();
+    document.addEventListener('keydown', stepsPopoverKeydown, true);
+    document.addEventListener('mousedown', stepsPopoverOutsideClick, true);
+  }
+  function stepsCloseAllPopovers() {
+    if (!stepsActivePopover) return;
+    const { panel, trigger } = stepsActivePopover;
+    panel.classList.remove('open');
+    trigger.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('keydown', stepsPopoverKeydown, true);
+    document.removeEventListener('mousedown', stepsPopoverOutsideClick, true);
+    setTimeout(() => { if (!panel.classList.contains('open')) panel.classList.add('hidden'); }, 160);
+    stepsActivePopover = null;
+    trigger.focus();
+  }
+
+  // ------------------------------------------------------------
+  // Calendar popover — mini month grid, future days disabled.
+  // ------------------------------------------------------------
+  let stepsCalViewYear, stepsCalViewMonth;
+
+  function stepsCalRender() {
+    const y = stepsCalViewYear, m = stepsCalViewMonth;
+    $('stepsCalMonthLabel').textContent = STEPS_MONTH_FULL_ES[m] + ' ' + y;
+    const now = new Date();
+    $('stepsCalNext').disabled = (y === now.getFullYear() && m === now.getMonth());
+
+    const startDow = new Date(y, m, 1).getDay();
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const todayKey = wtDateKey(now);
+    const selectedKey = stepsSelectedDateKey();
+
+    let html = STEPS_DOW_LABELS.map(l => '<div class="steps-cal-dow">' + l + '</div>').join('');
+    for (let i = 0; i < startDow; i++) html += '<div class="steps-cal-cell"></div>';
+    for (let d = 1; d <= daysInMonth; d++) {
+      const key = wtDateKey(new Date(y, m, d));
+      const isFuture = key > todayKey;
+      const cls = ['steps-cal-day'];
+      if (key === selectedKey) cls.push('selected');
+      if (key === todayKey) cls.push('today');
+      html += '<div class="steps-cal-cell"><button type="button" class="' + cls.join(' ') + '"'
+        + (isFuture ? ' disabled aria-disabled="true"' : ' data-key="' + key + '"')
+        + '>' + d + '</button></div>';
+    }
+    $('stepsCalGrid').innerHTML = html;
+    $('stepsCalGrid').querySelectorAll('.steps-cal-day:not([disabled])').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        stepsSetSelectedDate(wtParseKey(btn.dataset.key));
+        stepsCloseAllPopovers();
+      });
+    });
+  }
+  $('stepsCalPrev').addEventListener('click', () => {
+    stepsCalViewMonth--;
+    if (stepsCalViewMonth < 0) { stepsCalViewMonth = 11; stepsCalViewYear--; }
+    stepsCalRender();
+  });
+  $('stepsCalNext').addEventListener('click', () => {
+    stepsCalViewMonth++;
+    if (stepsCalViewMonth > 11) { stepsCalViewMonth = 0; stepsCalViewYear++; }
+    stepsCalRender();
+  });
+
+  // ------------------------------------------------------------
   // Which day the form reads/writes — defaults to today on every load
   // (not persisted), so a forgotten day can be filled in via the date
-  // field without permanently leaving the widget on that day. The chart
+  // pills without permanently leaving the widget on that day. The chart
   // above stays anchored to the real rolling week/month regardless of
   // which date is selected here.
-  function stepsSelectedDateKey() { return $('stepsDateInput').value || wtDateKey(new Date()); }
+  // ------------------------------------------------------------
+  function stepsDateOffset(days) {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + days);
+    return d;
+  }
+  let stepsSelectedDate = stepsDateOffset(0);
+  let stepsDirty = false; // true while stepsInput has an unsaved edit
+  function stepsSelectedDateKey() { return wtDateKey(stepsSelectedDate); }
 
-  function stepsRender() {
+  function stepsUpdateDatePillsUI() {
+    const key = stepsSelectedDateKey();
+    const isToday = key === wtDateKey(stepsDateOffset(0));
+    const isYest = !isToday && key === wtDateKey(stepsDateOffset(-1));
+    const isOther = !isToday && !isYest;
+    $('stepsPillToday').classList.toggle('active', isToday);
+    $('stepsPillToday').setAttribute('aria-pressed', String(isToday));
+    $('stepsPillYesterday').classList.toggle('active', isYest);
+    $('stepsPillYesterday').setAttribute('aria-pressed', String(isYest));
+    $('stepsPillCalendar').classList.toggle('active', isOther);
+    $('stepsPillCalendar').setAttribute('aria-pressed', String(isOther));
+    $('stepsPillCalendarLabel').textContent = isOther ? formatShortDateEs(stepsSelectedDate) : 'Elegir fecha';
+  }
+
+  function stepsSetSelectedDate(date) {
+    stepsSelectedDate = date;
+    stepsDirty = false;
+    $('stepsDirtyNotice').classList.add('hidden');
+    stepsRender();
+  }
+
+  function stepsAnimateNumber(from, to, duration) {
+    const el = $('stepsNum');
+    const start = performance.now();
+    function frame(now) {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 2);
+      el.textContent = Math.round(from + (to - from) * eased).toLocaleString();
+      if (t < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function stepsRender(opts) {
+    opts = opts || {};
     const key = stepsSelectedDateKey();
     const isToday = key === wtDateKey(new Date());
-    const today = stepsData[key] || 0;
+    const value = stepsData[key] || 0;
     const goal = stepsLoadGoal();
-    $('stepsNum').textContent = today ? today.toLocaleString() : '—';
-    const pct = goal > 0 ? Math.min(100, (today / goal) * 100) : 0;
+
+    if (opts.animate && value > 0) {
+      stepsAnimateNumber(opts.fromValue || 0, value, 220);
+    } else {
+      $('stepsNum').textContent = value ? value.toLocaleString() : '—';
+    }
+
+    const pct = goal > 0 ? Math.min(100, (value / goal) * 100) : 0;
     $('stepsBarFill').style.width = pct + '%';
-    $('stepsGoalLabel').textContent = today.toLocaleString() + ' / ' + goal.toLocaleString() + ' pasos';
+    $('stepsGoalLabel').textContent = value.toLocaleString() + ' / ' + goal.toLocaleString() + ' pasos';
     $('stepsUnitLabel').textContent = isToday ? 'pasos hoy' : 'pasos el ' + formatShortDateEs(wtParseKey(key));
     if (document.activeElement !== $('stepsInput')) {
-      $('stepsInput').value = today || '';
+      $('stepsInput').value = value || '';
+      $('stepsHighNotice').classList.add('hidden');
     }
+
+    stepsUpdateDatePillsUI();
     stepsRenderHistory();
     stepsRenderChart();
   }
 
-  $('stepsDateInput').value = wtDateKey(new Date());
-  $('stepsDateInput').max = wtDateKey(new Date()); // no logging a day that hasn't happened
-  $('stepsDateInput').addEventListener('change', stepsRender);
+  $('stepsPillToday').addEventListener('click', () => stepsSetSelectedDate(stepsDateOffset(0)));
+  $('stepsPillYesterday').addEventListener('click', () => stepsSetSelectedDate(stepsDateOffset(-1)));
+  $('stepsPillCalendar').addEventListener('click', () => {
+    stepsCalViewYear = stepsSelectedDate.getFullYear();
+    stepsCalViewMonth = stepsSelectedDate.getMonth();
+    stepsCalRender();
+    const grid = $('stepsCalGrid');
+    const focusEl = grid.querySelector('.steps-cal-day.selected') || grid.querySelector('.steps-cal-day.today');
+    stepsOpenPopover($('stepsPillCalendar'), $('stepsCalPopover'), focusEl);
+  });
 
-  $('stepsSaveBtn').addEventListener('click', () => {
-    const v = parseInt($('stepsInput').value, 10);
-    if (isNaN(v) || v < 0) return;
-    stepsData[stepsSelectedDateKey()] = v;
-    stepsSave(stepsData);
-    stepsRender();
+  $('stepsInput').addEventListener('input', () => {
+    const raw = $('stepsInput').value;
+    const storedStr = (stepsData[stepsSelectedDateKey()] || '') + '';
+    stepsDirty = raw !== storedStr;
+    $('stepsDirtyNotice').classList.toggle('hidden', !stepsDirty);
+    const numVal = parseInt(raw, 10);
+    $('stepsHighNotice').classList.toggle('hidden', !(!isNaN(numVal) && numVal > 50000));
   });
   $('stepsInput').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') $('stepsSaveBtn').click();
   });
-  $('stepsGoalLabel').addEventListener('click', () => {
-    const input = prompt('Meta diaria de pasos:', String(stepsLoadGoal()));
-    if (input == null) return;
-    const n = parseInt(input, 10);
+  $('stepsSaveBtn').addEventListener('click', () => {
+    const v = parseInt($('stepsInput').value, 10);
+    if (isNaN(v) || v < 0) return;
+    const key = stepsSelectedDateKey();
+    const prev = stepsData[key] || 0;
+    stepsData[key] = v;
+    stepsSave(stepsData);
+    stepsDirty = false;
+    $('stepsDirtyNotice').classList.add('hidden');
+    stepsRender({ animate: true, fromValue: prev });
+  });
+
+  $('stepsGoalEditBtn').addEventListener('click', () => {
+    $('stepsGoalInput').value = stepsLoadGoal();
+    stepsOpenPopover($('stepsGoalEditBtn'), $('stepsGoalPopover'), $('stepsGoalInput'));
+  });
+  $('stepsGoalCancelBtn').addEventListener('click', stepsCloseAllPopovers);
+  $('stepsGoalSaveBtn').addEventListener('click', () => {
+    const n = parseInt($('stepsGoalInput').value, 10);
     if (isNaN(n) || n <= 0) return;
     stepsSaveGoal(n);
+    stepsCloseAllPopovers();
     stepsRender();
   });
+  $('stepsGoalInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); $('stepsGoalSaveBtn').click(); }
+  });
+
   $('stepsRangeSeg').querySelectorAll('.po-seg-btn').forEach(b => {
     b.addEventListener('click', () => {
       $('stepsRangeSeg').querySelectorAll('.po-seg-btn').forEach(x => x.classList.remove('active'));
