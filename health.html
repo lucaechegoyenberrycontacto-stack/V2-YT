@@ -856,17 +856,20 @@ main {
       }
       return out;
     }
+    // Rolling last 7 days ending today — NOT the calendar Mon-Sun week.
+    // A fixed calendar week would drop a backdated entry for "yesterday"
+    // off the chart entirely whenever today happens to be a Monday (Sunday
+    // belongs to LAST week's box), which defeats the whole point of being
+    // able to log a day you forgot: you'd save it and never see it here.
+    const CB_DAY_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     function cbWeekData(burned) {
       const now = new Date();
-      const dow = (now.getDay() + 6) % 7; // 0=Mon..6=Sun
-      const monday = new Date(now); monday.setDate(now.getDate() - dow);
-      const labels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
       const points = [];
-      for (let i = 0; i < 7; i++) {
-        const d = new Date(monday); d.setDate(monday.getDate() + i);
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now); d.setDate(now.getDate() - i);
         const key = d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
         const v = burned[key];
-        points.push({ label: labels[i], value: v != null ? v : 0, real: v != null });
+        points.push({ label: CB_DAY_LABELS[d.getDay()], value: v != null ? v : 0, real: v != null });
       }
       return points;
     }
