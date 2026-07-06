@@ -1045,6 +1045,19 @@ img, video, canvas, svg { max-width: 100%; }
   height: 2px;
 }
 
+/* Steps chart — reuses .wt-line/.wt-dot/.wt-dot-today (identical line/dot
+   look) and .wh-freq-grid/.wh-freq-yaxis-label/.wh-freq-label/.wh-freq-val
+   (identical grid/label look) from the charts above. Only the area fill
+   needs its own rule since .wt-area points at the weight chart's own
+   <defs> gradient id. */
+.steps-chart-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-bottom: 14px;
+}
+.steps-range-seg { flex: 0 0 150px; width: 150px; padding: 3px; gap: 2px; }
+.steps-chart-svg { width: 100%; height: 280px; display: block; }
+.steps-chart-area { fill: url(#stepsChartFill); }
+
 /* Composition estimate */
 .wt-comp {
   margin-top: 18px; padding: 14px 16px;
@@ -1556,6 +1569,17 @@ img, video, canvas, svg { max-width: 100%; }
           </div>
 
           <div id="stepsHistWrap" style="margin-top:16px;"></div>
+
+          <div class="steps-chart-block" style="margin-top:22px;">
+            <div class="steps-chart-head">
+              <div class="wh-block-title" style="margin-bottom:0;">Pasos por día</div>
+              <div class="po-seg-control steps-range-seg" id="stepsRangeSeg">
+                <button type="button" class="po-seg-btn active" data-range="week">Semana</button>
+                <button type="button" class="po-seg-btn" data-range="month">Mes</button>
+              </div>
+            </div>
+            <svg class="steps-chart-svg" id="stepsChartSvg" viewBox="0 0 700 280" preserveAspectRatio="none"></svg>
+          </div>
         </div>
       </div>
     </div>
@@ -3529,6 +3553,93 @@ img, video, canvas, svg { max-width: 100%; }
     }).join('');
   }
 
+  // Chart — toggles between the current calendar week (Mon–Sun, one point
+  // per day) and the last 6 months (one point per month = that month's
+  // average daily steps, so both views share the same 0–10k-ish Y scale
+  // instead of a monthly-total view dwarfing the weekly one).
+  let stepsChartMode = 'week';
+  const STEPS_WEEKDAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+  const STEPS_MONTH_LABELS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+  function stepsWeekData() {
+    const now = new Date();
+    const mondayOffset = now.getDay() === 0 ? -6 : 1 - now.getDay();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + mondayOffset);
+    const todayKey = wtDateKey(now);
+    const points = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const key = wtDateKey(d);
+      points.push({ label: STEPS_WEEKDAY_LABELS[i], value: stepsData[key] || 0, isCurrent: key === todayKey });
+    }
+    return points;
+  }
+
+  function stepsMonthData() {
+    const now = new Date();
+    const points = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const y = d.getFullYear(), m = d.getMonth();
+      const daysInMonth = Object.keys(stepsData).filter(k => {
+        const [ky, km] = k.split('-').map(Number);
+        return ky === y && (km - 1) === m;
+      });
+      const total = daysInMonth.reduce((s, k) => s + stepsData[k], 0);
+      const avg = daysInMonth.length ? Math.round(total / daysInMonth.length) : 0;
+      points.push({ label: STEPS_MONTH_LABELS[m], value: avg, isCurrent: i === 0 });
+    }
+    return points;
+  }
+
+  function stepsRenderChart() {
+    const svg = $('stepsChartSvg');
+    const data = stepsChartMode === 'month' ? stepsMonthData() : stepsWeekData();
+    const W = 700, H = 280;
+    const padLeft = 54, padRight = 16, padTop = 20, padBottom = 34;
+    const plotW = W - padLeft - padRight;
+    const plotH = H - padTop - padBottom;
+    const n = data.length;
+
+    // Fixed 1000-step gradations (1k..10k), stretching past 10k only if a
+    // logged day/month average actually exceeds it.
+    const axisStep = 1000;
+    const rawMax = Math.max(10000, ...data.map(d => d.value));
+    const niceMax = Math.ceil(rawMax / axisStep) * axisStep;
+
+    let grid = '';
+    for (let v = axisStep; v <= niceMax; v += axisStep) {
+      const y = padTop + plotH - (v / niceMax) * plotH;
+      grid += '<line class="wh-freq-grid" x1="' + padLeft + '" y1="' + y.toFixed(1) + '" x2="' + (W - padRight) + '" y2="' + y.toFixed(1) + '"></line>'
+        + '<text class="wh-freq-yaxis-label" x="' + (padLeft - 10) + '" y="' + (y + 3).toFixed(1) + '" text-anchor="end">' + v.toLocaleString() + '</text>';
+    }
+
+    const xFor = (i) => n === 1 ? padLeft + plotW / 2 : padLeft + (i / (n - 1)) * plotW;
+    const yFor = (v) => padTop + plotH - Math.min(1, v / niceMax) * plotH;
+    const points = data.map((d, i) => ({ x: xFor(i), y: yFor(d.value), v: d.value, label: d.label, isCurrent: d.isCurrent }));
+    const linePath = wtSmoothPath(points);
+    const baseY = (padTop + plotH).toFixed(1);
+    const areaPath = linePath
+      + ' L ' + points[points.length - 1].x.toFixed(2) + ' ' + baseY
+      + ' L ' + points[0].x.toFixed(2) + ' ' + baseY + ' Z';
+
+    let html = '<defs><linearGradient id="stepsChartFill" x1="0" y1="0" x2="0" y2="1">'
+      + '<stop offset="0%" stop-color="#6ee7b7" stop-opacity="0.28"/>'
+      + '<stop offset="100%" stop-color="#6ee7b7" stop-opacity="0"/>'
+      + '</linearGradient></defs>';
+    html += grid;
+    html += '<path class="steps-chart-area" d="' + areaPath + '"></path>';
+    html += '<path class="wt-line" d="' + linePath + '"></path>';
+    points.forEach((p) => {
+      html += '<circle class="' + (p.isCurrent ? 'wt-dot-today' : 'wt-dot') + '" cx="' + p.x.toFixed(2) + '" cy="' + p.y.toFixed(2) + '" r="' + (p.isCurrent ? 5 : 3) + '"></circle>';
+      if (p.v > 0) html += '<text class="wh-freq-val" x="' + p.x.toFixed(2) + '" y="' + (p.y - 10).toFixed(2) + '" text-anchor="middle">' + p.v.toLocaleString() + '</text>';
+      html += '<text class="wh-freq-label" x="' + p.x.toFixed(2) + '" y="' + (padTop + plotH + 22) + '" text-anchor="middle">' + p.label + '</text>';
+    });
+    svg.innerHTML = html;
+  }
+
   function stepsRender() {
     const key = wtDateKey(new Date());
     const today = stepsData[key] || 0;
@@ -3541,6 +3652,7 @@ img, video, canvas, svg { max-width: 100%; }
       $('stepsInput').value = today || '';
     }
     stepsRenderHistory();
+    stepsRenderChart();
   }
 
   $('stepsSaveBtn').addEventListener('click', () => {
@@ -3560,6 +3672,14 @@ img, video, canvas, svg { max-width: 100%; }
     if (isNaN(n) || n <= 0) return;
     stepsSaveGoal(n);
     stepsRender();
+  });
+  $('stepsRangeSeg').querySelectorAll('.po-seg-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      $('stepsRangeSeg').querySelectorAll('.po-seg-btn').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      stepsChartMode = b.dataset.range;
+      stepsRenderChart();
+    });
   });
 
   // ============================================================
