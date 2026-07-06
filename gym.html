@@ -144,9 +144,13 @@ html, body {
   .po-groups {
     display: grid;
     grid-template-columns: 1.2fr 1fr;
+    grid-auto-flow: dense;
     align-items: start;
     gap: 24px;
   }
+  /* Full-width row so inserting this group between the other two doesn't
+     shove "Tu progreso" into row 2 col 1 and leave gaps beside both. */
+  .po-group-steps { grid-column: 1 / -1; }
 }
 /* No image, video, or canvas can ever push the page past the viewport */
 img, video, canvas, svg { max-width: 100%; }
@@ -1521,6 +1525,37 @@ img, video, canvas, svg { max-width: 100%; }
             <span class="po-tw-past-arrow" id="poTwPastArrow">▾</span>
           </button>
           <div class="po-tw-past-body" id="poTwPastBody" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== PASOS DIARIOS — daily step count (general activity/NEAT),
+         tracked separately from the weight-training log above. Same
+         hierarchy level as "Entrená hoy" and "Tu progreso", not a field
+         inside either one. ===== -->
+    <div class="po-group-steps">
+      <div class="card">
+        <div class="po-sub-section">
+          <div class="po-sub-title">Pasos diarios</div>
+
+          <div class="wt-row">
+            <span class="wt-num" id="stepsNum" style="font-family: var(--font-mono);">—</span>
+            <span class="wt-unit">pasos hoy</span>
+          </div>
+
+          <div class="wt-comp-bars" style="margin: 10px 0 6px;">
+            <div class="wt-comp-bar" id="stepsBarFill" style="width:0%; background: var(--good);"></div>
+          </div>
+          <div class="wt-comp-foot" id="stepsGoalLabel" style="cursor:pointer; text-decoration: underline dotted;" title="Tocá para cambiar tu meta diaria">0 / 8000 pasos</div>
+
+          <div class="wt-input-row">
+            <div class="wt-input-top">
+              <input type="number" step="1" min="0" class="wt-input" id="stepsInput" placeholder="Ej: 8000" inputmode="numeric" aria-label="Pasos de hoy">
+              <button class="wt-save-btn" id="stepsSaveBtn">Guardar</button>
+            </div>
+          </div>
+
+          <div id="stepsHistWrap" style="margin-top:16px;"></div>
         </div>
       </div>
     </div>
@@ -3446,6 +3481,88 @@ img, video, canvas, svg { max-width: 100%; }
   });
 
   // ============================================================
+  // DAILY STEPS — separate from weight training; tracks general daily
+  // activity (NEAT), not lifting volume. One entry per day, keyed by
+  // the same date-key format as weight entries (wtDateKey).
+  // ============================================================
+  const STEPS_KEY = 'gym:steps';
+  const STEPS_GOAL_KEY = 'gym:stepsGoal';
+  const STEPS_DEFAULT_GOAL = 8000;
+
+  function stepsLoad() {
+    try {
+      const raw = localStorage.getItem(STEPS_KEY);
+      const obj = raw ? JSON.parse(raw) : {};
+      return (obj && typeof obj === 'object' && !Array.isArray(obj)) ? obj : {};
+    } catch (e) { return {}; }
+  }
+  function stepsSave(obj) {
+    try { localStorage.setItem(STEPS_KEY, JSON.stringify(obj)); } catch (e) {}
+  }
+  function stepsLoadGoal() {
+    try {
+      const raw = localStorage.getItem(STEPS_GOAL_KEY);
+      const n = raw != null ? JSON.parse(raw) : null;
+      return (typeof n === 'number' && n > 0) ? n : STEPS_DEFAULT_GOAL;
+    } catch (e) { return STEPS_DEFAULT_GOAL; }
+  }
+  function stepsSaveGoal(n) {
+    try { localStorage.setItem(STEPS_GOAL_KEY, JSON.stringify(n)); } catch (e) {}
+  }
+
+  let stepsData = stepsLoad();
+
+  function stepsRenderHistory() {
+    const wrap = $('stepsHistWrap');
+    const keys = Object.keys(stepsData).sort().reverse().slice(0, 7);
+    if (!keys.length) {
+      wrap.innerHTML = '<div class="po-empty">No hay pasos registrados todavía.</div>';
+      return;
+    }
+    wrap.innerHTML = keys.map(k => {
+      const d = wtParseKey(k);
+      const dStr = (d.getMonth() + 1) + '/' + d.getDate();
+      return '<div class="po-hist-row">'
+        + '<div class="po-hist-date">' + dStr + '</div>'
+        + '<div class="po-hist-set">' + stepsData[k].toLocaleString() + ' pasos</div>'
+        + '</div>';
+    }).join('');
+  }
+
+  function stepsRender() {
+    const key = wtDateKey(new Date());
+    const today = stepsData[key] || 0;
+    const goal = stepsLoadGoal();
+    $('stepsNum').textContent = today ? today.toLocaleString() : '—';
+    const pct = goal > 0 ? Math.min(100, (today / goal) * 100) : 0;
+    $('stepsBarFill').style.width = pct + '%';
+    $('stepsGoalLabel').textContent = today.toLocaleString() + ' / ' + goal.toLocaleString() + ' pasos';
+    if (document.activeElement !== $('stepsInput')) {
+      $('stepsInput').value = today || '';
+    }
+    stepsRenderHistory();
+  }
+
+  $('stepsSaveBtn').addEventListener('click', () => {
+    const v = parseInt($('stepsInput').value, 10);
+    if (isNaN(v) || v < 0) return;
+    stepsData[wtDateKey(new Date())] = v;
+    stepsSave(stepsData);
+    stepsRender();
+  });
+  $('stepsInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') $('stepsSaveBtn').click();
+  });
+  $('stepsGoalLabel').addEventListener('click', () => {
+    const input = prompt('Meta diaria de pasos:', String(stepsLoadGoal()));
+    if (input == null) return;
+    const n = parseInt(input, 10);
+    if (isNaN(n) || n <= 0) return;
+    stepsSaveGoal(n);
+    stepsRender();
+  });
+
+  // ============================================================
   // PROGRESS PHOTOS
   // ============================================================
   let photos = [];
@@ -3788,6 +3905,7 @@ img, video, canvas, svg { max-width: 100%; }
   renderAll();
   wtRender();
   photosRender();
+  stepsRender();
   renderWorkoutHistory();
 
   // ============================================================
@@ -3815,7 +3933,7 @@ img, video, canvas, svg { max-width: 100%; }
   // the wire. The actual JPEG lives in Supabase Storage. pcCollectState
   // strips any base64 dataUrl entries before push so the payload stays
   // tiny and we never blow iOS Safari's ~5MB localStorage quota.
-  const PC_SYNCED_KEYS = ['po_coach_v1', 'po_coach_workout_done', 'po_coach_weights', 'po_coach_photos'];
+  const PC_SYNCED_KEYS = ['po_coach_v1', 'po_coach_workout_done', 'po_coach_weights', 'po_coach_photos', 'gym:steps', 'gym:stepsGoal'];
 
   let pcSupa = null;
   let pcPushTimer = null;
@@ -3876,12 +3994,14 @@ img, video, canvas, svg { max-width: 100%; }
     // in-memory copies from before the remote pull.
     try { state = loadState(); } catch {}
     try { wtEntries = wtLoad(); } catch {}
+    try { stepsData = stepsLoad(); } catch {}
     try {
       const raw = localStorage.getItem(PHOTO_KEY);
       photos = raw ? JSON.parse(raw) : [];
     } catch { photos = []; }
     try { renderAll(); } catch {}
     try { wtRender(); } catch {}
+    try { stepsRender(); } catch {}
     try { photosRender(); } catch {}
   }
 
