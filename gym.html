@@ -1553,7 +1553,7 @@ img, video, canvas, svg { max-width: 100%; }
 
           <div class="wt-row">
             <span class="wt-num" id="stepsNum" style="font-family: var(--font-mono);">—</span>
-            <span class="wt-unit">pasos hoy</span>
+            <span class="wt-unit" id="stepsUnitLabel">pasos hoy</span>
           </div>
 
           <div class="wt-comp-bars" style="margin: 10px 0 6px;">
@@ -1562,8 +1562,9 @@ img, video, canvas, svg { max-width: 100%; }
           <div class="wt-comp-foot" id="stepsGoalLabel" style="cursor:pointer; text-decoration: underline dotted;" title="Tocá para cambiar tu meta diaria">0 / 8000 pasos</div>
 
           <div class="wt-input-row">
+            <input type="date" class="wt-input" id="stepsDateInput" aria-label="Fecha" style="max-width:180px; margin-bottom:8px;">
             <div class="wt-input-top">
-              <input type="number" step="1" min="0" class="wt-input" id="stepsInput" placeholder="Ej: 8000" inputmode="numeric" aria-label="Pasos de hoy">
+              <input type="number" step="1" min="0" class="wt-input" id="stepsInput" placeholder="Ej: 8000" inputmode="numeric" aria-label="Pasos">
               <button class="wt-save-btn" id="stepsSaveBtn">Guardar</button>
             </div>
           </div>
@@ -3553,26 +3554,29 @@ img, video, canvas, svg { max-width: 100%; }
     }).join('');
   }
 
-  // Chart — toggles between the current calendar week (Mon–Sun, one point
-  // per day) and the last 6 months (one point per month = that month's
+  // Chart — toggles between a rolling last-7-days window (one point per
+  // day) and the last 6 months (one point per month = that month's
   // average daily steps, so both views share the same 0–10k-ish Y scale
-  // instead of a monthly-total view dwarfing the weekly one).
+  // instead of a monthly-total view dwarfing the weekly one). The week
+  // window is rolling (today back 6 days), NOT a fixed calendar Mon-Sun
+  // week — a fixed week would drop a backdated "yesterday" entry off the
+  // chart entirely whenever today happens to be a Monday (yesterday would
+  // belong to LAST week's box), which would defeat the point of being
+  // able to log a day you forgot.
   let stepsChartMode = 'week';
-  const STEPS_WEEKDAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+  const STEPS_DOW_LABELS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
   const STEPS_MONTH_LABELS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+  function formatShortDateEs(d) { return d.getDate() + ' ' + STEPS_MONTH_LABELS[d.getMonth()].toLowerCase(); }
 
   function stepsWeekData() {
     const now = new Date();
-    const mondayOffset = now.getDay() === 0 ? -6 : 1 - now.getDay();
-    const monday = new Date(now);
-    monday.setDate(now.getDate() + mondayOffset);
     const todayKey = wtDateKey(now);
     const points = [];
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - i);
       const key = wtDateKey(d);
-      points.push({ label: STEPS_WEEKDAY_LABELS[i], value: stepsData[key] || 0, isCurrent: key === todayKey });
+      points.push({ label: STEPS_DOW_LABELS[d.getDay()], value: stepsData[key] || 0, isCurrent: key === todayKey });
     }
     return points;
   }
@@ -3640,14 +3644,23 @@ img, video, canvas, svg { max-width: 100%; }
     svg.innerHTML = html;
   }
 
+  // Which day the form reads/writes — defaults to today on every load
+  // (not persisted), so a forgotten day can be filled in via the date
+  // field without permanently leaving the widget on that day. The chart
+  // above stays anchored to the real rolling week/month regardless of
+  // which date is selected here.
+  function stepsSelectedDateKey() { return $('stepsDateInput').value || wtDateKey(new Date()); }
+
   function stepsRender() {
-    const key = wtDateKey(new Date());
+    const key = stepsSelectedDateKey();
+    const isToday = key === wtDateKey(new Date());
     const today = stepsData[key] || 0;
     const goal = stepsLoadGoal();
     $('stepsNum').textContent = today ? today.toLocaleString() : '—';
     const pct = goal > 0 ? Math.min(100, (today / goal) * 100) : 0;
     $('stepsBarFill').style.width = pct + '%';
     $('stepsGoalLabel').textContent = today.toLocaleString() + ' / ' + goal.toLocaleString() + ' pasos';
+    $('stepsUnitLabel').textContent = isToday ? 'pasos hoy' : 'pasos el ' + formatShortDateEs(wtParseKey(key));
     if (document.activeElement !== $('stepsInput')) {
       $('stepsInput').value = today || '';
     }
@@ -3655,10 +3668,14 @@ img, video, canvas, svg { max-width: 100%; }
     stepsRenderChart();
   }
 
+  $('stepsDateInput').value = wtDateKey(new Date());
+  $('stepsDateInput').max = wtDateKey(new Date()); // no logging a day that hasn't happened
+  $('stepsDateInput').addEventListener('change', stepsRender);
+
   $('stepsSaveBtn').addEventListener('click', () => {
     const v = parseInt($('stepsInput').value, 10);
     if (isNaN(v) || v < 0) return;
-    stepsData[wtDateKey(new Date())] = v;
+    stepsData[stepsSelectedDateKey()] = v;
     stepsSave(stepsData);
     stepsRender();
   });
