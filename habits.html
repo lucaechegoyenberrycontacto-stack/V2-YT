@@ -19,7 +19,7 @@
   --text-tertiary: #76746E;
   --hb-clean: #6BE3A4;
   --hb-relapse: #FF6B6B;
-  --hb-screen: #7DD3FC;
+  --hb-screen: #F14C4C;
   --hb-goal: #F2C063;
   --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -184,9 +184,26 @@ body::after {
   white-space: nowrap; box-shadow: 0 6px 18px rgba(0,0,0,0.45); z-index: 5;
 }
 .hb-avg-row { display: flex; align-items: center; gap: 14px; margin-bottom: 4px; }
-.hb-avg-stat { background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 12px 16px; text-align: center; }
+.hb-avg-stat { flex: 1; background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 12px 16px; text-align: center; }
 .hb-avg-label { font-size: 9.5px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700; margin-bottom: 6px; }
 .hb-avg-val { font-size: 20px; font-weight: 700; color: var(--text-primary); line-height: 1; font-variant-numeric: tabular-nums; }
+
+/* Week/Month view toggle — same small-pill segmented-control language
+   already used elsewhere in the dashboard (gym.html/finance.html), not
+   a one-off component. */
+.hb-view-toggle { display: flex; gap: 2px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 999px; padding: 3px; }
+.hb-view-btn {
+  padding: 4px 12px; border: none; border-radius: 999px; background: transparent;
+  color: var(--text-tertiary); font-family: inherit; font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer;
+  transition: background 0.15s, color 0.15s; -webkit-tap-highlight-color: transparent;
+}
+.hb-view-btn:hover { color: var(--text-secondary); }
+.hb-view-btn.active { background: rgba(255,255,255,0.10); color: var(--text-primary); }
+
+/* Month view — one bar per calendar month (total hours, not average) */
+.hb-bar { fill: var(--hb-screen); cursor: pointer; }
+.hb-bar-hit { fill: rgba(0,0,0,0.001); pointer-events: all; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -252,13 +269,18 @@ body::after {
 
       <div class="hb-avg-row">
         <div class="hb-avg-stat"><div class="hb-avg-label">Last 7 days avg</div><div class="hb-avg-val" id="screenWeekAvg">—</div></div>
+        <div class="hb-avg-stat"><div class="hb-avg-label">Goal streak</div><div class="hb-avg-val" id="screenGoalStreak">0</div></div>
       </div>
 
       <div class="hb-chart-head">
-        <span class="hb-chart-eye">Last 7 days</span>
+        <span class="hb-chart-eye" id="screenChartEye">Last 7 days</span>
+        <div class="hb-view-toggle" id="screenViewToggle">
+          <button type="button" class="hb-view-btn active" data-mode="week">Week</button>
+          <button type="button" class="hb-view-btn" data-mode="month">Month</button>
+        </div>
         <div class="hb-chart-legend">
           <span class="hb-leg-item"><span class="hb-leg-dot d-screen"></span>Screen time</span>
-          <span class="hb-leg-item"><span class="hb-leg-dot d-goal"></span>Goal</span>
+          <span class="hb-leg-item" id="screenGoalLegendItem"><span class="hb-leg-dot d-goal"></span>Goal</span>
         </div>
       </div>
       <div id="screenWeekEmpty" class="hb-chart-empty" style="display:none">No screen time logged in the last 7 days.</div>
@@ -445,13 +467,49 @@ body::after {
     for (let i = 6; i >= 0; i--) { const d = new Date(now); d.setDate(now.getDate() - i); out.push(dateKey(d)); }
     return out;
   }
+  // "Tue 30" — day name + day-of-month number, so the x-axis reads as an
+  // actual date, not just a generic weekday.
   function dayLabel(dstr) {
     const [y, m, d] = dstr.split('-').map(Number);
-    return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(y, m - 1, d).getDay()];
+    const dow = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(y, m - 1, d).getDay()];
+    return dow + ' ' + d;
   }
   function formatShortDate(dstr) {
     const [y, m, d] = dstr.split('-').map(Number);
     return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  // ---------- Month view (bars) ----------
+  const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function last6Months() {
+    const now = new Date();
+    const out = [];
+    for (let i = 5; i >= 0; i--) out.push(new Date(now.getFullYear(), now.getMonth() - i, 1));
+    return out;
+  }
+  function monthLabel(d) { return MONTH_ABBR[d.getMonth()]; }
+  function monthTotalHours(logs, y, m) {
+    let total = 0;
+    Object.keys(logs).forEach((k) => {
+      const [ky, km] = k.split('-').map(Number);
+      if (ky === y && (km - 1) === m) total += Number(logs[k]) || 0;
+    });
+    return total;
+  }
+
+  // Consecutive days ending today (or yesterday if today isn't logged
+  // yet — same "don't penalize" rule as computeCurrentStreak above)
+  // with hours logged AND within goal. Same backward-walk pattern.
+  function computeScreenGoalStreak(logs, goalHours) {
+    let d = new Date();
+    if (logs[dateKey(d)] == null) d.setDate(d.getDate() - 1);
+    let streak = 0;
+    while (true) {
+      const hrs = logs[dateKey(d)];
+      if (hrs != null && Number(hrs) <= goalHours) { streak++; d.setDate(d.getDate() - 1); }
+      else break;
+    }
+    return streak;
   }
 
   // Which day the form reads/writes — defaults to today on every load
@@ -499,7 +557,29 @@ body::after {
 
   const SCREEN_Y_MAX = 10, SCREEN_Y_STEP = 2;
 
+  // ---------- Week/Month toggle ----------
+  // Not persisted — always starts back on 'week' on a fresh load.
+  let screenViewMode = 'week';
+  $('screenViewToggle').querySelectorAll('.hb-view-btn').forEach((b) => {
+    b.addEventListener('click', () => {
+      $('screenViewToggle').querySelectorAll('.hb-view-btn').forEach((x) => x.classList.remove('active'));
+      b.classList.add('active');
+      screenViewMode = b.dataset.mode;
+      $('screenChartEye').textContent = screenViewMode === 'month' ? 'Last 6 months' : 'Last 7 days';
+      // No goal line in month mode (it's a sum, not a daily average, so
+      // a "goal" reference line wouldn't mean anything there) — hide the
+      // legend dot for it too instead of leaving a dead label around.
+      $('screenGoalLegendItem').style.display = screenViewMode === 'month' ? 'none' : '';
+      renderScreenChart();
+    });
+  });
+
   function renderScreenChart() {
+    if (screenViewMode === 'month') renderScreenMonthChart();
+    else renderScreenWeekChart();
+  }
+
+  function renderScreenWeekChart() {
     const svg = $('screenWeekSvg'), emptyEl = $('screenWeekEmpty');
     const keys = currentWeekKeys();
     const logs = state.screenTime.logs;
@@ -554,10 +634,65 @@ body::after {
     });
   }
 
+  // One bar per calendar month (last 6, current included), height = total
+  // hours logged that month (a sum, not an average — a month with more
+  // logged days naturally piles up more hours than a sparsely-logged one,
+  // which is expected here). A month with nothing logged still gets its
+  // own zero-height bar rather than being skipped.
+  function renderScreenMonthChart() {
+    const svg = $('screenWeekSvg'), emptyEl = $('screenWeekEmpty');
+    const logs = state.screenTime.logs;
+    const months = last6Months();
+    const totals = months.map(d => monthTotalHours(logs, d.getFullYear(), d.getMonth()));
+
+    if (!totals.some(t => t > 0)) {
+      svg.innerHTML = ''; svg.classList.add('hidden');
+      emptyEl.style.display = 'block'; hideScreenTooltip();
+      return;
+    }
+    emptyEl.style.display = 'none'; svg.classList.remove('hidden');
+
+    const n = months.length;
+    const W = svg.getBoundingClientRect().width || 600, H = 260;
+    svg.setAttribute('viewBox', '0 0 ' + W.toFixed(1) + ' ' + H);
+    const padLeft = 32, padRight = 14, padTop = 16, padBottom = 28, gap = 14;
+    const plotW = W - padLeft - padRight, plotH = H - padTop - padBottom;
+    const barW = (plotW - gap * (n - 1)) / n;
+
+    const rawMax = Math.max.apply(null, totals.concat([1]));
+    const step = rawMax <= 4 ? 1 : Math.ceil(rawMax / 4);
+    const niceMax = Math.ceil(rawMax / step) * step;
+
+    let html = '';
+    for (let v = 0; v <= niceMax; v += step) {
+      const y = padTop + plotH - (v / niceMax) * plotH;
+      html += '<line class="hb-week-grid" x1="' + padLeft + '" y1="' + y.toFixed(1) + '" x2="' + (W - padRight).toFixed(1) + '" y2="' + y.toFixed(1) + '"></line>'
+        + '<text class="hb-week-yaxis-label" x="' + (padLeft - 8) + '" y="' + (y + 3).toFixed(1) + '" text-anchor="end">' + v + '</text>';
+    }
+
+    months.forEach((d, i) => {
+      const x = padLeft + i * (barW + gap);
+      const total = totals[i];
+      const h = total > 0 ? Math.max(2, plotH * (total / niceMax)) : 0;
+      const y = padTop + plotH - h;
+      const attrs = ' data-value="' + total.toFixed(1) + '"';
+      html += '<rect class="hb-bar-hit" x="' + x.toFixed(1) + '" y="' + padTop + '" width="' + barW.toFixed(1) + '" height="' + plotH.toFixed(1) + '"' + attrs + '></rect>'
+        + '<rect class="hb-bar" x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + barW.toFixed(1) + '" height="' + h.toFixed(1) + '" rx="4"' + attrs + '></rect>'
+        + '<text class="hb-week-daylabel" x="' + (x + barW / 2).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="middle">' + monthLabel(d) + '</text>';
+    });
+    svg.innerHTML = html;
+    svg.querySelectorAll('.hb-bar, .hb-bar-hit').forEach((bar) => {
+      bar.addEventListener('mouseenter', () => showScreenTooltip(bar));
+      bar.addEventListener('mouseleave', hideScreenTooltip);
+      bar.addEventListener('click', (e) => { e.stopPropagation(); showScreenTooltip(bar); });
+    });
+  }
+
   function renderScreenStats() {
     const keys = currentWeekKeys();
     const vals = keys.map(k => state.screenTime.logs[k]).filter(v => v != null).map(Number);
     $('screenWeekAvg').textContent = vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1) + 'h' : '—';
+    $('screenGoalStreak').textContent = String(computeScreenGoalStreak(state.screenTime.logs, state.screenTime.goalHours));
   }
 
   function renderScreenTime() {
