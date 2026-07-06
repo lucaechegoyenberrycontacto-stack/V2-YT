@@ -244,21 +244,24 @@ main {
     .sleep-preview-label { font-size: 12px; color: var(--text-tertiary); }
 
     .sleep-wizard-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 18px; }
-    .sleep-wizard-actions-right { display: flex; align-items: center; gap: 10px; }
     /* Amber hint for the one required-field validation message — a
        generic UI-feedback color (matches the --warn convention used for
        the same non-blocking-notice purpose elsewhere in this dashboard
        family), not a new "sleep accent": it's not part of the
        rem/light/deep/total data palette. */
     .sleep-wizard-hint { font-size: 11px; color: #fbbf24; flex: 1; min-height: 14px; }
-    .sleep-wizard-back, .sleep-wizard-skip {
+    /* Same amber treatment for the "this night is outside the current
+       Week chart" notice — informational only, doesn't block saving. */
+    .sleep-week-warn { font-size: 11px; color: #fbbf24; margin: -6px 0 14px; }
+    .sleep-week-warn.hidden { display: none; }
+    .sleep-wizard-back {
       background: rgba(255,255,255,0.05); color: var(--text-secondary);
       border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;
       padding: 10px 16px; font-family: inherit; font-size: 12.5px; font-weight: 600;
       cursor: pointer; transition: background 0.15s, color 0.15s;
       -webkit-tap-highlight-color: transparent;
     }
-    .sleep-wizard-back:hover, .sleep-wizard-skip:hover { background: rgba(255,255,255,0.09); color: var(--text-primary); }
+    .sleep-wizard-back:hover { background: rgba(255,255,255,0.09); color: var(--text-primary); }
     /* Continue reuses .sleep-save-btn's white-gradient primary look.
        "Not ready" is a dimmed visual only — the button stays a real,
        focusable, clickable button (never the native disabled attribute)
@@ -266,8 +269,8 @@ main {
        silently doing nothing. */
     .sleep-wizard-next.not-ready { opacity: 0.5; box-shadow: none; }
     .sleep-wizard-next.not-ready:hover { transform: none; }
-    /* Save sits alongside Back/Skip in a row here, instead of standing
-       alone full-width like the original single-step form. */
+    /* Save sits alongside Back in a row here, instead of standing alone
+       full-width like the original single-step form. */
     .sleep-wizard-actions .sleep-save-btn { width: auto; margin-top: 0; }
 
     /* ---------- Shared popover (calendar) ----------
@@ -439,6 +442,11 @@ main {
                 <div class="sleep-wizard-seg active" data-step="1"></div>
                 <div class="sleep-wizard-seg" data-step="2"></div>
               </div>
+              <!-- Lives outside both steps (not just inside Step 2) so the
+                   "Saved ✓" confirmation stays visible through the
+                   post-save reset back to Step 1, instead of getting
+                   hidden along with Step 2 mid-fade. -->
+              <div id="sleepSaveStatus" class="sleep-save-status"></div>
 
               <!-- Step 1: When did you sleep (required) -->
               <div class="sleep-wizard-step" id="sleepStep1">
@@ -462,6 +470,7 @@ main {
                     <div class="sleep-cal-grid" id="sleepCalGrid"></div>
                   </div>
                 </div>
+                <div class="sleep-week-warn hidden" id="sleepWeekWarn" role="status">This night won't appear on the Week chart — check Month instead.</div>
 
                 <div class="sleep-form-row">
                   <label class="sleep-field">
@@ -492,15 +501,15 @@ main {
                 <div class="sleep-form-row sleep-form-row-3">
                   <label class="sleep-field">
                     <span class="sleep-field-label">REM (hours)</span>
-                    <input type="number" min="0" step="0.1" id="sleepRem" class="sleep-input" placeholder="optional">
+                    <input type="number" min="0" max="24" step="0.1" id="sleepRem" class="sleep-input" placeholder="optional">
                   </label>
                   <label class="sleep-field">
                     <span class="sleep-field-label">Light (hours)</span>
-                    <input type="number" min="0" step="0.1" id="sleepLight" class="sleep-input" placeholder="optional">
+                    <input type="number" min="0" max="24" step="0.1" id="sleepLight" class="sleep-input" placeholder="optional">
                   </label>
                   <label class="sleep-field">
                     <span class="sleep-field-label">Deep (hours)</span>
-                    <input type="number" min="0" step="0.1" id="sleepDeep" class="sleep-input" placeholder="optional">
+                    <input type="number" min="0" max="24" step="0.1" id="sleepDeep" class="sleep-input" placeholder="optional">
                   </label>
                 </div>
 
@@ -527,12 +536,8 @@ main {
 
                 <div class="sleep-wizard-actions">
                   <button type="button" class="sleep-wizard-back" id="sleepBackBtn">← Back</button>
-                  <div class="sleep-wizard-actions-right">
-                    <button type="button" class="sleep-wizard-skip" id="sleepSkipBtn">Skip</button>
-                    <button id="sleepSaveBtn" class="sleep-save-btn" type="button">Save</button>
-                  </div>
+                  <button id="sleepSaveBtn" class="sleep-save-btn" type="button">Save</button>
                 </div>
-                <div id="sleepSaveStatus" class="sleep-save-status"></div>
               </div>
             </div>
 
@@ -634,6 +639,12 @@ main {
       $('sleepPillCalendar').classList.toggle('active', isOther);
       $('sleepPillCalendar').setAttribute('aria-pressed', String(isOther));
       $('sleepPillCalendarLabel').textContent = isOther ? formatShortDate(sleepSelectedDate) : 'Pick a date';
+
+      // Bug 4: the Week chart always shows the fixed current Mon-Sun week,
+      // so a night picked outside that window (typically via the calendar,
+      // but also e.g. "Yesterday" when today is a Monday) would otherwise
+      // silently never show up there — only in Month, averaged in.
+      $('sleepWeekWarn').classList.toggle('hidden', currentWeekKeys().indexOf(key) !== -1);
     }
     function setSelectedDate(d) {
       sleepSelectedDate = d;
@@ -830,9 +841,26 @@ main {
       }, 1800);
     }
 
-    // Save and Skip both run the exact same upsert — Skip exists purely
-    // so it's visibly obvious that REM/Light/Deep/feeling/quality can be
-    // left untouched, not because it behaves differently from Save.
+    // After a successful save, the whole form goes back to a clean slate
+    // (fields, feeling/quality selection, selected date, wizard step) —
+    // otherwise a still-selected "Yesterday" (or any other backdated
+    // date) silently keeps absorbing the NEXT save the user makes for
+    // "today" without them noticing they never switched the pill back.
+    function resetSleepForm() {
+      $('sleepBedTime').value = '';
+      $('sleepWakeTime').value = '';
+      $('sleepRem').value = '';
+      $('sleepLight').value = '';
+      $('sleepDeep').value = '';
+      selectedFeeling = null;
+      selectedQuality = null;
+      $('sleepFeelingRow').querySelectorAll('.sleep-feeling-btn').forEach(b => b.classList.remove('active'));
+      $('sleepQualityRow').querySelectorAll('.sleep-quality-btn').forEach(b => b.classList.remove('active'));
+      setSelectedDate(dateOffset(0));
+      updateSleepFormLiveState();
+      showWizardStep(1, 'backward');
+    }
+
     function doSleepSave() {
       const date = selectedDateKey();
       const bedTime = $('sleepBedTime').value || null;
@@ -856,9 +884,9 @@ main {
 
       showSavedConfirmation();
       renderSleep();
+      resetSleepForm();
     }
     $('sleepSaveBtn').addEventListener('click', doSleepSave);
-    $('sleepSkipBtn').addEventListener('click', doSleepSave);
 
     // ---------- Weekly chart ----------
     // Current calendar week, Monday first. If today is e.g. Saturday, Sunday
@@ -1243,6 +1271,25 @@ main {
       });
     });
 
+    // Re-render on container resize (debounced) so the SVG viewBox — sized
+    // off the actual rendered pixel width, see renderWeekChart — doesn't go
+    // stale until the next manual Week/Month click or save. Guarded since
+    // ResizeObserver isn't universally available (e.g. some older
+    // browsers/embedded webviews) — skipping it there just means the
+    // pre-existing "stale until next manual render" behavior, not a crash.
+    if (typeof ResizeObserver !== 'undefined') {
+      let sleepResizeTimer = null;
+      new ResizeObserver(() => {
+        clearTimeout(sleepResizeTimer);
+        sleepResizeTimer = setTimeout(() => renderWeekChart(loadEntries()), 180);
+      }).observe($('sleepWeekChartWrap'));
+    }
+
+    // sleepEntries now rides the cloud sync (see initCloudSync config at
+    // the bottom of the file) — a remote pull dispatches a generic
+    // 'storage' event, so re-render whenever that happens to reflect it.
+    window.addEventListener('storage', (e) => { if (!e.key || e.key === SLEEP_KEY) renderSleep(); });
+
     updateDatePillsUI();
     updateSleepFormLiveState();
     renderSleep();
@@ -1265,7 +1312,6 @@ main {
       transition: border-color 0.18s; color-scheme: dark;
     }
     .burned-input:focus { border-color: rgba(255,255,255,0.40); }
-    #burnedDate { flex: 0 1 150px; }
     .burned-save-btn {
       padding: 10px 20px; border: 1px solid rgba(255,255,255,0.85); border-radius: 12px;
       background: linear-gradient(180deg, #FFF, #E8E5DD); color: #0A0A0B;
@@ -1275,6 +1321,67 @@ main {
     }
     .burned-save-btn:hover { transform: translateY(-1px); }
     .burned-status { font-size: 12.5px; color: var(--text-tertiary); margin-top: 10px; min-height: 16px; }
+    /* Amber "unsaved changes" notice — same non-blocking warning pattern
+       used for this exact purpose elsewhere in the dashboard (Daily Steps
+       in gym.html, Sleep above): typing in the kcal field marks it dirty;
+       switching dates still works, this is informational only. */
+    .cb-input-notice { font-size: 11px; color: #fbbf24; margin-top: 8px; }
+    .cb-input-notice.hidden { display: none; }
+
+    /* ---------- Date pills (Today / Yesterday / calendar) ----------
+       Reuses .cb-range-btn's existing color/hover/active look (already
+       used below for the Week/Month toggle) inside a new pill-shaped
+       segmented-control container, same idea as Sleep's date pills. */
+    .burned-date-row { position: relative; flex: 1 1 260px; }
+    .cb-date-seg {
+      display: flex; gap: 4px; height: 100%;
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 999px; padding: 3px;
+    }
+    .cb-date-seg .cb-range-btn { flex: 1; padding: 8px 10px; }
+    .cb-pill-cal { display: flex; align-items: center; justify-content: center; gap: 5px; }
+    .cb-cal-icon { width: 12px; height: 12px; flex: 0 0 auto; }
+
+    /* ---------- Shared popover (calendar) ----------
+       Same open/close/focus-trap/fade+scale pattern as Sleep's calendar
+       popover, replicated here (not extracted into a shared function)
+       to avoid touching Sleep's already-approved code for this change. */
+    .cb-popover {
+      position: absolute; top: calc(100% + 8px); left: 0; z-index: 45;
+      width: min(300px, calc(100vw - 64px));
+      background: #101012; border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 14px; padding: 16px;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+      opacity: 0; transform: scale(0.96) translateY(-4px);
+      transition: opacity 0.15s ease, transform 0.15s ease;
+      pointer-events: none;
+    }
+    .cb-popover.open { opacity: 1; transform: scale(1) translateY(0); pointer-events: auto; }
+    .cb-popover.hidden { display: none; }
+    .cb-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .cb-cal-month { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+    .cb-cal-nav {
+      width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;
+      color: var(--text-secondary); font-size: 15px; cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .cb-cal-nav:hover { background: rgba(255,255,255,0.09); color: var(--text-primary); }
+    .cb-cal-nav:disabled { opacity: 0.3; cursor: default; pointer-events: none; }
+    .cb-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+    .cb-cal-dow { text-align: center; font-size: 9.5px; font-weight: 700; color: var(--text-quaternary); padding: 4px 0; text-transform: uppercase; }
+    .cb-cal-cell { aspect-ratio: 1; }
+    .cb-cal-day {
+      width: 100%; height: 100%; border: none; border-radius: 8px;
+      background: transparent; color: var(--text-secondary); font-family: inherit;
+      font-size: 12.5px; font-variant-numeric: tabular-nums; cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .cb-cal-day:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+    .cb-cal-day.today { color: var(--text-primary); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+    .cb-cal-day.selected { background: rgba(255,255,255,0.14); color: var(--text-primary); font-weight: 700; }
+    .cb-cal-day:disabled { color: var(--text-quaternary); opacity: 0.4; cursor: default; }
     /* Trend chart — same stock-chart look as finance.html's net-worth
        chart (glowing smooth line, gradient fill, dotted grid, stats
        strip), copied and adapted here since every dashboard page is
@@ -1336,10 +1443,28 @@ main {
   <div class="section-title">Calories Burned</div>
   <div class="burned-card">
     <div class="burned-row">
-      <input type="date" id="burnedDate" class="burned-input" aria-label="Date">
-      <input type="number" min="0" step="1" id="burnedInput" class="burned-input" placeholder="e.g. 2400">
+      <div class="burned-date-row">
+        <div class="cb-date-seg" id="cbDateSeg" role="group" aria-label="Pick a day">
+          <button type="button" class="cb-range-btn active" id="cbPillToday" aria-pressed="true">Today</button>
+          <button type="button" class="cb-range-btn" id="cbPillYesterday" aria-pressed="false">Yesterday</button>
+          <button type="button" class="cb-range-btn cb-pill-cal" id="cbPillCalendar" aria-pressed="false" aria-haspopup="dialog" aria-expanded="false">
+            <svg class="cb-cal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span id="cbPillCalendarLabel">Pick a date</span>
+          </button>
+        </div>
+        <div class="cb-popover hidden" id="cbCalPopover" role="dialog" aria-modal="false" aria-label="Pick a date">
+          <div class="cb-cal-head">
+            <button type="button" class="cb-cal-nav" id="cbCalPrev" aria-label="Previous month">‹</button>
+            <div class="cb-cal-month" id="cbCalMonthLabel"></div>
+            <button type="button" class="cb-cal-nav" id="cbCalNext" aria-label="Next month">›</button>
+          </div>
+          <div class="cb-cal-grid" id="cbCalGrid"></div>
+        </div>
+      </div>
+      <input type="number" min="0" max="20000" step="1" id="burnedInput" class="burned-input" placeholder="e.g. 2400">
       <button id="burnedSaveBtn" class="burned-save-btn" type="button">Save</button>
     </div>
+    <div class="cb-input-notice hidden" id="burnedDirtyNotice">You have unsaved changes.</div>
     <div id="burnedStatus" class="burned-status"></div>
 
     <div class="cb-chart-wrap" id="cbChartWrap">
@@ -1380,53 +1505,234 @@ main {
   (function () {
     const $ = (id) => document.getElementById(id);
     function pad2(n) { return String(n).padStart(2, '0'); }
-    function todayDateKey() {
-      const d = new Date();
-      return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
-    }
-    // Which day this widget is reading/writing — defaults to today on
-    // every load (not persisted), so a forgotten day can be filled in via
-    // the date field without permanently leaving the widget on that day.
-    function selectedDateKey() { return $('burnedDate').value || todayDateKey(); }
-    function burnedKey(dateKey) { return 'burned:' + (dateKey || selectedDateKey()); }
+    function dateKeyOf(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+    function todayDateKey() { return dateKeyOf(new Date()); }
+    function cbDateOffset(days) { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + days); return d; }
+    function cbParseDateKey(key) { const [y, m, d] = key.split('-').map(Number); return new Date(y, m - 1, d); }
+    function cbFormatShortDate(d) { return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
     function formatDateLabel(dateKey) {
       const [y, m, d] = dateKey.split('-').map(Number);
       return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     }
 
+    // ============================================================
+    // DATA — single caloriesBurnedEntries array, same {date, kcal,
+    // loggedAt} upsert-by-date pattern as sleepEntries, replacing the old
+    // one-localStorage-key-per-day 'burned:YYYY-MM-DD' scheme (that scheme
+    // is what made loadBurnedHistory() have to scan every key in
+    // localStorage on every chart render).
+    // ============================================================
+    const CB_KEY = 'caloriesBurnedEntries';
+    function cbLoadEntries() {
+      try { const v = JSON.parse(localStorage.getItem(CB_KEY)); return Array.isArray(v) ? v : []; }
+      catch { return []; }
+    }
+    function cbSaveEntries(list) { try { localStorage.setItem(CB_KEY, JSON.stringify(list)); } catch {} }
+
+    // One-time migration from the old 'burned:YYYY-MM-DD' keys. Runs only
+    // if caloriesBurnedEntries doesn't exist yet (so it never re-runs and
+    // never overwrites data already migrated on a prior load). The old
+    // keys are deliberately left in place, never removed — orphaned but
+    // harmless, versus the unrecoverable risk of a removeItem going wrong
+    // mid-migration (e.g. a reload at the wrong moment).
+    function cbMigrateLegacyKeysIfNeeded() {
+      if (localStorage.getItem(CB_KEY) != null) return;
+      const migrated = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k || k.indexOf('burned:') !== 0) continue;
+        const kcal = parseFloat(localStorage.getItem(k));
+        if (isNaN(kcal)) continue;
+        migrated.push({ date: k.slice(7), kcal, loggedAt: null });
+      }
+      cbSaveEntries(migrated);
+    }
+    cbMigrateLegacyKeysIfNeeded();
+    let cbEntries = cbLoadEntries();
+
+    // ---------- Which day this widget is reading/writing ----------
+    // Defaults to today on every load (not persisted) — same pills+popover
+    // pattern as Sleep above. Unlike Sleep, switching dates here DOES
+    // pre-fill the kcal input from that date's existing entry if there is
+    // one (intentional difference, matches the pre-existing behavior of
+    // the native date input this replaces).
+    let cbSelectedDate = cbDateOffset(0);
+    function selectedDateKey() { return dateKeyOf(cbSelectedDate); }
+    let cbDirty = false; // true while burnedInput has an unsaved edit
+
+    function updateBurnedDatePillsUI() {
+      const key = selectedDateKey();
+      const isToday = key === todayDateKey();
+      const isYest = !isToday && key === dateKeyOf(cbDateOffset(-1));
+      const isOther = !isToday && !isYest;
+      $('cbPillToday').classList.toggle('active', isToday);
+      $('cbPillToday').setAttribute('aria-pressed', String(isToday));
+      $('cbPillYesterday').classList.toggle('active', isYest);
+      $('cbPillYesterday').setAttribute('aria-pressed', String(isYest));
+      $('cbPillCalendar').classList.toggle('active', isOther);
+      $('cbPillCalendar').setAttribute('aria-pressed', String(isOther));
+      $('cbPillCalendarLabel').textContent = isOther ? cbFormatShortDate(cbSelectedDate) : 'Pick a date';
+    }
+    function setBurnedSelectedDate(d) {
+      cbSelectedDate = d;
+      updateBurnedDatePillsUI();
+      render(); // render() itself clears cbDirty/hides the notice, see below
+    }
+    $('cbPillToday').addEventListener('click', () => setBurnedSelectedDate(cbDateOffset(0)));
+    $('cbPillYesterday').addEventListener('click', () => setBurnedSelectedDate(cbDateOffset(-1)));
+
+    // ---------- Shared popover helper ----------
+    // Replicated from Sleep's calendar popover (same open/close/focus-trap
+    // pattern) rather than extracted into a common function, to avoid any
+    // risk of regressing Sleep's already-approved implementation.
+    let cbActivePopover = null; // { panel, trigger }
+    function cbPopoverKeydown(e) {
+      if (!cbActivePopover) return;
+      if (e.key === 'Escape') { e.preventDefault(); cbCloseAllPopovers(); return; }
+      if (e.key === 'Tab') {
+        const focusables = Array.from(cbActivePopover.panel.querySelectorAll('button:not([disabled]), input:not([disabled])'));
+        if (!focusables.length) return;
+        const first = focusables[0], last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    }
+    function cbPopoverOutsideClick(e) {
+      if (!cbActivePopover) return;
+      const { panel, trigger } = cbActivePopover;
+      if (panel.contains(e.target) || trigger.contains(e.target)) return;
+      cbCloseAllPopovers();
+    }
+    function cbOpenPopover(trigger, panel, focusEl) {
+      cbCloseAllPopovers();
+      panel.classList.remove('hidden');
+      requestAnimationFrame(() => {
+        if (cbActivePopover && cbActivePopover.panel === panel) panel.classList.add('open');
+      });
+      trigger.setAttribute('aria-expanded', 'true');
+      cbActivePopover = { panel, trigger };
+      const target = focusEl || panel.querySelector('button:not([disabled]), input:not([disabled])');
+      if (target) target.focus();
+      document.addEventListener('keydown', cbPopoverKeydown, true);
+      document.addEventListener('mousedown', cbPopoverOutsideClick, true);
+    }
+    function cbCloseAllPopovers() {
+      if (!cbActivePopover) return;
+      const { panel, trigger } = cbActivePopover;
+      panel.classList.remove('open');
+      trigger.setAttribute('aria-expanded', 'false');
+      document.removeEventListener('keydown', cbPopoverKeydown, true);
+      document.removeEventListener('mousedown', cbPopoverOutsideClick, true);
+      setTimeout(() => { if (!panel.classList.contains('open')) panel.classList.add('hidden'); }, 160);
+      cbActivePopover = null;
+      trigger.focus();
+    }
+
+    // ---------- Calendar popover ----------
+    let cbCalViewYear, cbCalViewMonth;
+    const CB_MONTH_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const CB_DOW_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    function renderBurnedCal() {
+      const y = cbCalViewYear, m = cbCalViewMonth;
+      $('cbCalMonthLabel').textContent = CB_MONTH_FULL[m] + ' ' + y;
+      const now = new Date();
+      $('cbCalNext').disabled = (y === now.getFullYear() && m === now.getMonth());
+
+      const startDow = new Date(y, m, 1).getDay();
+      const daysInMonth = new Date(y, m + 1, 0).getDate();
+      const todayKey = todayDateKey();
+      const selKey = selectedDateKey();
+
+      let html = CB_DOW_LABELS.map(l => '<div class="cb-cal-dow">' + l + '</div>').join('');
+      for (let i = 0; i < startDow; i++) html += '<div class="cb-cal-cell"></div>';
+      for (let d = 1; d <= daysInMonth; d++) {
+        const key = dateKeyOf(new Date(y, m, d));
+        const isFuture = key > todayKey;
+        const cls = ['cb-cal-day'];
+        if (key === selKey) cls.push('selected');
+        if (key === todayKey) cls.push('today');
+        html += '<div class="cb-cal-cell"><button type="button" class="' + cls.join(' ') + '"'
+          + (isFuture ? ' disabled aria-disabled="true"' : ' data-key="' + key + '"')
+          + '>' + d + '</button></div>';
+      }
+      $('cbCalGrid').innerHTML = html;
+      $('cbCalGrid').querySelectorAll('.cb-cal-day:not([disabled])').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          setBurnedSelectedDate(cbParseDateKey(btn.dataset.key));
+          cbCloseAllPopovers();
+        });
+      });
+    }
+    $('cbCalPrev').addEventListener('click', () => {
+      cbCalViewMonth--; if (cbCalViewMonth < 0) { cbCalViewMonth = 11; cbCalViewYear--; }
+      renderBurnedCal();
+    });
+    $('cbCalNext').addEventListener('click', () => {
+      cbCalViewMonth++; if (cbCalViewMonth > 11) { cbCalViewMonth = 0; cbCalViewYear++; }
+      renderBurnedCal();
+    });
+    $('cbPillCalendar').addEventListener('click', () => {
+      cbCalViewYear = cbSelectedDate.getFullYear();
+      cbCalViewMonth = cbSelectedDate.getMonth();
+      renderBurnedCal();
+      const grid = $('cbCalGrid');
+      const focusEl = grid.querySelector('.cb-cal-day.selected') || grid.querySelector('.cb-cal-day.today');
+      cbOpenPopover($('cbPillCalendar'), $('cbCalPopover'), focusEl);
+    });
+
     function render() {
       const key = selectedDateKey();
       const isToday = key === todayDateKey();
-      const v = localStorage.getItem(burnedKey(key));
+      const entry = cbEntries.find(e => e.date === key);
       const status = $('burnedStatus');
-      if (v != null && v !== '') {
-        status.textContent = 'Logged: ' + v + ' kcal burned ' + (isToday ? 'today' : 'on ' + formatDateLabel(key));
-        $('burnedInput').value = v;
+      if (entry != null) {
+        status.textContent = 'Logged: ' + entry.kcal + ' kcal burned ' + (isToday ? 'today' : 'on ' + formatDateLabel(key));
+        $('burnedInput').value = entry.kcal;
       } else {
         $('burnedInput').value = '';
         status.textContent = 'Not logged yet ' + (isToday ? 'today' : 'for ' + formatDateLabel(key)) + '.';
       }
+      // The displayed value now always matches storage for this date, so
+      // any pending "unsaved changes" warning no longer applies.
+      cbDirty = false;
+      $('burnedDirtyNotice').classList.add('hidden');
       renderBurnedChart();
     }
 
-    $('burnedDate').value = todayDateKey();
-    $('burnedDate').max = todayDateKey(); // no logging a day that hasn't happened
-    $('burnedDate').addEventListener('change', render);
+    $('burnedInput').addEventListener('input', () => {
+      const entry = cbEntries.find(e => e.date === selectedDateKey());
+      const storedStr = entry != null ? String(entry.kcal) : '';
+      cbDirty = $('burnedInput').value !== storedStr;
+      $('burnedDirtyNotice').classList.toggle('hidden', !cbDirty);
+    });
 
     $('burnedSaveBtn').addEventListener('click', () => {
-      const v = parseFloat($('burnedInput').value);
-      if (!(v > 0)) return;
-      localStorage.setItem(burnedKey(), String(Math.round(v)));
+      const raw = $('burnedInput').value;
+      const v = parseFloat(raw);
+      if (raw === '' || isNaN(v) || v <= 0) {
+        $('burnedStatus').textContent = 'Enter a valid calories value.';
+        return;
+      }
+      const date = selectedDateKey();
+      const idx = cbEntries.findIndex(e => e.date === date);
+      const entry = { date, kcal: Math.round(v), loggedAt: new Date().toISOString() };
+      if (idx >= 0) cbEntries[idx] = entry; else cbEntries.push(entry);
+      cbSaveEntries(cbEntries);
       render();
     });
 
-    window.addEventListener('storage', (e) => { if (!e.key || e.key.indexOf('burned:') === 0) render(); });
+    // Cross-tab / cloud-sync refresh: re-read the array (a remote pull
+    // writes straight to localStorage, so the in-memory cbEntries copy
+    // needs reloading) and re-render.
+    window.addEventListener('storage', (e) => {
+      if (!e.key || e.key === CB_KEY) { cbEntries = cbLoadEntries(); render(); }
+    });
 
     // ============================================================
     // TREND CHART — same stock-chart look as finance.html's net-worth
     // chart (glowing smooth line, gradient fill, dotted grid, stats
-    // strip), adapted for the burned:YYYY-MM-DD keys this widget already
-    // writes. Week = current Mon-Sun (0 for a day with nothing logged,
+    // strip), adapted for the caloriesBurnedEntries array this widget
+    // reads/writes. Week = current Mon-Sun (0 for a day with nothing logged,
     // so the curve stays continuous); Month = last 6 months, one point
     // per month = that month's average of days actually logged.
     // ============================================================
@@ -1451,15 +1757,12 @@ main {
       return d.join(' ');
     }
 
+    // Reads straight from the in-memory cbEntries array (kept in sync with
+    // localStorage by render()/the save handler/the storage listener)
+    // instead of scanning every key in localStorage on every chart render.
     function loadBurnedHistory() {
       const out = {};
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && k.indexOf('burned:') === 0) {
-          const v = parseFloat(localStorage.getItem(k));
-          if (!isNaN(v)) out[k.slice(7)] = v;
-        }
-      }
+      cbEntries.forEach((e) => { out[e.date] = e.kcal; });
       return out;
     }
     // Rolling last 7 days ending today — NOT the calendar Mon-Sun week.
@@ -1602,6 +1905,7 @@ main {
       });
     });
 
+    updateBurnedDatePillsUI();
     render();
   })();
   </script>
@@ -1619,8 +1923,12 @@ document.addEventListener('DOMContentLoaded', function () {
   if (typeof initCloudSync !== 'function') return;
   initCloudSync({
     appKey: 'health',
-    syncedKeys: ['po_water_v1'],
-    syncedPrefixes: ['burned:'],
+    // 'burned:*' per-day keys are gone (migrated to the single
+    // caloriesBurnedEntries array below), so syncedPrefixes has nothing
+    // left to match — kept as an empty array rather than removed
+    // entirely, since sync.js defaults it to [] anyway if omitted.
+    syncedKeys: ['po_water_v1', 'sleepEntries', 'caloriesBurnedEntries'],
+    syncedPrefixes: [],
     onApplied: function () {
       window.dispatchEvent(new Event('storage'));
     }
