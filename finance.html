@@ -452,6 +452,15 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   font-family: var(--font-mono);
 }
 .nw-chart-label { color: var(--text-tertiary); }
+.nw-chart-range { display: flex; gap: 2px; }
+.nw-range-btn {
+  padding: 3px 8px; border: none; border-radius: 6px; background: transparent;
+  color: var(--text-tertiary); font-family: var(--font-mono); font-size: 9.5px; font-weight: 800;
+  letter-spacing: 0.14em; text-transform: uppercase; cursor: pointer;
+  transition: background 0.15s, color 0.15s; -webkit-tap-highlight-color: transparent;
+}
+.nw-range-btn:hover { color: var(--text-secondary); }
+.nw-range-btn.active { background: rgba(255,255,255,0.08); color: var(--text-primary); }
 .nw-chart-delta { font-variant-numeric: tabular-nums; color: var(--text-tertiary); }
 .nw-chart-delta.up   { color: #6BE3A4; }
 .nw-chart-delta.down { color: #FF8A8A; }
@@ -1660,7 +1669,11 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     <div class="nw-overview-grid">
       <div class="nw-chart-wrap" id="nwChartWrap">
         <div class="nw-chart-head">
-          <span class="nw-chart-label">All-time</span>
+          <div class="nw-chart-range" id="nwChartRange">
+            <button type="button" class="nw-range-btn" data-range="week">Week</button>
+            <button type="button" class="nw-range-btn" data-range="month">Month</button>
+            <button type="button" class="nw-range-btn active" data-range="all">All-time</button>
+          </div>
           <span class="nw-chart-delta" id="nwChartDelta">—</span>
         </div>
         <svg class="nw-chart-svg" id="nwChartSvg" viewBox="0 0 600 200" preserveAspectRatio="none" aria-hidden="true">
@@ -1688,11 +1701,11 @@ input[type="date"]::-webkit-calendar-picker-indicator {
             <div class="nw-stat-val" id="nwStat1pct">—</div>
           </div>
           <div class="nw-stat">
-            <div class="nw-stat-label">All-time high</div>
+            <div class="nw-stat-label" id="nwStatHighLabel">All-time high</div>
             <div class="nw-stat-val" id="nwStatHigh">—</div>
           </div>
           <div class="nw-stat">
-            <div class="nw-stat-label">All-time low</div>
+            <div class="nw-stat-label" id="nwStatLowLabel">All-time low</div>
             <div class="nw-stat-val" id="nwStatLow">—</div>
           </div>
           <div class="nw-stat">
@@ -2461,6 +2474,24 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     }
     return d.join(' ');
   }
+  // Week/Month zoom into the same event-driven history a stock chart's
+  // "1W"/"1M" range would: filter to the window, but carry forward the
+  // last known value from just before it as a synthetic starting point
+  // (net worth doesn't reset to zero just because you didn't check it),
+  // so the line doesn't falsely start at the first snapshot INSIDE the
+  // window. "Snapshots" in the stats strip still counts only real
+  // in-window snapshot events, not that synthetic anchor.
+  let nwChartRange = 'all';
+  const NW_RANGE_DAYS = { week: 7, month: 30 };
+  function nwFilterHistoryByRange(hist, range) {
+    if (range === 'all' || !hist.length) return { points: hist.slice(), realCount: hist.length };
+    const cutoff = Date.now() - NW_RANGE_DAYS[range] * 24 * 60 * 60 * 1000;
+    const inWindow = hist.filter(p => p.t >= cutoff);
+    const before = hist.filter(p => p.t < cutoff);
+    const anchor = before.length ? before[before.length - 1] : null;
+    const points = anchor ? [{ t: cutoff, v: anchor.v }].concat(inWindow) : inWindow;
+    return { points, realCount: inWindow.length };
+  }
   function renderNetWorthChart() {
     const wrap = document.getElementById('nwChartWrap');
     const svg = document.getElementById('nwChartSvg');
@@ -2468,13 +2499,15 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     const areaPath = document.getElementById('nwChartArea');
     const deltaEl = document.getElementById('nwChartDelta');
     if (!wrap || !svg || !linePath || !areaPath) return;
-    const hist = storeGet(NW_HISTORY_KEY) || [];
+    const fullHist = storeGet(NW_HISTORY_KEY) || [];
+    const filtered = nwFilterHistoryByRange(fullHist, nwChartRange);
+    const hist = filtered.points;
     if (hist.length < 1) {
       wrap.classList.remove('has-data');
       linePath.setAttribute('d', '');
       areaPath.setAttribute('d', '');
       if (deltaEl) { deltaEl.textContent = '—'; deltaEl.classList.remove('up', 'down'); }
-      renderChartStats([]);
+      renderChartStats([], filtered.realCount);
       return;
     }
     wrap.classList.add('has-data');
@@ -2512,7 +2545,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
       const y = H / 2;
       linePath.setAttribute('d', 'M0,' + y + ' L' + W + ',' + y);
       areaPath.setAttribute('d', 'M0,' + y + ' L' + W + ',' + y + ' L' + W + ',' + H + ' L0,' + H + ' Z');
-      renderChartStats(hist);
+      renderChartStats(hist, filtered.realCount);
       return;
     }
     const points = hist.map((p, i) => ({
@@ -2524,17 +2557,22 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     const lastPt = points[points.length - 1];
     const firstPt = points[0];
     areaPath.setAttribute('d', lineD + ' L' + lastPt.x + ',' + H + ' L' + firstPt.x + ',' + H + ' Z');
-    renderChartStats(hist);
+    renderChartStats(hist, filtered.realCount);
   }
 
-  // Stats overlay — what 1% is worth, all-time high/low, snapshot count.
-  // Reads the snapshot history (CHF base) and converts to display currency.
-  function renderChartStats(hist) {
+  // Stats overlay — what 1% is worth, high/low, snapshot count — all
+  // scoped to whichever range (week/month/all-time) is currently selected.
+  function renderChartStats(hist, realCount) {
     const oneEl   = document.getElementById('nwStat1pct');
     const highEl  = document.getElementById('nwStatHigh');
     const lowEl   = document.getElementById('nwStatLow');
     const countEl = document.getElementById('nwStatCount');
+    const highLabelEl = document.getElementById('nwStatHighLabel');
+    const lowLabelEl  = document.getElementById('nwStatLowLabel');
     if (!oneEl) return;
+    const rangeWord = nwChartRange === 'week' ? 'Week' : nwChartRange === 'month' ? 'Month' : 'All-time';
+    if (highLabelEl) highLabelEl.textContent = rangeWord + ' high';
+    if (lowLabelEl)  lowLabelEl.textContent  = rangeWord + ' low';
     if (!hist || !hist.length) {
       oneEl.textContent = '—';
       highEl.textContent = '—';
@@ -2549,8 +2587,17 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     oneEl.textContent   = fmtMoney(last / 100);
     highEl.textContent  = fmtMoney(high);
     lowEl.textContent   = fmtMoney(low);
-    countEl.textContent = String(hist.length);
+    countEl.textContent = String(realCount != null ? realCount : hist.length);
   }
+
+  document.querySelectorAll('#nwChartRange .nw-range-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#nwChartRange .nw-range-btn').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      nwChartRange = b.dataset.range;
+      renderNetWorthChart();
+    });
+  });
 
   // ============================================================
   // BANK ACCOUNTS REGISTRY — account names persist independently of

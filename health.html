@@ -673,6 +673,7 @@ main {
       transition: border-color 0.18s; color-scheme: dark;
     }
     .burned-input:focus { border-color: rgba(255,255,255,0.40); }
+    #burnedDate { flex: 0 1 150px; }
     .burned-save-btn {
       padding: 10px 20px; border: 1px solid rgba(255,255,255,0.85); border-radius: 12px;
       background: linear-gradient(180deg, #FFF, #E8E5DD); color: #0A0A0B;
@@ -686,6 +687,7 @@ main {
   <div class="section-title">Calories Burned</div>
   <div class="burned-card">
     <div class="burned-row">
+      <input type="date" id="burnedDate" class="burned-input" aria-label="Date">
       <input type="number" min="0" step="1" id="burnedInput" class="burned-input" placeholder="e.g. 2400">
       <button id="burnedSaveBtn" class="burned-save-btn" type="button">Save</button>
     </div>
@@ -699,18 +701,33 @@ main {
       const d = new Date();
       return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
     }
-    function burnedKey() { return 'burned:' + todayDateKey(); }
+    // Which day this widget is reading/writing — defaults to today on
+    // every load (not persisted), so a forgotten day can be filled in via
+    // the date field without permanently leaving the widget on that day.
+    function selectedDateKey() { return $('burnedDate').value || todayDateKey(); }
+    function burnedKey(dateKey) { return 'burned:' + (dateKey || selectedDateKey()); }
+    function formatDateLabel(dateKey) {
+      const [y, m, d] = dateKey.split('-').map(Number);
+      return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
 
     function render() {
-      const v = localStorage.getItem(burnedKey());
+      const key = selectedDateKey();
+      const isToday = key === todayDateKey();
+      const v = localStorage.getItem(burnedKey(key));
       const status = $('burnedStatus');
       if (v != null && v !== '') {
-        status.textContent = 'Logged: ' + v + ' kcal burned today';
+        status.textContent = 'Logged: ' + v + ' kcal burned ' + (isToday ? 'today' : 'on ' + formatDateLabel(key));
         $('burnedInput').value = v;
       } else {
-        status.textContent = 'Not logged yet today.';
+        $('burnedInput').value = '';
+        status.textContent = 'Not logged yet ' + (isToday ? 'today' : 'for ' + formatDateLabel(key)) + '.';
       }
     }
+
+    $('burnedDate').value = todayDateKey();
+    $('burnedDate').max = todayDateKey(); // no logging a day that hasn't happened
+    $('burnedDate').addEventListener('change', render);
 
     $('burnedSaveBtn').addEventListener('click', () => {
       const v = parseFloat($('burnedInput').value);
