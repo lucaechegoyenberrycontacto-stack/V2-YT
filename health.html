@@ -708,8 +708,20 @@ main {
     }
     .cb-range-btn:hover { color: var(--text-secondary); }
     .cb-range-btn.active { background: rgba(255,255,255,0.08); color: var(--text-primary); }
-    .cb-chart-svg { display: block; width: 100%; height: 170px; color: #FF8A6B; overflow: visible; }
+    .cb-chart-svg { display: block; width: 100%; height: 190px; color: #FF8A6B; overflow: visible; }
     .cb-chart-grid { stroke: rgba(255,255,255,0.05); stroke-width: 1; stroke-dasharray: 2 4; vector-effect: non-scaling-stroke; }
+    .cb-chart-xlabel { font-size: 10px; fill: var(--text-tertiary); font-family: var(--font-mono); }
+    .cb-chart-dot { fill: #FF8A6B; stroke: var(--bg); stroke-width: 1.5; cursor: pointer; }
+    .cb-chart-dot.zero { opacity: 0.35; }
+    .cb-dot-hit { fill: rgba(0,0,0,0.001); pointer-events: all; cursor: pointer; }
+    .cb-chart-tooltip {
+      position: absolute; display: none; pointer-events: none;
+      transform: translate(-50%, calc(-100% - 10px));
+      background: rgba(20,20,24,0.97); border: 1px solid rgba(255,255,255,0.14);
+      color: var(--text-primary); font-size: 11px; font-weight: 700;
+      font-family: var(--font-mono); padding: 5px 9px; border-radius: 8px;
+      white-space: nowrap; box-shadow: 0 6px 18px rgba(0,0,0,0.45); z-index: 5;
+    }
     .cb-chart-empty {
       position: absolute; inset: 28px 16px 12px; font-size: 11px; color: var(--text-tertiary);
       text-align: center; font-style: italic; display: flex; align-items: center;
@@ -745,7 +757,7 @@ main {
           <button type="button" class="cb-range-btn" data-range="month">Month</button>
         </div>
       </div>
-      <svg class="cb-chart-svg" id="cbChartSvg" viewBox="0 0 600 170" preserveAspectRatio="none" aria-hidden="true">
+      <svg class="cb-chart-svg" id="cbChartSvg" viewBox="0 0 600 190" preserveAspectRatio="none" aria-hidden="true">
         <defs>
           <linearGradient id="cbChartGrad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%"   stop-color="currentColor" stop-opacity="0.55"/>
@@ -753,14 +765,16 @@ main {
             <stop offset="100%" stop-color="currentColor" stop-opacity="0"/>
           </linearGradient>
         </defs>
-        <line class="cb-chart-grid" x1="0" x2="600" y1="34" y2="34"/>
-        <line class="cb-chart-grid" x1="0" x2="600" y1="85" y2="85"/>
-        <line class="cb-chart-grid" x1="0" x2="600" y1="136" y2="136"/>
+        <line class="cb-chart-grid" x1="0" x2="600" y1="45" y2="45"/>
+        <line class="cb-chart-grid" x1="0" x2="600" y1="95" y2="95"/>
+        <line class="cb-chart-grid" x1="0" x2="600" y1="145" y2="145"/>
         <path id="cbChartArea" fill="url(#cbChartGrad)" d=""/>
         <path id="cbChartLine" fill="none" stroke="currentColor" stroke-width="2.4"
               stroke-linejoin="round" stroke-linecap="round"
               style="filter: drop-shadow(0 0 6px currentColor)" d=""/>
+        <g id="cbChartDots"></g>
       </svg>
+      <div class="cb-chart-tooltip" id="cbChartTooltip"></div>
       <div class="cb-chart-stats" id="cbChartStats">
         <div class="cb-stat"><div class="cb-stat-label">Avg</div><div class="cb-stat-val" id="cbStatAvg">—</div></div>
         <div class="cb-stat"><div class="cb-stat-label" id="cbStatHighLabel">Week high</div><div class="cb-stat-val" id="cbStatHigh">—</div></div>
@@ -908,10 +922,39 @@ main {
       $('cbStatLogged').textContent = String(realPoints.length) + (cbChartRange === 'week' ? ' / 7 days' : ' mo');
     }
 
+    function hideBurnedTooltip() {
+      const tip = $('cbChartTooltip');
+      if (tip) tip.style.display = 'none';
+    }
+    function showBurnedTooltip(dotEl) {
+      const tip = $('cbChartTooltip');
+      const wrap = $('cbChartWrap');
+      const real = dotEl.getAttribute('data-real') === '1';
+      const value = Number(dotEl.getAttribute('data-value'));
+      const label = dotEl.getAttribute('data-label');
+      tip.textContent = label + ': ' + (real ? value.toLocaleString() + ' kcal' : 'no data');
+      tip.style.display = 'block';
+      const wrapRect = wrap.getBoundingClientRect();
+      const dotRect = dotEl.getBoundingClientRect();
+      tip.style.left = (dotRect.left + dotRect.width / 2 - wrapRect.left) + 'px';
+      tip.style.top = (dotRect.top - wrapRect.top) + 'px';
+    }
+    function wireBurnedDotEvents() {
+      $('cbChartSvg').querySelectorAll('.cb-chart-dot, .cb-dot-hit').forEach((dot) => {
+        dot.addEventListener('mouseenter', () => showBurnedTooltip(dot));
+        dot.addEventListener('mouseleave', hideBurnedTooltip);
+        dot.addEventListener('click', (e) => { e.stopPropagation(); showBurnedTooltip(dot); });
+      });
+    }
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.cb-chart-dot, .cb-dot-hit')) hideBurnedTooltip();
+    });
+
     function renderBurnedChart() {
       const wrap = $('cbChartWrap');
       const linePath = $('cbChartLine');
       const areaPath = $('cbChartArea');
+      const dotsGroup = $('cbChartDots');
       if (!wrap || !linePath || !areaPath) return;
       const burned = loadBurnedHistory();
       const data = cbChartRange === 'month' ? cbMonthData(burned) : cbWeekData(burned);
@@ -920,24 +963,41 @@ main {
         wrap.classList.remove('has-data');
         linePath.setAttribute('d', '');
         areaPath.setAttribute('d', '');
+        dotsGroup.innerHTML = '';
+        hideBurnedTooltip();
         renderBurnedStats([]);
         return;
       }
       wrap.classList.add('has-data');
-      const W = 600, H = 170, pad = 8;
+      const W = 600, H = 190;
+      const padLeft = 8, padRight = 8, padTop = 10, padBottom = 24;
+      const plotW = W - padLeft - padRight, plotH = H - padTop - padBottom;
       const vals = data.map(p => p.value);
       const minV = Math.min.apply(null, vals.concat([0])); // floor at 0 — kcal can't go negative
       const maxV = Math.max.apply(null, vals);
       const range = (maxV - minV) || Math.max(1, maxV);
       const n = data.length;
       const points = data.map((p, i) => ({
-        x: n === 1 ? W / 2 : (i / (n - 1)) * W,
-        y: H - pad - ((p.value - minV) / range) * (H - pad * 2)
+        x: n === 1 ? padLeft + plotW / 2 : padLeft + (i / (n - 1)) * plotW,
+        y: padTop + plotH - ((p.value - minV) / range) * plotH,
+        v: p.value, label: p.label, real: p.real
       }));
       const lineD = cbSmoothPath(points);
       linePath.setAttribute('d', lineD);
+      const baseY = padTop + plotH;
       const lastPt = points[points.length - 1], firstPt = points[0];
-      areaPath.setAttribute('d', lineD + ' L' + lastPt.x + ',' + H + ' L' + firstPt.x + ',' + H + ' Z');
+      areaPath.setAttribute('d', lineD + ' L' + lastPt.x + ',' + baseY + ' L' + firstPt.x + ',' + baseY + ' Z');
+
+      let dotsHtml = '';
+      points.forEach((p) => {
+        const attrs = ' cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" data-value="' + p.v + '" data-real="' + (p.real ? '1' : '0') + '" data-label="' + p.label + '"';
+        dotsHtml += '<circle class="cb-dot-hit" r="13"' + attrs + '></circle>'
+          + '<circle class="cb-chart-dot' + (p.real ? '' : ' zero') + '" r="' + (p.real ? 4 : 3) + '"' + attrs + '></circle>'
+          + '<text class="cb-chart-xlabel" x="' + p.x.toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle">' + p.label + '</text>';
+      });
+      dotsGroup.innerHTML = dotsHtml;
+      wireBurnedDotEvents();
+
       renderBurnedStats(realPoints);
     }
 
