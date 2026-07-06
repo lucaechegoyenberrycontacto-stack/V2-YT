@@ -683,6 +683,51 @@ main {
     }
     .burned-save-btn:hover { transform: translateY(-1px); }
     .burned-status { font-size: 12.5px; color: var(--text-tertiary); margin-top: 10px; min-height: 16px; }
+    /* Trend chart — same stock-chart look as finance.html's net-worth
+       chart (glowing smooth line, gradient fill, dotted grid, stats
+       strip), copied and adapted here since every dashboard page is
+       self-contained. Always a fixed green — unlike net worth, "burned
+       calories went down" isn't inherently bad, so it doesn't get a
+       red/green direction flip. */
+    .cb-chart-wrap {
+      margin-top: 18px; padding: 14px 16px 12px;
+      background: rgba(255,255,255,0.025); border-radius: 14px;
+      position: relative; overflow: hidden;
+    }
+    .cb-chart-head {
+      display: flex; justify-content: flex-start; align-items: center;
+      margin-bottom: 8px; font-size: 9.5px; font-weight: 800;
+      letter-spacing: 0.16em; text-transform: uppercase; font-family: var(--font-mono);
+    }
+    .cb-chart-range { display: flex; gap: 2px; }
+    .cb-range-btn {
+      padding: 3px 8px; border: none; border-radius: 6px; background: transparent;
+      color: var(--text-tertiary); font-family: var(--font-mono); font-size: 9.5px; font-weight: 800;
+      letter-spacing: 0.14em; text-transform: uppercase; cursor: pointer;
+      transition: background 0.15s, color 0.15s; -webkit-tap-highlight-color: transparent;
+    }
+    .cb-range-btn:hover { color: var(--text-secondary); }
+    .cb-range-btn.active { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+    .cb-chart-svg { display: block; width: 100%; height: 170px; color: #FF8A6B; overflow: visible; }
+    .cb-chart-grid { stroke: rgba(255,255,255,0.05); stroke-width: 1; stroke-dasharray: 2 4; vector-effect: non-scaling-stroke; }
+    .cb-chart-empty {
+      position: absolute; inset: 28px 16px 12px; font-size: 11px; color: var(--text-tertiary);
+      text-align: center; font-style: italic; display: flex; align-items: center;
+      justify-content: center; pointer-events: none;
+    }
+    .cb-chart-wrap.has-data .cb-chart-empty { display: none; }
+    .cb-chart-stats {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+      margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.05);
+    }
+    @media (max-width: 480px) { .cb-chart-stats { grid-template-columns: repeat(2, 1fr); } }
+    .cb-stat { display: flex; flex-direction: column; gap: 2px; padding: 4px 6px; }
+    .cb-stat-label { font-size: 9px; letter-spacing: 0.16em; font-weight: 800; text-transform: uppercase; color: var(--text-tertiary); font-family: var(--font-mono); }
+    .cb-stat-val {
+      font-size: 13px; font-weight: 700; color: var(--text-primary);
+      font-variant-numeric: tabular-nums; font-family: var(--font-mono);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
   </style>
   <div class="section-title">Calories Burned</div>
   <div class="burned-card">
@@ -692,6 +737,38 @@ main {
       <button id="burnedSaveBtn" class="burned-save-btn" type="button">Save</button>
     </div>
     <div id="burnedStatus" class="burned-status"></div>
+
+    <div class="cb-chart-wrap" id="cbChartWrap">
+      <div class="cb-chart-head">
+        <div class="cb-chart-range" id="cbChartRange">
+          <button type="button" class="cb-range-btn active" data-range="week">Week</button>
+          <button type="button" class="cb-range-btn" data-range="month">Month</button>
+        </div>
+      </div>
+      <svg class="cb-chart-svg" id="cbChartSvg" viewBox="0 0 600 170" preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="cbChartGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stop-color="currentColor" stop-opacity="0.55"/>
+            <stop offset="60%"  stop-color="currentColor" stop-opacity="0.18"/>
+            <stop offset="100%" stop-color="currentColor" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <line class="cb-chart-grid" x1="0" x2="600" y1="34" y2="34"/>
+        <line class="cb-chart-grid" x1="0" x2="600" y1="85" y2="85"/>
+        <line class="cb-chart-grid" x1="0" x2="600" y1="136" y2="136"/>
+        <path id="cbChartArea" fill="url(#cbChartGrad)" d=""/>
+        <path id="cbChartLine" fill="none" stroke="currentColor" stroke-width="2.4"
+              stroke-linejoin="round" stroke-linecap="round"
+              style="filter: drop-shadow(0 0 6px currentColor)" d=""/>
+      </svg>
+      <div class="cb-chart-stats" id="cbChartStats">
+        <div class="cb-stat"><div class="cb-stat-label">Avg</div><div class="cb-stat-val" id="cbStatAvg">—</div></div>
+        <div class="cb-stat"><div class="cb-stat-label" id="cbStatHighLabel">Week high</div><div class="cb-stat-val" id="cbStatHigh">—</div></div>
+        <div class="cb-stat"><div class="cb-stat-label" id="cbStatLowLabel">Week low</div><div class="cb-stat-val" id="cbStatLow">—</div></div>
+        <div class="cb-stat"><div class="cb-stat-label">Logged</div><div class="cb-stat-val" id="cbStatLogged">—</div></div>
+      </div>
+      <div class="cb-chart-empty" id="cbChartEmpty">Log calories burned to start tracking your trend.</div>
+    </div>
   </div>
   <script>
   (function () {
@@ -723,6 +800,7 @@ main {
         $('burnedInput').value = '';
         status.textContent = 'Not logged yet ' + (isToday ? 'today' : 'for ' + formatDateLabel(key)) + '.';
       }
+      renderBurnedChart();
     }
 
     $('burnedDate').value = todayDateKey();
@@ -736,7 +814,138 @@ main {
       render();
     });
 
-    window.addEventListener('storage', (e) => { if (!e.key || e.key === burnedKey()) render(); });
+    window.addEventListener('storage', (e) => { if (!e.key || e.key.indexOf('burned:') === 0) render(); });
+
+    // ============================================================
+    // TREND CHART — same stock-chart look as finance.html's net-worth
+    // chart (glowing smooth line, gradient fill, dotted grid, stats
+    // strip), adapted for the burned:YYYY-MM-DD keys this widget already
+    // writes. Week = current Mon-Sun (0 for a day with nothing logged,
+    // so the curve stays continuous); Month = last 6 months, one point
+    // per month = that month's average of days actually logged.
+    // ============================================================
+    let cbChartRange = 'week';
+    const CB_MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    function cbSmoothPath(points) {
+      if (points.length < 2) return '';
+      if (points.length === 2) return 'M' + points[0].x + ',' + points[0].y + ' L' + points[1].x + ',' + points[1].y;
+      const d = ['M' + points[0].x + ',' + points[0].y];
+      for (let i = 0; i < points.length - 1; i++) {
+        const p0 = points[i - 1] || points[i];
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        const p3 = points[i + 2] || p2;
+        const c1x = p1.x + (p2.x - p0.x) / 6;
+        const c1y = p1.y + (p2.y - p0.y) / 6;
+        const c2x = p2.x - (p3.x - p1.x) / 6;
+        const c2y = p2.y - (p3.y - p1.y) / 6;
+        d.push('C' + c1x + ',' + c1y + ' ' + c2x + ',' + c2y + ' ' + p2.x + ',' + p2.y);
+      }
+      return d.join(' ');
+    }
+
+    function loadBurnedHistory() {
+      const out = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf('burned:') === 0) {
+          const v = parseFloat(localStorage.getItem(k));
+          if (!isNaN(v)) out[k.slice(7)] = v;
+        }
+      }
+      return out;
+    }
+    function cbWeekData(burned) {
+      const now = new Date();
+      const dow = (now.getDay() + 6) % 7; // 0=Mon..6=Sun
+      const monday = new Date(now); monday.setDate(now.getDate() - dow);
+      const labels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+      const points = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(monday); d.setDate(monday.getDate() + i);
+        const key = d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+        const v = burned[key];
+        points.push({ label: labels[i], value: v != null ? v : 0, real: v != null });
+      }
+      return points;
+    }
+    function cbMonthData(burned) {
+      const now = new Date();
+      const points = [];
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const y = d.getFullYear(), m = d.getMonth();
+        const vals = Object.keys(burned).filter(k => {
+          const [ky, km] = k.split('-').map(Number);
+          return ky === y && (km - 1) === m;
+        }).map(k => burned[k]);
+        const avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+        points.push({ label: CB_MONTH_LABELS[m], value: Math.round(avg), real: vals.length > 0 });
+      }
+      return points;
+    }
+
+    function renderBurnedStats(realPoints) {
+      const rangeWord = cbChartRange === 'month' ? 'Month' : 'Week';
+      $('cbStatHighLabel').textContent = rangeWord + ' high';
+      $('cbStatLowLabel').textContent = rangeWord + ' low';
+      if (!realPoints.length) {
+        $('cbStatAvg').textContent = '—';
+        $('cbStatHigh').textContent = '—';
+        $('cbStatLow').textContent = '—';
+        $('cbStatLogged').textContent = '0';
+        return;
+      }
+      const vals = realPoints.map(p => p.value);
+      const avg = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+      $('cbStatAvg').textContent = avg.toLocaleString() + ' kcal';
+      $('cbStatHigh').textContent = Math.max.apply(null, vals).toLocaleString() + ' kcal';
+      $('cbStatLow').textContent = Math.min.apply(null, vals).toLocaleString() + ' kcal';
+      $('cbStatLogged').textContent = String(realPoints.length) + (cbChartRange === 'week' ? ' / 7 days' : ' mo');
+    }
+
+    function renderBurnedChart() {
+      const wrap = $('cbChartWrap');
+      const linePath = $('cbChartLine');
+      const areaPath = $('cbChartArea');
+      if (!wrap || !linePath || !areaPath) return;
+      const burned = loadBurnedHistory();
+      const data = cbChartRange === 'month' ? cbMonthData(burned) : cbWeekData(burned);
+      const realPoints = data.filter(p => p.real);
+      if (!realPoints.length) {
+        wrap.classList.remove('has-data');
+        linePath.setAttribute('d', '');
+        areaPath.setAttribute('d', '');
+        renderBurnedStats([]);
+        return;
+      }
+      wrap.classList.add('has-data');
+      const W = 600, H = 170, pad = 8;
+      const vals = data.map(p => p.value);
+      const minV = Math.min.apply(null, vals.concat([0])); // floor at 0 — kcal can't go negative
+      const maxV = Math.max.apply(null, vals);
+      const range = (maxV - minV) || Math.max(1, maxV);
+      const n = data.length;
+      const points = data.map((p, i) => ({
+        x: n === 1 ? W / 2 : (i / (n - 1)) * W,
+        y: H - pad - ((p.value - minV) / range) * (H - pad * 2)
+      }));
+      const lineD = cbSmoothPath(points);
+      linePath.setAttribute('d', lineD);
+      const lastPt = points[points.length - 1], firstPt = points[0];
+      areaPath.setAttribute('d', lineD + ' L' + lastPt.x + ',' + H + ' L' + firstPt.x + ',' + H + ' Z');
+      renderBurnedStats(realPoints);
+    }
+
+    $('cbChartRange').querySelectorAll('.cb-range-btn').forEach(b => {
+      b.addEventListener('click', () => {
+        $('cbChartRange').querySelectorAll('.cb-range-btn').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        cbChartRange = b.dataset.range;
+        renderBurnedChart();
+      });
+    });
 
     render();
   })();
