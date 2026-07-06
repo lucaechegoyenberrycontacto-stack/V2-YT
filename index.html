@@ -269,6 +269,11 @@ body::after {
         <div class="stat-label">Actividad</div>
         <div class="stat-sub" id="statGymSub"></div>
       </a>
+      <a class="stat" id="statSteps" href="gym.html">
+        <div class="stat-num" id="statStepsNum">—</div>
+        <div class="stat-label">Pasos</div>
+        <div class="stat-sub" id="statStepsSub"></div>
+      </a>
     </div>
   </div>
 
@@ -844,6 +849,25 @@ body::after {
   }
 
   /* ============================================================
+     PASOS DIARIOS — exact replica of gym.html's stepsLoad()/
+     stepsLoadGoal() (gym:steps per-day object, gym:stepsGoal number).
+     ============================================================ */
+  function renderStepsStat() {
+    let stepsData = {};
+    try { stepsData = JSON.parse(localStorage.getItem('gym:steps')) || {}; } catch (e) {}
+    let goal = 8000; // same STEPS_DEFAULT_GOAL fallback as gym.html
+    try {
+      const g = JSON.parse(localStorage.getItem('gym:stepsGoal'));
+      if (typeof g === 'number' && g > 0) goal = g;
+    } catch (e) {}
+    const today = stepsData[calendarDateKey()] || 0;
+    const hour = new Date().getHours();
+    const status = today >= goal ? 'good' : (hour >= 20 && today < goal * 0.5 ? 'bad' : (today > 0 ? 'warn' : null));
+    const pct = goal > 0 ? Math.round((today / goal) * 100) : 0;
+    setStat('statSteps', today.toLocaleString('es-ES') + ' / ' + goal.toLocaleString('es-ES'), status, pct + '% de la meta');
+  }
+
+  /* ============================================================
      INIT — read-only, no writes, no initCloudSync (per spec).
      ============================================================ */
   function renderAllStats() {
@@ -852,6 +876,7 @@ body::after {
     renderGoalsStat();
     renderCaloriesStat();
     renderGymStat();
+    renderStepsStat();
   }
   renderAllStats();
 
