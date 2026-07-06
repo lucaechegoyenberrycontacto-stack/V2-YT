@@ -188,10 +188,15 @@ body::after {
 .home-weather-refresh:hover { background: rgba(255,255,255,0.07); color: var(--text-primary); }
 .home-weather-refresh.spinning { animation: home-weather-spin 0.6s linear; }
 @keyframes home-weather-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-.home-weather-chart-svg { width: 100%; height: 44px; display: block; margin-top: 10px; overflow: visible; }
+.home-weather-chart-svg { width: 100%; height: 94px; display: block; margin-top: 10px; overflow: visible; }
 .home-weather-chart-svg.hidden { display: none; }
-.home-weather-chart-line { fill: none; stroke: var(--text-secondary); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; opacity: 0.55; }
-.home-weather-chart-now { fill: #6B8E23; }
+.home-weather-chart-hour { font-size: 9px; font-family: var(--font-mono); fill: var(--text-tertiary); }
+.home-weather-chart-value { font-size: 11px; font-weight: 700; font-family: var(--font-mono); fill: var(--text-primary); }
+.home-weather-chart-value.now { fill: #6B8E23; }
+.home-weather-chart-precip { font-size: 9px; font-family: var(--font-mono); fill: var(--text-tertiary); }
+.home-weather-chart-line { fill: none; stroke: #6B8E23; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; opacity: 0.7; }
+.home-weather-chart-dot { fill: #6B8E23; opacity: 0.7; }
+.home-weather-chart-dot.now { opacity: 1; }
 
 @media (max-width: 560px) {
   .home-clock { font-size: 34px; }
@@ -224,7 +229,7 @@ body::after {
               </div>
               <button class="home-weather-refresh" id="weatherRefreshBtn" type="button" aria-label="Actualizar clima" title="Actualizar clima">↻</button>
             </div>
-            <svg class="home-weather-chart-svg hidden" id="weatherChartSvg" viewBox="0 0 300 44" preserveAspectRatio="none"></svg>
+            <svg class="home-weather-chart-svg hidden" id="weatherChartSvg" viewBox="0 0 300 94" preserveAspectRatio="none"></svg>
           </div>
         </div>
         <div class="home-quote-block">
@@ -558,29 +563,49 @@ body::after {
     renderWeatherChart(data.hourly);
   }
 
-  // Small sparkline of today's hourly temps — no axis labels, no library,
-  // same hand-drawn SVG approach as health.html's sleep chart. A single
-  // dot marks the current hour.
+  // Hourly strip: hour label on top, temp value + line in the middle,
+  // precipitation chance on the bottom — same idea as a phone weather
+  // app's hourly row, hand-drawn as one small SVG (no chart library).
+  // Only a handful of hours are sampled (not all 24) so the labels have
+  // room to breathe; the sampled hour closest to right now is highlighted.
+  const WEATHER_CHART_HOURS = [0, 4, 8, 12, 16, 20];
+
   function renderWeatherChart(hourly) {
     const svg = $('weatherChartSvg');
     if (!hourly || !hourly.temps || hourly.temps.length < 2) { svg.classList.add('hidden'); svg.innerHTML = ''; return; }
     svg.classList.remove('hidden');
 
-    const temps = hourly.temps;
-    const n = temps.length;
-    const W = svg.getBoundingClientRect().width || 300, H = 44;
+    const idxs = WEATHER_CHART_HOURS.filter(i => i < hourly.temps.length);
+    const temps = idxs.map(i => hourly.temps[i]);
+    const precip = idxs.map(i => (hourly.precip ? hourly.precip[i] : null));
+    const n = idxs.length;
+    const nowIdx = Math.max(0, Math.min(hourly.temps.length - 1, hourly.nowIndex));
+    // Which SAMPLED point is closest to the real current hour.
+    let nowSample = 0, bestDiff = Infinity;
+    idxs.forEach((hourIdx, i) => { const d = Math.abs(hourIdx - nowIdx); if (d < bestDiff) { bestDiff = d; nowSample = i; } });
+
+    const W = svg.getBoundingClientRect().width || 300, H = 94;
     svg.setAttribute('viewBox', '0 0 ' + W.toFixed(1) + ' ' + H);
-    const padY = 6;
+    const hourY = 9, valueY = 26, curveTop = 32, curveBottom = 64, precipY = 86;
     const min = Math.min.apply(null, temps), max = Math.max.apply(null, temps);
     const range = (max - min) || 1;
-    const xAt = (i) => (W * i) / (n - 1);
-    const yAt = (v) => padY + (H - padY * 2) * (1 - (v - min) / range);
+    const xAt = (i) => n === 1 ? W / 2 : (W * i) / (n - 1);
+    const yAt = (v) => curveTop + (curveBottom - curveTop) * (1 - (v - min) / range);
 
     let d = '';
     temps.forEach((v, i) => { d += (i === 0 ? 'M ' : ' L ') + xAt(i).toFixed(1) + ' ' + yAt(v).toFixed(1); });
     let html = '<path class="home-weather-chart-line" d="' + d + '"></path>';
-    const nowIdx = Math.max(0, Math.min(n - 1, hourly.nowIndex));
-    html += '<circle class="home-weather-chart-now" cx="' + xAt(nowIdx).toFixed(1) + '" cy="' + yAt(temps[nowIdx]).toFixed(1) + '" r="3"></circle>';
+
+    idxs.forEach((hourIdx, i) => {
+      const x = xAt(i).toFixed(1);
+      const isNow = i === nowSample;
+      html += '<text class="home-weather-chart-hour" x="' + x + '" y="' + hourY + '" text-anchor="middle">' + String(hourIdx).padStart(2, '0') + ':00</text>';
+      html += '<text class="home-weather-chart-value' + (isNow ? ' now' : '') + '" x="' + x + '" y="' + valueY + '" text-anchor="middle">' + Math.round(temps[i]) + '°</text>';
+      html += '<circle class="home-weather-chart-dot' + (isNow ? ' now' : '') + '" cx="' + x + '" cy="' + yAt(temps[i]).toFixed(1) + '" r="' + (isNow ? 3.2 : 2.2) + '"></circle>';
+      if (precip[i] != null) {
+        html += '<text class="home-weather-chart-precip" x="' + x + '" y="' + precipY + '" text-anchor="middle">' + Math.round(precip[i]) + '%</text>';
+      }
+    });
     svg.innerHTML = html;
   }
 
@@ -596,7 +621,7 @@ body::after {
     try {
       const url = 'https://api.open-meteo.com/v1/forecast?latitude=' + WEATHER_LAT + '&longitude=' + WEATHER_LON +
         '&current=temperature_2m,apparent_temperature,weather_code,is_day' +
-        '&hourly=temperature_2m&forecast_days=1' +
+        '&hourly=temperature_2m,precipitation_probability&forecast_days=1' +
         '&daily=temperature_2m_max,temperature_2m_min&timezone=auto';
       const res = await fetch(url);
       const json = await res.json();
@@ -610,7 +635,11 @@ body::after {
         isDay: json.current ? json.current.is_day : 1,
         max: json.daily && json.daily.temperature_2m_max ? json.daily.temperature_2m_max[0] : null,
         min: json.daily && json.daily.temperature_2m_min ? json.daily.temperature_2m_min[0] : null,
-        hourly: json.hourly && json.hourly.temperature_2m ? { temps: json.hourly.temperature_2m, nowIndex: nowIndex < 0 ? new Date().getHours() : nowIndex } : null,
+        hourly: json.hourly && json.hourly.temperature_2m ? {
+          temps: json.hourly.temperature_2m,
+          precip: json.hourly.precipitation_probability || null,
+          nowIndex: nowIndex < 0 ? new Date().getHours() : nowIndex
+        } : null,
       };
       renderWeather(data);
       saveWeatherCache(data);
