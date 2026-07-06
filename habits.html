@@ -235,7 +235,11 @@ body::after {
 
       <div class="hb-row">
         <label class="hb-field">
-          <span class="hb-field-label">Hours today</span>
+          <span class="hb-field-label">Date</span>
+          <input type="date" id="screenDateInput" class="hb-input">
+        </label>
+        <label class="hb-field">
+          <span class="hb-field-label" id="screenHoursLabel">Hours today</span>
           <input type="number" min="0" step="0.1" id="screenHoursInput" class="hb-input" placeholder="e.g. 3.5">
         </label>
         <label class="hb-field">
@@ -247,17 +251,17 @@ body::after {
       <div class="hb-status" id="screenStatus"></div>
 
       <div class="hb-avg-row">
-        <div class="hb-avg-stat"><div class="hb-avg-label">This week avg</div><div class="hb-avg-val" id="screenWeekAvg">—</div></div>
+        <div class="hb-avg-stat"><div class="hb-avg-label">Last 7 days avg</div><div class="hb-avg-val" id="screenWeekAvg">—</div></div>
       </div>
 
       <div class="hb-chart-head">
-        <span class="hb-chart-eye">This week</span>
+        <span class="hb-chart-eye">Last 7 days</span>
         <div class="hb-chart-legend">
           <span class="hb-leg-item"><span class="hb-leg-dot d-screen"></span>Screen time</span>
           <span class="hb-leg-item"><span class="hb-leg-dot d-goal"></span>Goal</span>
         </div>
       </div>
-      <div id="screenWeekEmpty" class="hb-chart-empty" style="display:none">No screen time logged yet this week.</div>
+      <div id="screenWeekEmpty" class="hb-chart-empty" style="display:none">No screen time logged in the last 7 days.</div>
       <div class="hb-chart-wrap" id="screenChartWrap">
         <svg class="hb-week-svg hidden" id="screenWeekSvg" viewBox="0 0 300 260" preserveAspectRatio="none"></svg>
         <div class="hb-week-tooltip" id="screenWeekTooltip"></div>
@@ -430,30 +434,50 @@ body::after {
   /* ============================================================
      SCREEN TIME
      ============================================================ */
+  // Rolling last 7 days ending today — NOT the calendar Mon-Sun week.
+  // A fixed calendar week would drop a backdated entry for "yesterday"
+  // off the chart whenever today happens to be a Monday (yesterday would
+  // belong to LAST week's box), which would defeat the point of being
+  // able to log a day you forgot.
   function currentWeekKeys() {
     const now = new Date();
-    const dow = (now.getDay() + 6) % 7; // 0=Mon..6=Sun
-    const monday = new Date(now); monday.setDate(now.getDate() - dow);
     const out = [];
-    for (let i = 0; i < 7; i++) { const d = new Date(monday); d.setDate(monday.getDate() + i); out.push(dateKey(d)); }
+    for (let i = 6; i >= 0; i--) { const d = new Date(now); d.setDate(now.getDate() - i); out.push(dateKey(d)); }
     return out;
   }
   function dayLabel(dstr) {
     const [y, m, d] = dstr.split('-').map(Number);
     return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(y, m - 1, d).getDay()];
   }
+  function formatShortDate(dstr) {
+    const [y, m, d] = dstr.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  // Which day the form reads/writes — defaults to today on every load
+  // (not persisted), so a forgotten day can be filled in via the date
+  // field without permanently leaving the widget on that day.
+  function screenSelectedDateKey() { return $('screenDateInput').value || todayStr(); }
 
   function fillScreenForm() {
-    const today = state.screenTime.logs[todayStr()];
-    $('screenHoursInput').value = (today != null) ? today : '';
+    const key = screenSelectedDateKey();
+    const isToday = key === todayStr();
+    const entry = state.screenTime.logs[key];
+    $('screenHoursInput').value = (entry != null) ? entry : '';
     $('screenGoalInput').value = state.screenTime.goalHours;
+    $('screenHoursLabel').textContent = isToday ? 'Hours today' : 'Hours on ' + formatShortDate(key);
   }
+  $('screenDateInput').value = todayStr();
+  $('screenDateInput').max = todayStr(); // no logging a day that hasn't happened
+  $('screenDateInput').addEventListener('change', fillScreenForm);
+
   $('screenSaveBtn').addEventListener('click', () => {
+    const key = screenSelectedDateKey();
     const hrs = parseFloat($('screenHoursInput').value);
     const goal = parseFloat($('screenGoalInput').value);
     const status = $('screenStatus');
-    if (!(hrs >= 0)) { status.textContent = 'Enter today\'s hours first.'; return; }
-    state.screenTime.logs[todayStr()] = hrs;
+    if (!(hrs >= 0)) { status.textContent = 'Enter the hours first.'; return; }
+    state.screenTime.logs[key] = hrs;
     if (goal > 0) state.screenTime.goalHours = goal;
     persist();
     status.textContent = 'Saved ✓';
