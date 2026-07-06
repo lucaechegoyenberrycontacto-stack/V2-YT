@@ -201,6 +201,15 @@ main {
     }
     .sleep-week-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 20px; flex-wrap: wrap; gap: 8px; }
     .sleep-week-eye { font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-tertiary); }
+    .sleep-range-toggle { display: flex; gap: 4px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 999px; padding: 3px; }
+    .sleep-range-btn {
+      padding: 5px 13px; border: none; border-radius: 999px; background: transparent;
+      color: var(--text-tertiary); font-family: inherit; font-size: 10px; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer;
+      transition: background 0.15s, color 0.15s; -webkit-tap-highlight-color: transparent;
+    }
+    .sleep-range-btn:hover { color: var(--text-secondary); }
+    .sleep-range-btn.active { background: rgba(255,255,255,0.10); color: var(--text-primary); }
     .sleep-week-legend { display: flex; gap: 12px; flex-wrap: wrap; }
     .sleep-leg-item { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; color: var(--text-secondary); font-weight: 500; }
     .sleep-leg-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
@@ -301,7 +310,11 @@ main {
         <div class="sleep-week-breakout">
           <div class="sleep-week-inner">
             <div class="sleep-week-head">
-              <span class="sleep-week-eye">This week</span>
+              <span class="sleep-week-eye" id="sleepWeekEyebrow">This week</span>
+              <div class="sleep-range-toggle" id="sleepRangeToggle">
+                <button type="button" class="sleep-range-btn active" data-range="week">Week</button>
+                <button type="button" class="sleep-range-btn" data-range="month">Month</button>
+              </div>
               <div class="sleep-week-legend">
                 <span class="sleep-leg-item"><span class="sleep-leg-dot d-rem"></span>REM</span>
                 <span class="sleep-leg-item"><span class="sleep-leg-dot d-light"></span>Light</span>
@@ -425,6 +438,53 @@ main {
       return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(y, m - 1, d).getDay()];
     }
 
+    // ---------- Week/Month toggle (same idea as gym.html's steps chart:
+    // month mode averages each series per-night across the whole month
+    // instead of totalling it, so it stays on the same 0-10h axis as the
+    // weekly view instead of a monthly sum dwarfing it). ----------
+    let sleepChartMode = 'week';
+    const SLEEP_MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    function weekChartData(entries) {
+      const byDate = {};
+      entries.forEach(e => { byDate[e.date] = e; });
+      return currentWeekKeys().map(k => {
+        const e = byDate[k];
+        return {
+          label: dayLabel(k),
+          total: e ? durationHours(e.bedTime, e.wakeTime) : null,
+          rem: e && e.remHours != null ? e.remHours : null,
+          light: e && e.lightHours != null ? e.lightHours : null,
+          deep: e && e.deepHours != null ? e.deepHours : null,
+        };
+      });
+    }
+
+    function monthChartData(entries) {
+      const now = new Date();
+      const avg = (list, getter) => {
+        const vals = list.map(getter).filter(v => v != null);
+        return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+      };
+      const points = [];
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const y = d.getFullYear(), m = d.getMonth();
+        const monthEntries = entries.filter(e => {
+          const [ey, em] = e.date.split('-').map(Number);
+          return ey === y && (em - 1) === m;
+        });
+        points.push({
+          label: SLEEP_MONTH_LABELS[m],
+          total: avg(monthEntries, e => durationHours(e.bedTime, e.wakeTime)),
+          rem: avg(monthEntries, e => e.remHours),
+          light: avg(monthEntries, e => e.lightHours),
+          deep: avg(monthEntries, e => e.deepHours),
+        });
+      }
+      return points;
+    }
+
     // Builds one series' <path> (broken wherever a value is null, instead
     // of interpolating across a night with no data) plus its dots. Each
     // dot gets a paired invisible larger circle so mobile taps land
@@ -478,11 +538,11 @@ main {
     function renderWeekChart(entries) {
       const svg = $('sleepWeekSvg');
       const emptyEl = $('sleepWeekEmpty');
-      const keys = currentWeekKeys();
-      const byDate = {};
-      entries.forEach(e => { byDate[e.date] = e; });
+      const isMonth = sleepChartMode === 'month';
+      const data = isMonth ? monthChartData(entries) : weekChartData(entries);
+      $('sleepWeekEyebrow').textContent = isMonth ? 'Last 6 months' : 'This week';
 
-      if (!keys.some(k => byDate[k])) {
+      if (!data.some(p => p.total != null || p.rem != null || p.light != null || p.deep != null)) {
         svg.innerHTML = '';
         svg.classList.add('hidden');
         emptyEl.style.display = 'block';
@@ -493,10 +553,10 @@ main {
       svg.classList.remove('hidden');
 
       const series = {
-        total: keys.map(k => byDate[k] ? durationHours(byDate[k].bedTime, byDate[k].wakeTime) : null),
-        rem:   keys.map(k => (byDate[k] && byDate[k].remHours   != null) ? byDate[k].remHours   : null),
-        light: keys.map(k => (byDate[k] && byDate[k].lightHours != null) ? byDate[k].lightHours : null),
-        deep:  keys.map(k => (byDate[k] && byDate[k].deepHours  != null) ? byDate[k].deepHours  : null),
+        total: data.map(p => p.total),
+        rem:   data.map(p => p.rem),
+        light: data.map(p => p.light),
+        deep:  data.map(p => p.deep),
       };
 
       // Fixed 0–10h Y axis — never rescale.
@@ -509,7 +569,7 @@ main {
       // It also makes the X and Y scales 1:1, so dots render as true
       // circles instead of the sideways-stretched ellipses a mismatched
       // scale would produce.
-      const n = keys.length;
+      const n = data.length;
       const W = svg.getBoundingClientRect().width || 600, H = 800;
       svg.setAttribute('viewBox', '0 0 ' + W.toFixed(1) + ' ' + H);
       const padLeft = 32, padRight = 14, padTop = 16, padBottom = 32;
@@ -528,8 +588,8 @@ main {
       html += buildSeriesLine(series.light, 'light', xAt, yAt);
       html += buildSeriesLine(series.deep, 'deep', xAt, yAt);
       html += buildSeriesLine(series.total, 'total', xAt, yAt);
-      keys.forEach((k, i) => {
-        html += '<text class="sleep-week-daylabel" x="' + xAt(i).toFixed(1) + '" y="' + (H - 10) + '" text-anchor="middle">' + dayLabel(k) + '</text>';
+      data.forEach((p, i) => {
+        html += '<text class="sleep-week-daylabel" x="' + xAt(i).toFixed(1) + '" y="' + (H - 10) + '" text-anchor="middle">' + p.label + '</text>';
       });
       svg.innerHTML = html;
       wireSleepDotEvents();
@@ -583,6 +643,15 @@ main {
       renderWeekChart(entries);
       renderStats(entries);
     }
+
+    $('sleepRangeToggle').querySelectorAll('.sleep-range-btn').forEach(b => {
+      b.addEventListener('click', () => {
+        $('sleepRangeToggle').querySelectorAll('.sleep-range-btn').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        sleepChartMode = b.dataset.range;
+        renderWeekChart(loadEntries());
+      });
+    });
 
     renderSleep();
   })();

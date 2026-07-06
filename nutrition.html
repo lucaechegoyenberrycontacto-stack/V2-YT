@@ -61,6 +61,14 @@ body::after {
 }
 @media (max-width: 480px) { .dash-title { font-size: 22px; } }
 
+/* ===== Day switcher — lets you log/view a day other than today, so a
+   forgotten day isn't stuck unloggable forever. Reuses .gm-input/.gm-ghost
+   rather than inventing new input/button looks. ===== */
+.day-switch { display: flex; align-items: center; gap: 8px; margin: 0 0 16px; flex-wrap: wrap; }
+.day-switch-input { max-width: 172px; color-scheme: dark; }
+.day-switch-nav { padding: 10px 14px; }
+.day-switch-today.hidden { display: none; }
+
 .section { margin-top: 8px; }
 .section-title {
   font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
@@ -207,9 +215,19 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
 
   <h1 class="dash-title">Nutrition</h1>
 
+  <!-- DAY SWITCHER — every card below (macros, balance, logged list) and
+       new entries logged via the search below all follow this date, so a
+       forgotten day can be filled in and reviewed like it were today. -->
+  <div class="day-switch" id="daySwitch">
+    <button type="button" class="gm-ghost day-switch-nav" id="dayPrevBtn" aria-label="Previous day">‹</button>
+    <input type="date" class="gm-input day-switch-input" id="viewDateInput">
+    <button type="button" class="gm-ghost day-switch-nav" id="dayNextBtn" aria-label="Next day">›</button>
+    <button type="button" class="gm-ghost day-switch-today hidden" id="dayTodayBtn">Today</button>
+  </div>
+
   <!-- KCAL RING + MACROS -->
   <div class="section">
-    <div class="section-title">Today's Macros</div>
+    <div class="section-title" id="macrosSectionTitle">Today's Macros</div>
     <div class="gm-card">
       <div class="energy-head">
         <div class="ring" id="ringWrap">
@@ -283,7 +301,7 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
 
   <!-- TODAY'S LOG -->
   <div class="section">
-    <div class="section-title">Logged Today</div>
+    <div class="section-title" id="loggedSectionTitle">Logged Today</div>
     <div class="gm-card">
       <ul class="log-list" id="logList"></ul>
     </div>
@@ -351,7 +369,7 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
 <div class="modal-backdrop" id="modalLogCombo">
   <div class="modal">
     <h3 id="logComboTitle">Log meal</h3>
-    <div class="sub">Adjust quantities for today if this meal was different than usual.</div>
+    <div class="sub" id="logComboSub">Adjust quantities for today if this meal was different than usual.</div>
     <ul class="combo-items-list" id="logComboItems"></ul>
     <div class="modal-actions">
       <button class="gm-ghost" data-close>Cancel</button>
@@ -483,11 +501,32 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
     }, {kcal:0,protein:0,carbs:0,fat:0});
   }
 
-  /* ============ Day helpers ============ */
-  function midnight(){ const d=new Date(); d.setHours(0,0,0,0); return d.getTime(); }
-  function todaysLog(){ const m=midnight(); return log.filter(l=>l.ts>=m); }
+  /* ============ Day helpers ============
+     viewDateKey is which day the whole page (ring, tiles, balance, logged
+     list, and any new entry logged below) is showing/writing to. Defaults
+     to real today on every load — never persisted — so switching to a
+     past day to fill in something forgotten can't silently strand you
+     there on your next visit.
+  ============================================================ */
+  function pad2n(n){ return String(n).padStart(2,'0'); }
+  function dateKeyFrom(d){ return d.getFullYear()+'-'+pad2n(d.getMonth()+1)+'-'+pad2n(d.getDate()); }
+  function todayDateKey(){ return dateKeyFrom(new Date()); }
+  function dayRange(dateKey){
+    const [y,m,d] = dateKey.split('-').map(Number);
+    const start = new Date(y, m-1, d, 0,0,0,0).getTime();
+    return [start, start + 24*60*60*1000];
+  }
+  let viewDateKey = todayDateKey();
+  function viewDayLog(){ const [start,end]=dayRange(viewDateKey); return log.filter(l=>l.ts>=start && l.ts<end); }
+  // New entries take the currently-viewed day's date but the real
+  // wall-clock time, so they still sort/display sensibly within that day.
+  function tsForViewDate(){
+    const now = new Date();
+    const [y,m,d] = viewDateKey.split('-').map(Number);
+    return new Date(y, m-1, d, now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds()).getTime();
+  }
   function dailyTotals(){
-    const all = todaysLog().reduce((acc,entry)=>{
+    const all = viewDayLog().reduce((acc,entry)=>{
       const m = sumMacros(entry.items);
       acc.kcal+=m.kcal; acc.protein+=m.protein; acc.carbs+=m.carbs; acc.fat+=m.fat;
       return acc;
@@ -533,9 +572,9 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
   /* ============ Render: log list ============ */
   function renderLog(){
     const list = $('logList');
-    const entries = todaysLog().slice().sort((a,b)=>b.ts-a.ts);
+    const entries = viewDayLog().slice().sort((a,b)=>b.ts-a.ts);
     list.innerHTML='';
-    if (entries.length===0){ const li=document.createElement('li'); li.className='empty-state'; li.textContent='No meals logged today — search one above to start tracking.'; list.appendChild(li); return; }
+    if (entries.length===0){ const li=document.createElement('li'); li.className='empty-state'; li.textContent=(viewDateKey===todayDateKey()?'No meals logged today':'No meals logged this day')+' — search one above to add one.'; list.appendChild(li); return; }
     entries.forEach(entry=>{
       const m = sumMacros(entry.items);
       const li = document.createElement('li'); li.className='log-row';
@@ -550,20 +589,18 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
   /* ============ Calorie Balance (consumed - burned vs goal) ============
      Reads 'burned:YYYY-MM-DD' from localStorage — written by the "Calories
      Burned" card in health.html (same key format, no cutoff hour, plain
-     local calendar day). Shown neutral/gray if nothing's logged yet today,
-     rather than silently treating missing data as 0 burned.
+     local calendar day). Shown neutral/gray if nothing's logged yet for
+     the viewed day, rather than silently treating missing data as 0 burned.
   ============================================================ */
-  function pad2n(n){ return String(n).padStart(2,'0'); }
-  function todayDateKey(){ const d=new Date(); return d.getFullYear()+'-'+pad2n(d.getMonth()+1)+'-'+pad2n(d.getDate()); }
-  function getBurnedToday(){
-    const v = localStorage.getItem('burned:'+todayDateKey());
+  function getBurnedFor(dateKey){
+    const v = localStorage.getItem('burned:'+dateKey);
     if (v==null || v==='') return null;
     const n = parseFloat(v);
     return isNaN(n) ? null : n;
   }
   function renderBalance(){
     const consumed = Math.round(dailyTotals().kcal);
-    const burned = getBurnedToday();
+    const burned = getBurnedFor(viewDateKey);
     const fill = $('balanceRingFill');
     fill.setAttribute('stroke-dasharray', RING_C);
     if (burned == null){
@@ -681,9 +718,16 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
 
   /* ============ Log combo (adjustable quantities) ============ */
   let pendingLog = null; // {name, e, items:[{foodId, qty}]}
+  function logComboSubText(){
+    if (viewDateKey === todayDateKey()) return 'Adjust quantities for today if this meal was different than usual.';
+    const [y,m,d] = viewDateKey.split('-').map(Number);
+    const label = new Date(y,m-1,d).toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'});
+    return 'This will be logged for ' + label + ', not today — check the date switcher above if that\'s wrong.';
+  }
   function openLogCombo(comboId){
     const c = comboById(comboId); if (!c) return;
     $('logComboTitle').textContent = 'Log: '+c.name;
+    $('logComboSub').textContent = logComboSubText();
     const ul = $('logComboItems'); ul.innerHTML='';
     const workingItems = c.items.map(it=>({foodId:it.foodId, qty:it.qty}));
     workingItems.forEach((it, idx)=>{
@@ -700,6 +744,7 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
   function openLogSingleFood(foodId){
     const f = foodById(foodId); if (!f) return;
     $('logComboTitle').textContent = 'Log: '+f.name;
+    $('logComboSub').textContent = logComboSubText();
     const ul = $('logComboItems'); ul.innerHTML='';
     const defaultQty = f.unit==='unit' ? 1 : 100;
     const workingItems = [{foodId:f.id, qty:defaultQty}];
@@ -715,7 +760,7 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
     if (!pendingLog) return;
     const items = pendingLog.workingItems.filter(it=>it.qty>0).map(it=>({foodId:it.foodId, qty:it.qty}));
     if (items.length===0){ closeModal('modalLogCombo'); return; }
-    log.push({ id: uid('l_'), ts: Date.now(), name: pendingLog.name, e: pendingLog.e, comboId: pendingLog.comboId, items });
+    log.push({ id: uid('l_'), ts: tsForViewDate(), name: pendingLog.name, e: pendingLog.e, comboId: pendingLog.comboId, items });
     saveJSON(LOG_KEY, log);
     closeModal('modalLogCombo');
     pendingLog = null;
@@ -858,6 +903,38 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
 
   /* ============ Wire up search ============ */
   $('search').addEventListener('input', (e)=>renderResults(e.target.value));
+
+  /* ============ Day switcher ============ */
+  function updateDaySwitchUI(){
+    const isToday = viewDateKey === todayDateKey();
+    $('viewDateInput').value = viewDateKey;
+    $('dayTodayBtn').classList.toggle('hidden', isToday);
+    const [y,m,d] = viewDateKey.split('-').map(Number);
+    const label = new Date(y,m-1,d).toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'});
+    $('macrosSectionTitle').textContent = isToday ? "Today's Macros" : 'Macros — '+label;
+    $('loggedSectionTitle').textContent = isToday ? 'Logged Today' : 'Logged — '+label;
+  }
+  function setViewDate(key){
+    if (key > todayDateKey()) key = todayDateKey(); // no logging/viewing the future
+    viewDateKey = key;
+    updateDaySwitchUI();
+    renderAll();
+  }
+  $('viewDateInput').max = todayDateKey();
+  $('viewDateInput').addEventListener('change', (e)=>{ if (e.target.value) setViewDate(e.target.value); });
+  $('dayPrevBtn').addEventListener('click', ()=>{
+    const [y,m,d] = viewDateKey.split('-').map(Number);
+    const dt = new Date(y,m-1,d); dt.setDate(dt.getDate()-1);
+    setViewDate(dateKeyFrom(dt));
+  });
+  $('dayNextBtn').addEventListener('click', ()=>{
+    if (viewDateKey >= todayDateKey()) return;
+    const [y,m,d] = viewDateKey.split('-').map(Number);
+    const dt = new Date(y,m-1,d); dt.setDate(dt.getDate()+1);
+    setViewDate(dateKeyFrom(dt));
+  });
+  $('dayTodayBtn').addEventListener('click', ()=>setViewDate(todayDateKey()));
+  updateDaySwitchUI();
 
   renderResults('');
   renderAll();
