@@ -154,52 +154,202 @@ main {
   <!-- ===== Sleep card (manual entry — Whoop removed, Strava has no sleep API) ===== -->
   <style>
     .sleep-section { margin-bottom: 32px; }
+    .sleep-sr-only {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+    }
     .sleep-card {
       padding: 22px 22px 18px;
       background: rgba(255,255,255,0.025);
       border-radius: 22px;
       box-shadow: 0 1px 0 0 rgba(255,255,255,0.06) inset, 0 12px 40px rgba(0,0,0,0.45), 0 1px 2px rgba(0,0,0,0.25);
     }
-    /* Form */
+    /* Desktop 2-column layout breaks the WHOLE card out of the page's
+       720px reading column (not just the chart, like before) so the
+       40/60 wizard-vs-chart split has real room. Same breakout technique
+       as before (position:relative + negative viewport margins), just
+       promoted from the chart alone to the card as a whole — the visual
+       background/padding moves from .sleep-card to .sleep-card-inner so
+       .sleep-card itself can become the (invisible) full-bleed breakout
+       shell. Mobile is untouched: .sleep-card keeps its own background
+       and .sleep-card-inner/.sleep-layout are plain no-op wrappers. */
+    @media (min-width: 1024px) {
+      .sleep-card {
+        position: relative; left: 50%; right: 50%;
+        width: 100vw; margin-left: -50vw; margin-right: -50vw;
+        background: none; box-shadow: none; border-radius: 0; padding: 0;
+      }
+      .sleep-card-inner {
+        max-width: 1040px; margin: 0 auto; padding: 22px 32px 18px;
+        box-sizing: border-box; background: var(--bg-card);
+        backdrop-filter: blur(24px) saturate(1.2);
+        -webkit-backdrop-filter: blur(24px) saturate(1.2);
+        border-radius: 22px;
+        box-shadow: 0 1px 0 0 rgba(255,255,255,0.06) inset, 0 12px 40px rgba(0,0,0,0.45), 0 1px 2px rgba(0,0,0,0.25);
+      }
+      .sleep-layout {
+        display: grid; grid-template-columns: minmax(260px, 0.85fr) 1.3fr;
+        gap: 32px; align-items: start;
+      }
+      /* Chart no longer needs its own top divider — in the right column
+         it's the first thing there, not something following a form
+         stacked directly above it in the same column. */
+      .sleep-week { margin-top: 0; padding-top: 0; border-top: none; }
+    }
+
+    /* ---------- Wizard (2 steps: When → How) ---------- */
+    .sleep-wizard { position: relative; }
+    .sleep-wizard-progress { display: flex; gap: 6px; margin-bottom: 18px; }
+    .sleep-wizard-seg { flex: 1; height: 3px; border-radius: 999px; background: rgba(255,255,255,0.08); transition: background 0.2s ease; }
+    .sleep-wizard-seg.active { background: rgba(255,255,255,0.5); }
+    .sleep-wizard-step-title { font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 14px; letter-spacing: -0.01em; }
+    .sleep-wizard-step-title:focus { outline: none; } /* programmatic focus target only, not a visible focus ring */
+    .sleep-optional-tag {
+      font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--text-tertiary); background: rgba(255,255,255,0.05);
+      padding: 2px 7px; border-radius: 999px; margin-left: 7px; vertical-align: middle;
+    }
+    /* Steps live in normal flow (not absolutely stacked) so the wizard's
+       height simply follows whichever step is showing — a short fade +
+       horizontal slide on the entering step reads as a smooth transition
+       without the complexity of overlaying two variable-height panels. */
+    .sleep-wizard-step { transition: opacity 0.2s ease, transform 0.2s ease; }
+    .sleep-wizard-step.hidden { display: none; }
+    .sleep-wizard-step.sleep-step-entering { opacity: 0; }
+    .sleep-wizard-step.sleep-step-entering.sleep-step-from-right { transform: translateX(16px); }
+    .sleep-wizard-step.sleep-step-entering.sleep-step-from-left { transform: translateX(-16px); }
+
+    /* Date pills (Today / Yesterday / calendar) reuse the existing
+       .sleep-range-toggle/.sleep-range-btn segmented-control look (same
+       neutral active state, no new accent introduced) rather than a
+       parallel set of near-identical classes. */
+    .sleep-date-row { position: relative; margin-bottom: 14px; }
+    .sleep-date-seg { width: 100%; }
+    .sleep-date-seg .sleep-range-btn { flex: 1; }
+    .sleep-pill-cal { display: flex; align-items: center; justify-content: center; gap: 6px; }
+    .sleep-cal-icon { width: 13px; height: 13px; flex: 0 0 auto; }
+
+    /* Live duration preview — appears the instant both times are valid. */
+    .sleep-preview {
+      display: flex; align-items: baseline; gap: 8px;
+      margin: 2px 0 16px; padding: 12px 14px;
+      background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      opacity: 0; transform: scale(0.97);
+      transition: opacity 0.18s ease, transform 0.18s ease;
+    }
+    .sleep-preview.hidden { display: none; }
+    .sleep-preview.visible { opacity: 1; transform: scale(1); }
+    .sleep-preview-num { font-size: 22px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+    .sleep-preview-label { font-size: 12px; color: var(--text-tertiary); }
+
+    .sleep-wizard-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 18px; }
+    .sleep-wizard-actions-right { display: flex; align-items: center; gap: 10px; }
+    /* Amber hint for the one required-field validation message — a
+       generic UI-feedback color (matches the --warn convention used for
+       the same non-blocking-notice purpose elsewhere in this dashboard
+       family), not a new "sleep accent": it's not part of the
+       rem/light/deep/total data palette. */
+    .sleep-wizard-hint { font-size: 11px; color: #fbbf24; flex: 1; min-height: 14px; }
+    .sleep-wizard-back, .sleep-wizard-skip {
+      background: rgba(255,255,255,0.05); color: var(--text-secondary);
+      border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;
+      padding: 10px 16px; font-family: inherit; font-size: 12.5px; font-weight: 600;
+      cursor: pointer; transition: background 0.15s, color 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .sleep-wizard-back:hover, .sleep-wizard-skip:hover { background: rgba(255,255,255,0.09); color: var(--text-primary); }
+    /* Continue reuses .sleep-save-btn's white-gradient primary look.
+       "Not ready" is a dimmed visual only — the button stays a real,
+       focusable, clickable button (never the native disabled attribute)
+       so tapping it while incomplete can surface the hint instead of
+       silently doing nothing. */
+    .sleep-wizard-next.not-ready { opacity: 0.5; box-shadow: none; }
+    .sleep-wizard-next.not-ready:hover { transform: none; }
+    /* Save sits alongside Back/Skip in a row here, instead of standing
+       alone full-width like the original single-step form. */
+    .sleep-wizard-actions .sleep-save-btn { width: auto; margin-top: 0; }
+
+    /* ---------- Shared popover (calendar) ----------
+       Same open/close/focus-trap pattern as the Daily Steps calendar in
+       gym.html: absolutely positioned inside a position:relative row so
+       it scrolls with the page, fade+scale transition, no accent color. */
+    .sleep-popover {
+      position: absolute; top: calc(100% + 8px); left: 0; z-index: 45;
+      width: min(300px, calc(100vw - 64px));
+      background: #101012; border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 14px; padding: 16px;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+      opacity: 0; transform: scale(0.96) translateY(-4px);
+      transition: opacity 0.15s ease, transform 0.15s ease;
+      pointer-events: none;
+    }
+    .sleep-popover.open { opacity: 1; transform: scale(1) translateY(0); pointer-events: auto; }
+    .sleep-popover.hidden { display: none; }
+    .sleep-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .sleep-cal-month { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+    .sleep-cal-nav {
+      width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;
+      color: var(--text-secondary); font-size: 15px; cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .sleep-cal-nav:hover { background: rgba(255,255,255,0.09); color: var(--text-primary); }
+    .sleep-cal-nav:disabled { opacity: 0.3; cursor: default; pointer-events: none; }
+    .sleep-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+    .sleep-cal-dow { text-align: center; font-size: 9.5px; font-weight: 700; color: var(--text-quaternary); padding: 4px 0; text-transform: uppercase; }
+    .sleep-cal-cell { aspect-ratio: 1; }
+    .sleep-cal-day {
+      width: 100%; height: 100%; border: none; border-radius: 8px;
+      background: transparent; color: var(--text-secondary); font-family: inherit;
+      font-size: 12.5px; font-variant-numeric: tabular-nums; cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .sleep-cal-day:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+    .sleep-cal-day.today { color: var(--text-primary); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+    .sleep-cal-day.selected { background: rgba(255,255,255,0.14); color: var(--text-primary); font-weight: 700; }
+    .sleep-cal-day:disabled { color: var(--text-quaternary); opacity: 0.4; cursor: default; }
+
+    /* ---------- Weekend-vs-weekday insight ---------- */
+    .sleep-insight {
+      display: flex; align-items: flex-start; gap: 10px;
+      margin-top: 16px; padding: 12px 14px;
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px; font-size: 12.5px; color: var(--text-secondary); line-height: 1.45;
+    }
+    .sleep-insight.hidden { display: none; }
+    .sleep-insight-icon { font-size: 15px; line-height: 1.3; }
+    .sleep-insight strong { color: var(--text-primary); font-weight: 700; }
+
+    /* Form fields (Bedtime/Wake time, REM/Light/Deep, feeling, quality) */
     .sleep-form-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
     .sleep-field { flex: 1; min-width: 100px; display: flex; flex-direction: column; gap: 6px; }
     .sleep-field-label { font-size: 10px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary); }
     .sleep-input { padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.28); color: var(--text-primary); font-family: inherit; font-size: 13.5px; outline: none; transition: border-color 0.18s; color-scheme: dark; }
     .sleep-input:focus { border-color: rgba(255,255,255,0.40); }
-    .sleep-feeling-row { display: flex; gap: 6px; }
-    .sleep-feeling-btn { flex: 1; padding: 8px 0; border-radius: 10px; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.025); font-size: 18px; cursor: pointer; transition: background 0.15s, border-color 0.15s; }
+    .sleep-feeling-row { display: flex; gap: 8px; }
+    .sleep-feeling-btn { flex: 1; padding: 10px 0; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.025); font-size: 19px; cursor: pointer; transition: background 0.15s, border-color 0.15s, transform 0.1s; }
     .sleep-feeling-btn:hover { background: rgba(255,255,255,0.05); }
-    .sleep-feeling-btn.active { border-color: rgba(107,227,164,0.55); background: rgba(107,227,164,0.10); }
-    .sleep-quality-row { display: flex; gap: 6px; flex-wrap: wrap; }
-    .sleep-quality-btn { flex: 1; min-width: 64px; padding: 9px 4px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.025); color: var(--text-secondary); font-family: inherit; font-size: 11px; font-weight: 600; text-align: center; cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s; }
+    .sleep-feeling-btn.active { border-color: rgba(107,227,164,0.55); background: rgba(107,227,164,0.10); transform: scale(1.06); }
+    .sleep-quality-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .sleep-quality-btn { flex: 1; min-width: 64px; padding: 10px 4px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.025); color: var(--text-secondary); font-family: inherit; font-size: 11px; font-weight: 600; text-align: center; cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s; }
     .sleep-quality-btn:hover { background: rgba(255,255,255,0.05); }
     .sleep-quality-btn.active { border-color: rgba(107,227,164,0.55); background: rgba(107,227,164,0.10); color: var(--text-primary); }
     .sleep-save-btn { width: 100%; margin-top: 4px; padding: 12px; border: 1px solid rgba(255,255,255,0.85); border-radius: 12px; background: linear-gradient(180deg, #FFF, #E8E5DD); color: #0A0A0B; font-family: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 6px 20px rgba(0,0,0,0.30); transition: transform 0.12s; }
     .sleep-save-btn:hover { transform: translateY(-1px); }
-    .sleep-save-status { text-align: center; font-size: 11.5px; color: var(--text-tertiary); min-height: 16px; margin-top: 8px; }
-    /* Weekly line chart — 4 series (rem/light/deep/total), same stage
-       colors as the legend. Lines break wherever a day has no value for
-       that series, instead of interpolating across missing nights. */
+    .sleep-save-status { text-align: center; font-size: 11.5px; color: var(--text-tertiary); min-height: 16px; margin-top: 8px; opacity: 0; transition: opacity 0.2s ease; }
+    .sleep-save-status.sleep-status-visible { opacity: 1; }
+
+    /* ---------- Weekly/monthly line chart ----------
+       4 series (rem/light/deep/total), same stage colors as the legend.
+       Total is visually dominant (thicker, full opacity, white "today"
+       dot); the three stage lines sit at ~85% opacity so wherever they
+       cross Total it still reads as the primary series. Lines break
+       wherever a night has no value for that series, instead of
+       interpolating across missing nights. */
     .sleep-week { margin-top: 22px; padding-top: 22px; border-top: 1px solid rgba(255,255,255,0.05); }
-    /* Breaks the chart (not the form above, not the stats below) out of
-       the page's 720px column on wide viewports so the 7 days get real
-       breathing room. Capped well short of full-bleed. Mobile keeps the
-       original narrow layout — .sleep-week-breakout/.sleep-week-inner are
-       plain no-op wrappers below the breakpoint. */
-    @media (min-width: 800px) {
-      .sleep-week-breakout {
-        position: relative; left: 50%; right: 50%;
-        width: 100vw; margin-left: -50vw; margin-right: -50vw;
-      }
-      .sleep-week-inner {
-        max-width: 1000px; margin: 0 auto; padding: 24px 32px;
-        box-sizing: border-box; background: var(--bg-card);
-        backdrop-filter: blur(24px) saturate(1.2);
-        -webkit-backdrop-filter: blur(24px) saturate(1.2);
-        border-radius: 18px; box-shadow: 0 12px 40px rgba(0,0,0,0.35);
-      }
-    }
-    .sleep-week-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 20px; flex-wrap: wrap; gap: 8px; }
+    .sleep-week-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
     .sleep-week-eye { font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-tertiary); }
     .sleep-range-toggle { display: flex; gap: 4px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 999px; padding: 3px; }
     .sleep-range-btn {
@@ -210,40 +360,65 @@ main {
     }
     .sleep-range-btn:hover { color: var(--text-secondary); }
     .sleep-range-btn.active { background: rgba(255,255,255,0.10); color: var(--text-primary); }
-    .sleep-week-legend { display: flex; gap: 12px; flex-wrap: wrap; }
+    .sleep-week-legend { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
     .sleep-leg-item { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; color: var(--text-secondary); font-weight: 500; }
     .sleep-leg-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
     .sleep-leg-dot.d-rem { background: var(--sleep-rem); }
     .sleep-leg-dot.d-light { background: var(--sleep-light); }
     .sleep-leg-dot.d-deep { background: var(--sleep-deep); }
     .sleep-leg-dot.d-total { background: var(--sleep-total); }
-    .sleep-week-empty { font-size: 12.5px; color: var(--text-tertiary); font-style: italic; text-align: center; padding: 20px 10px; }
+    .sleep-week-empty {
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+      padding: 48px 16px; text-align: center;
+      color: var(--text-tertiary); font-size: 12.5px; font-style: italic;
+    }
+    .sleep-week-empty.hidden { display: none; }
+    .sleep-empty-icon { font-size: 26px; font-style: normal; opacity: 0.7; }
     .sleep-week-chart-wrap { position: relative; }
     .sleep-week-svg { width: 100%; height: 800px; display: block; overflow: visible; }
     .sleep-week-svg.hidden { display: none; }
-    .sleep-week-grid { stroke: rgba(255,255,255,0.06); stroke-width: 1; }
-    .sleep-week-yaxis-label { font-size: 11px; fill: var(--text-tertiary); font-family: var(--font-mono); }
-    .sleep-line-rem   { fill: none; stroke: var(--sleep-rem);   stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
-    .sleep-line-light { fill: none; stroke: var(--sleep-light); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
-    .sleep-line-deep  { fill: none; stroke: var(--sleep-deep);  stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
-    .sleep-line-total { fill: none; stroke: var(--sleep-total); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
-    .sleep-dot { cursor: pointer; }
-    .sleep-dot-rem   { fill: var(--sleep-rem); }
-    .sleep-dot-light { fill: var(--sleep-light); }
-    .sleep-dot-deep  { fill: var(--sleep-deep); }
+    .sleep-week-grid { stroke: rgba(255,255,255,0.06); stroke-width: 1; transition: y 0.3s ease; }
+    .sleep-week-yaxis-label { font-size: 11px; fill: var(--text-tertiary); font-family: var(--font-mono); transition: y 0.3s ease; }
+    .sleep-line-rem   { fill: none; stroke: var(--sleep-rem);   stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: 0.85; transition: d 0.3s ease; }
+    .sleep-line-light { fill: none; stroke: var(--sleep-light); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: 0.85; transition: d 0.3s ease; }
+    .sleep-line-deep  { fill: none; stroke: var(--sleep-deep);  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: 0.85; transition: d 0.3s ease; }
+    .sleep-line-total { fill: none; stroke: var(--sleep-total); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; transition: d 0.3s ease; }
+    /* Dots are purely visual now — the invisible per-day hit rect below
+       handles all pointer interaction, so dots get pointer-events:none
+       to avoid shadowing it wherever a dot happens to sit on top of it. */
+    .sleep-dot { pointer-events: none; transition: cx 0.3s ease, cy 0.3s ease, r 0.2s ease, opacity 0.2s ease; }
+    .sleep-dot-rem   { fill: var(--sleep-rem); opacity: 0.85; }
+    .sleep-dot-light { fill: var(--sleep-light); opacity: 0.85; }
+    .sleep-dot-deep  { fill: var(--sleep-deep); opacity: 0.85; }
     .sleep-dot-total { fill: var(--sleep-total); stroke: var(--bg); stroke-width: 1; }
-    /* Invisible larger circle behind each dot so mobile taps land reliably
-       without making the visible marker itself bigger. */
-    .sleep-dot-hit { fill: rgba(0,0,0,0.001); pointer-events: all; cursor: pointer; }
-    .sleep-week-daylabel { font-size: 11px; fill: var(--text-tertiary); font-family: var(--font-mono); }
+    .sleep-dot-today { fill: #fff; stroke: var(--sleep-total); stroke-width: 2; opacity: 1; }
+    .sleep-chart-el-off { opacity: 0 !important; pointer-events: none !important; }
+    /* One invisible full-height hit column per day/month, replacing the
+       old per-dot hit circles — hovering/tapping anywhere along a day's
+       column shows that night's 4 metrics together, instead of requiring
+       a precise hit on one specific series' dot. */
+    .sleep-day-hit { fill: rgba(0,0,0,0.001); pointer-events: all; cursor: pointer; }
+    .sleep-day-label { font-size: 11px; fill: var(--text-tertiary); font-family: var(--font-mono); pointer-events: none; }
     .sleep-week-tooltip {
       position: absolute; display: none; pointer-events: none;
-      transform: translate(-50%, calc(-100% - 10px));
+      transform: translate(-50%, calc(-100% - 10px)) scale(0.96); opacity: 0;
+      transition: opacity 0.15s ease, transform 0.15s ease;
       background: rgba(20,20,24,0.97); border: 1px solid rgba(255,255,255,0.14);
-      color: var(--text-primary); font-size: 11px; font-weight: 700;
-      font-family: var(--font-mono); padding: 5px 9px; border-radius: 8px;
+      color: var(--text-primary); font-size: 11px;
+      font-family: var(--font-mono); padding: 8px 10px; border-radius: 10px;
       white-space: nowrap; box-shadow: 0 6px 18px rgba(0,0,0,0.45); z-index: 5;
     }
+    .sleep-week-tooltip.open { display: block; }
+    .sleep-week-tooltip.open.visible { opacity: 1; transform: translate(-50%, calc(-100% - 10px)) scale(1); }
+    .sleep-tooltip-label { font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 5px; }
+    .sleep-tooltip-row { display: flex; align-items: center; gap: 6px; padding: 1.5px 0; }
+    .sleep-tooltip-dot { width: 7px; height: 7px; border-radius: 2px; flex-shrink: 0; }
+    .sleep-tooltip-dot.d-rem { background: var(--sleep-rem); }
+    .sleep-tooltip-dot.d-light { background: var(--sleep-light); }
+    .sleep-tooltip-dot.d-deep { background: var(--sleep-deep); }
+    .sleep-tooltip-dot.d-total { background: var(--sleep-total); }
+    .sleep-tooltip-name { flex: 1; color: var(--text-secondary); font-weight: 600; }
+    .sleep-tooltip-val { font-weight: 700; margin-left: 10px; }
     /* Stats */
     .sleep-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-top: 18px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,0.05); }
     .sleep-stat { background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.04); border-radius: 12px; padding: 12px 10px; text-align: center; }
@@ -254,66 +429,124 @@ main {
   <div class="sleep-section" id="sleep">
     <div class="section-title">Sleep</div>
     <div class="sleep-card">
-      <div class="sleep-form-row">
-        <label class="sleep-field">
-          <span class="sleep-field-label">Date</span>
-          <input type="date" id="sleepDate" class="sleep-input">
-        </label>
-      </div>
-      <div class="sleep-form-row">
-        <label class="sleep-field">
-          <span class="sleep-field-label">Bedtime</span>
-          <input type="time" id="sleepBedTime" class="sleep-input">
-        </label>
-        <label class="sleep-field">
-          <span class="sleep-field-label">Wake time</span>
-          <input type="time" id="sleepWakeTime" class="sleep-input">
-        </label>
-      </div>
-      <div class="sleep-form-row sleep-form-row-3">
-        <label class="sleep-field">
-          <span class="sleep-field-label">REM (hours)</span>
-          <input type="number" min="0" step="0.1" id="sleepRem" class="sleep-input" placeholder="optional">
-        </label>
-        <label class="sleep-field">
-          <span class="sleep-field-label">Light (hours)</span>
-          <input type="number" min="0" step="0.1" id="sleepLight" class="sleep-input" placeholder="optional">
-        </label>
-        <label class="sleep-field">
-          <span class="sleep-field-label">Deep (hours)</span>
-          <input type="number" min="0" step="0.1" id="sleepDeep" class="sleep-input" placeholder="optional">
-        </label>
-      </div>
-      <div class="sleep-form-row" style="flex-direction:column; align-items:stretch;">
-        <span class="sleep-field-label">How did you wake up? (optional)</span>
-        <div class="sleep-feeling-row" id="sleepFeelingRow">
-          <button type="button" class="sleep-feeling-btn" data-v="1" aria-label="Terrible">😩</button>
-          <button type="button" class="sleep-feeling-btn" data-v="2" aria-label="Rough">😕</button>
-          <button type="button" class="sleep-feeling-btn" data-v="3" aria-label="OK">😐</button>
-          <button type="button" class="sleep-feeling-btn" data-v="4" aria-label="Good">🙂</button>
-          <button type="button" class="sleep-feeling-btn" data-v="5" aria-label="Great">😄</button>
-        </div>
-      </div>
-      <div class="sleep-form-row" style="flex-direction:column; align-items:stretch;">
-        <span class="sleep-field-label">Sleep quality (optional)</span>
-        <div class="sleep-quality-row" id="sleepQualityRow">
-          <button type="button" class="sleep-quality-btn" data-v="poor">Poor</button>
-          <button type="button" class="sleep-quality-btn" data-v="bad">Bad</button>
-          <button type="button" class="sleep-quality-btn" data-v="good">Good</button>
-          <button type="button" class="sleep-quality-btn" data-v="excellent">Excellent</button>
-        </div>
-      </div>
-      <button id="sleepSaveBtn" class="sleep-save-btn" type="button">Save</button>
-      <div id="sleepSaveStatus" class="sleep-save-status"></div>
+      <div class="sleep-card-inner">
+        <div class="sleep-layout">
+          <div class="sleep-col-left">
 
-      <div class="sleep-week">
-        <div class="sleep-week-breakout">
-          <div class="sleep-week-inner">
-            <div class="sleep-week-head">
-              <span class="sleep-week-eye" id="sleepWeekEyebrow">This week</span>
-              <div class="sleep-range-toggle" id="sleepRangeToggle">
-                <button type="button" class="sleep-range-btn active" data-range="week">Week</button>
-                <button type="button" class="sleep-range-btn" data-range="month">Month</button>
+            <div class="sleep-wizard" id="sleepWizard">
+              <div class="sleep-sr-only" id="sleepWizardLive" aria-live="polite"></div>
+              <div class="sleep-wizard-progress" aria-hidden="true">
+                <div class="sleep-wizard-seg active" data-step="1"></div>
+                <div class="sleep-wizard-seg" data-step="2"></div>
+              </div>
+
+              <!-- Step 1: When did you sleep (required) -->
+              <div class="sleep-wizard-step" id="sleepStep1">
+                <div class="sleep-wizard-step-title" tabindex="-1">1. When did you sleep?</div>
+
+                <div class="sleep-date-row">
+                  <div class="sleep-range-toggle sleep-date-seg" id="sleepDateSeg" role="group" aria-label="Pick a night">
+                    <button type="button" class="sleep-range-btn active" id="sleepPillToday" aria-pressed="true">Today</button>
+                    <button type="button" class="sleep-range-btn" id="sleepPillYesterday" aria-pressed="false">Yesterday</button>
+                    <button type="button" class="sleep-range-btn sleep-pill-cal" id="sleepPillCalendar" aria-pressed="false" aria-haspopup="dialog" aria-expanded="false">
+                      <svg class="sleep-cal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                      <span id="sleepPillCalendarLabel">Pick a date</span>
+                    </button>
+                  </div>
+                  <div class="sleep-popover hidden" id="sleepCalPopover" role="dialog" aria-modal="false" aria-label="Pick a date">
+                    <div class="sleep-cal-head">
+                      <button type="button" class="sleep-cal-nav" id="sleepCalPrev" aria-label="Previous month">‹</button>
+                      <div class="sleep-cal-month" id="sleepCalMonthLabel"></div>
+                      <button type="button" class="sleep-cal-nav" id="sleepCalNext" aria-label="Next month">›</button>
+                    </div>
+                    <div class="sleep-cal-grid" id="sleepCalGrid"></div>
+                  </div>
+                </div>
+
+                <div class="sleep-form-row">
+                  <label class="sleep-field">
+                    <span class="sleep-field-label">Bedtime</span>
+                    <input type="time" id="sleepBedTime" class="sleep-input">
+                  </label>
+                  <label class="sleep-field">
+                    <span class="sleep-field-label">Wake time</span>
+                    <input type="time" id="sleepWakeTime" class="sleep-input">
+                  </label>
+                </div>
+
+                <div class="sleep-preview hidden" id="sleepPreview">
+                  <span class="sleep-preview-num" id="sleepPreviewNum">—</span>
+                  <span class="sleep-preview-label">of sleep</span>
+                </div>
+
+                <div class="sleep-wizard-actions">
+                  <div class="sleep-wizard-hint" id="sleepStep1Hint" role="status"></div>
+                  <button type="button" class="sleep-save-btn sleep-wizard-next not-ready" id="sleepNextBtn">Continue →</button>
+                </div>
+              </div>
+
+              <!-- Step 2: How did you sleep (all optional) -->
+              <div class="sleep-wizard-step hidden" id="sleepStep2">
+                <div class="sleep-wizard-step-title" tabindex="-1">2. How did you sleep?<span class="sleep-optional-tag">optional</span></div>
+
+                <div class="sleep-form-row sleep-form-row-3">
+                  <label class="sleep-field">
+                    <span class="sleep-field-label">REM (hours)</span>
+                    <input type="number" min="0" step="0.1" id="sleepRem" class="sleep-input" placeholder="optional">
+                  </label>
+                  <label class="sleep-field">
+                    <span class="sleep-field-label">Light (hours)</span>
+                    <input type="number" min="0" step="0.1" id="sleepLight" class="sleep-input" placeholder="optional">
+                  </label>
+                  <label class="sleep-field">
+                    <span class="sleep-field-label">Deep (hours)</span>
+                    <input type="number" min="0" step="0.1" id="sleepDeep" class="sleep-input" placeholder="optional">
+                  </label>
+                </div>
+
+                <div class="sleep-form-row" style="flex-direction:column; align-items:stretch;">
+                  <span class="sleep-field-label">How did you wake up?</span>
+                  <div class="sleep-feeling-row" id="sleepFeelingRow">
+                    <button type="button" class="sleep-feeling-btn" data-v="1" aria-label="Terrible">😩</button>
+                    <button type="button" class="sleep-feeling-btn" data-v="2" aria-label="Rough">😕</button>
+                    <button type="button" class="sleep-feeling-btn" data-v="3" aria-label="OK">😐</button>
+                    <button type="button" class="sleep-feeling-btn" data-v="4" aria-label="Good">🙂</button>
+                    <button type="button" class="sleep-feeling-btn" data-v="5" aria-label="Great">😄</button>
+                  </div>
+                </div>
+
+                <div class="sleep-form-row" style="flex-direction:column; align-items:stretch;">
+                  <span class="sleep-field-label">Sleep quality</span>
+                  <div class="sleep-quality-row" id="sleepQualityRow">
+                    <button type="button" class="sleep-quality-btn" data-v="poor">Poor</button>
+                    <button type="button" class="sleep-quality-btn" data-v="bad">Bad</button>
+                    <button type="button" class="sleep-quality-btn" data-v="good">Good</button>
+                    <button type="button" class="sleep-quality-btn" data-v="excellent">Excellent</button>
+                  </div>
+                </div>
+
+                <div class="sleep-wizard-actions">
+                  <button type="button" class="sleep-wizard-back" id="sleepBackBtn">← Back</button>
+                  <div class="sleep-wizard-actions-right">
+                    <button type="button" class="sleep-wizard-skip" id="sleepSkipBtn">Skip</button>
+                    <button id="sleepSaveBtn" class="sleep-save-btn" type="button">Save</button>
+                  </div>
+                </div>
+                <div id="sleepSaveStatus" class="sleep-save-status"></div>
+              </div>
+            </div>
+
+            <div class="sleep-insight hidden" id="sleepInsight"></div>
+          </div>
+
+          <div class="sleep-col-right">
+            <div class="sleep-week">
+              <div class="sleep-week-head">
+                <span class="sleep-week-eye" id="sleepWeekEyebrow">This week</span>
+                <div class="sleep-range-toggle" id="sleepRangeToggle">
+                  <button type="button" class="sleep-range-btn active" data-range="week">Week</button>
+                  <button type="button" class="sleep-range-btn" data-range="month">Month</button>
+                </div>
               </div>
               <div class="sleep-week-legend">
                 <span class="sleep-leg-item"><span class="sleep-leg-dot d-rem"></span>REM</span>
@@ -321,20 +554,23 @@ main {
                 <span class="sleep-leg-item"><span class="sleep-leg-dot d-deep"></span>Deep</span>
                 <span class="sleep-leg-item"><span class="sleep-leg-dot d-total"></span>Total</span>
               </div>
+              <div class="sleep-week-chart-wrap" id="sleepWeekChartWrap">
+                <svg class="sleep-week-svg hidden" id="sleepWeekSvg" viewBox="0 0 300 400" preserveAspectRatio="none"></svg>
+                <div class="sleep-week-tooltip" id="sleepWeekTooltip"></div>
+                <div id="sleepWeekEmpty" class="sleep-week-empty hidden">
+                  <div class="sleep-empty-icon" aria-hidden="true">🌙</div>
+                  <div>Aún no hay datos de sueño — registra tu primera noche arriba.</div>
+                </div>
+              </div>
             </div>
-            <div id="sleepWeekEmpty" class="sleep-week-empty" style="display:none">Aún no hay datos de sueño — registra tu primera noche arriba.</div>
-            <div class="sleep-week-chart-wrap" id="sleepWeekChartWrap">
-              <svg class="sleep-week-svg hidden" id="sleepWeekSvg" viewBox="0 0 300 400" preserveAspectRatio="none"></svg>
-              <div class="sleep-week-tooltip" id="sleepWeekTooltip"></div>
+
+            <div class="sleep-stats" id="sleepStats">
+              <div class="sleep-stat"><div class="sleep-stat-label">Avg sleep</div><div class="sleep-stat-val" id="sleepAvgHours">—</div></div>
+              <div class="sleep-stat"><div class="sleep-stat-label">Avg REM</div><div class="sleep-stat-val" id="sleepAvgRem">—</div></div>
+              <div class="sleep-stat"><div class="sleep-stat-label">Good Streak</div><div class="sleep-stat-val" id="sleepStreak">—</div></div>
             </div>
           </div>
         </div>
-      </div>
-
-      <div class="sleep-stats" id="sleepStats">
-        <div class="sleep-stat"><div class="sleep-stat-label">Avg sleep</div><div class="sleep-stat-val" id="sleepAvgHours">—</div></div>
-        <div class="sleep-stat"><div class="sleep-stat-label">Avg REM</div><div class="sleep-stat-val" id="sleepAvgRem">—</div></div>
-        <div class="sleep-stat"><div class="sleep-stat-label">Good Streak</div><div class="sleep-stat-val" id="sleepStreak">—</div></div>
       </div>
     </div>
   </div>
@@ -352,6 +588,9 @@ main {
     function pad2(n) { return String(n).padStart(2, '0'); }
     function dateKey(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
     function todayStr() { return dateKey(new Date()); }
+    function parseDateKey(key) { const [y, m, d] = key.split('-').map(Number); return new Date(y, m - 1, d); }
+    function dateOffset(days) { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + days); return d; }
+    function formatShortDate(d) { return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
 
     function minutesSinceMidnight(hhmm) {
       if (!hhmm) return null;
@@ -374,10 +613,195 @@ main {
     // the Good Streak stat can require "Good" or better.
     const SLEEP_QUALITY_RANK = { poor: 0, bad: 1, good: 2, excellent: 3 };
 
+    // ---------- Which night the wizard reads/writes ----------
+    // Defaults to today on every load (not persisted) — same idea as the
+    // Daily Steps date pills in gym.html: picking Yesterday/a calendar
+    // date only changes which date Save targets, it does not pre-fill the
+    // form from that date's existing entry (matches the original date
+    // input's behavior — it never did that either).
+    let sleepSelectedDate = dateOffset(0);
+    function selectedDateKey() { return dateKey(sleepSelectedDate); }
+
+    function updateDatePillsUI() {
+      const key = selectedDateKey();
+      const isToday = key === todayStr();
+      const isYest = !isToday && key === dateKey(dateOffset(-1));
+      const isOther = !isToday && !isYest;
+      $('sleepPillToday').classList.toggle('active', isToday);
+      $('sleepPillToday').setAttribute('aria-pressed', String(isToday));
+      $('sleepPillYesterday').classList.toggle('active', isYest);
+      $('sleepPillYesterday').setAttribute('aria-pressed', String(isYest));
+      $('sleepPillCalendar').classList.toggle('active', isOther);
+      $('sleepPillCalendar').setAttribute('aria-pressed', String(isOther));
+      $('sleepPillCalendarLabel').textContent = isOther ? formatShortDate(sleepSelectedDate) : 'Pick a date';
+    }
+    function setSelectedDate(d) {
+      sleepSelectedDate = d;
+      updateDatePillsUI();
+    }
+    $('sleepPillToday').addEventListener('click', () => setSelectedDate(dateOffset(0)));
+    $('sleepPillYesterday').addEventListener('click', () => setSelectedDate(dateOffset(-1)));
+
+    // ---------- Shared popover helper ----------
+    // Same open/close/focus-trap pattern as the Daily Steps calendar
+    // popover in gym.html: fade+scale transition, Escape/click-outside
+    // close, focus trap while open, focus returns to the trigger on close.
+    let sleepActivePopover = null; // { panel, trigger }
+
+    function sleepPopoverKeydown(e) {
+      if (!sleepActivePopover) return;
+      if (e.key === 'Escape') { e.preventDefault(); sleepCloseAllPopovers(); return; }
+      if (e.key === 'Tab') {
+        const focusables = Array.from(sleepActivePopover.panel.querySelectorAll('button:not([disabled]), input:not([disabled])'));
+        if (!focusables.length) return;
+        const first = focusables[0], last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    }
+    function sleepPopoverOutsideClick(e) {
+      if (!sleepActivePopover) return;
+      const { panel, trigger } = sleepActivePopover;
+      if (panel.contains(e.target) || trigger.contains(e.target)) return;
+      sleepCloseAllPopovers();
+    }
+    function sleepOpenPopover(trigger, panel, focusEl) {
+      sleepCloseAllPopovers();
+      panel.classList.remove('hidden');
+      // Guarded: if the popover is closed again before this frame fires,
+      // don't let a stale callback re-add 'open' after close already ran.
+      requestAnimationFrame(() => {
+        if (sleepActivePopover && sleepActivePopover.panel === panel) panel.classList.add('open');
+      });
+      trigger.setAttribute('aria-expanded', 'true');
+      sleepActivePopover = { panel, trigger };
+      const target = focusEl || panel.querySelector('button:not([disabled]), input:not([disabled])');
+      if (target) target.focus();
+      document.addEventListener('keydown', sleepPopoverKeydown, true);
+      document.addEventListener('mousedown', sleepPopoverOutsideClick, true);
+    }
+    function sleepCloseAllPopovers() {
+      if (!sleepActivePopover) return;
+      const { panel, trigger } = sleepActivePopover;
+      panel.classList.remove('open');
+      trigger.setAttribute('aria-expanded', 'false');
+      document.removeEventListener('keydown', sleepPopoverKeydown, true);
+      document.removeEventListener('mousedown', sleepPopoverOutsideClick, true);
+      setTimeout(() => { if (!panel.classList.contains('open')) panel.classList.add('hidden'); }, 160);
+      sleepActivePopover = null;
+      trigger.focus();
+    }
+
+    // ---------- Calendar popover ----------
+    let sleepCalViewYear, sleepCalViewMonth;
+    const SLEEP_MONTH_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const SLEEP_DOW_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+    function renderSleepCal() {
+      const y = sleepCalViewYear, m = sleepCalViewMonth;
+      $('sleepCalMonthLabel').textContent = SLEEP_MONTH_FULL[m] + ' ' + y;
+      const now = new Date();
+      $('sleepCalNext').disabled = (y === now.getFullYear() && m === now.getMonth());
+
+      const startDow = new Date(y, m, 1).getDay();
+      const daysInMonth = new Date(y, m + 1, 0).getDate();
+      const todayKey = todayStr();
+      const selKey = selectedDateKey();
+
+      let html = SLEEP_DOW_LABELS.map(l => '<div class="sleep-cal-dow">' + l + '</div>').join('');
+      for (let i = 0; i < startDow; i++) html += '<div class="sleep-cal-cell"></div>';
+      for (let d = 1; d <= daysInMonth; d++) {
+        const key = dateKey(new Date(y, m, d));
+        const isFuture = key > todayKey;
+        const cls = ['sleep-cal-day'];
+        if (key === selKey) cls.push('selected');
+        if (key === todayKey) cls.push('today');
+        html += '<div class="sleep-cal-cell"><button type="button" class="' + cls.join(' ') + '"'
+          + (isFuture ? ' disabled aria-disabled="true"' : ' data-key="' + key + '"')
+          + '>' + d + '</button></div>';
+      }
+      $('sleepCalGrid').innerHTML = html;
+      $('sleepCalGrid').querySelectorAll('.sleep-cal-day:not([disabled])').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          setSelectedDate(parseDateKey(btn.dataset.key));
+          sleepCloseAllPopovers();
+        });
+      });
+    }
+    $('sleepCalPrev').addEventListener('click', () => {
+      sleepCalViewMonth--; if (sleepCalViewMonth < 0) { sleepCalViewMonth = 11; sleepCalViewYear--; }
+      renderSleepCal();
+    });
+    $('sleepCalNext').addEventListener('click', () => {
+      sleepCalViewMonth++; if (sleepCalViewMonth > 11) { sleepCalViewMonth = 0; sleepCalViewYear++; }
+      renderSleepCal();
+    });
+    $('sleepPillCalendar').addEventListener('click', () => {
+      sleepCalViewYear = sleepSelectedDate.getFullYear();
+      sleepCalViewMonth = sleepSelectedDate.getMonth();
+      renderSleepCal();
+      const grid = $('sleepCalGrid');
+      const focusEl = grid.querySelector('.sleep-cal-day.selected') || grid.querySelector('.sleep-cal-day.today');
+      sleepOpenPopover($('sleepPillCalendar'), $('sleepCalPopover'), focusEl);
+    });
+
+    // ---------- Wizard (Step 1: when → Step 2: how) ----------
+    function showWizardStep(step, direction) {
+      const enterEl = step === 1 ? $('sleepStep1') : $('sleepStep2');
+      const exitEl = step === 1 ? $('sleepStep2') : $('sleepStep1');
+      exitEl.classList.add('hidden');
+      enterEl.classList.remove('hidden');
+      enterEl.classList.add('sleep-step-entering', direction === 'forward' ? 'sleep-step-from-right' : 'sleep-step-from-left');
+      void enterEl.offsetWidth; // force reflow so the entrance transition actually plays
+      requestAnimationFrame(() => {
+        enterEl.classList.remove('sleep-step-entering', 'sleep-step-from-right', 'sleep-step-from-left');
+      });
+      $('sleepWizard').querySelectorAll('.sleep-wizard-seg').forEach((seg) => {
+        seg.classList.toggle('active', Number(seg.dataset.step) === step);
+      });
+      $('sleepWizardLive').textContent = step === 1
+        ? 'Step 1 of 2: When did you sleep'
+        : 'Step 2 of 2: How did you sleep, optional';
+      const titleEl = enterEl.querySelector('.sleep-wizard-step-title');
+      if (titleEl) titleEl.focus({ preventScroll: true });
+    }
+
+    function updateSleepFormLiveState() {
+      const bt = $('sleepBedTime').value, wt = $('sleepWakeTime').value;
+      const ready = !!(bt && wt);
+      $('sleepNextBtn').classList.toggle('not-ready', !ready);
+      if (ready) $('sleepStep1Hint').textContent = '';
+
+      const dur = ready ? durationHours(bt, wt) : null;
+      const preview = $('sleepPreview');
+      if (dur == null) {
+        preview.classList.remove('visible');
+        preview.classList.add('hidden');
+        return;
+      }
+      $('sleepPreviewNum').textContent = dur.toFixed(1) + 'h';
+      if (preview.classList.contains('hidden')) {
+        preview.classList.remove('hidden');
+        void preview.offsetWidth; // force reflow so the fade/scale-in actually plays
+        requestAnimationFrame(() => preview.classList.add('visible'));
+      }
+    }
+    $('sleepBedTime').addEventListener('input', updateSleepFormLiveState);
+    $('sleepWakeTime').addEventListener('input', updateSleepFormLiveState);
+
+    $('sleepNextBtn').addEventListener('click', () => {
+      if (!$('sleepBedTime').value || !$('sleepWakeTime').value) {
+        $('sleepStep1Hint').textContent = 'Add both bedtime and wake time to continue.';
+        return;
+      }
+      $('sleepStep1Hint').textContent = '';
+      showWizardStep(2, 'forward');
+    });
+    $('sleepBackBtn').addEventListener('click', () => showWizardStep(1, 'backward'));
+
     // ---------- Form ----------
     let selectedFeeling = null;
     let selectedQuality = null;
-    $('sleepDate').value = todayStr();
 
     $('sleepFeelingRow').addEventListener('click', (e) => {
       const btn = e.target.closest('.sleep-feeling-btn');
@@ -392,8 +816,25 @@ main {
       $('sleepQualityRow').querySelectorAll('.sleep-quality-btn').forEach(b => b.classList.toggle('active', b === btn));
     });
 
-    $('sleepSaveBtn').addEventListener('click', () => {
-      const date = $('sleepDate').value || todayStr();
+    let sleepStatusTimer = null;
+    function showSavedConfirmation() {
+      const status = $('sleepSaveStatus');
+      status.textContent = 'Saved ✓';
+      status.classList.remove('sleep-status-visible');
+      void status.offsetWidth; // force reflow so the fade-in actually plays
+      status.classList.add('sleep-status-visible');
+      clearTimeout(sleepStatusTimer);
+      sleepStatusTimer = setTimeout(() => {
+        status.classList.remove('sleep-status-visible');
+        setTimeout(() => { if (!status.classList.contains('sleep-status-visible')) status.textContent = ''; }, 220);
+      }, 1800);
+    }
+
+    // Save and Skip both run the exact same upsert — Skip exists purely
+    // so it's visibly obvious that REM/Light/Deep/feeling/quality can be
+    // left untouched, not because it behaves differently from Save.
+    function doSleepSave() {
+      const date = selectedDateKey();
       const bedTime = $('sleepBedTime').value || null;
       const wakeTime = $('sleepWakeTime').value || null;
       const status = $('sleepSaveStatus');
@@ -413,10 +854,11 @@ main {
       if (idx >= 0) entries[idx] = entry; else entries.push(entry);
       saveEntries(entries);
 
-      status.textContent = 'Saved ✓';
-      setTimeout(() => { status.textContent = ''; }, 1800);
+      showSavedConfirmation();
       renderSleep();
-    });
+    }
+    $('sleepSaveBtn').addEventListener('click', doSleepSave);
+    $('sleepSkipBtn').addEventListener('click', doSleepSave);
 
     // ---------- Weekly chart ----------
     // Current calendar week, Monday first. If today is e.g. Saturday, Sunday
@@ -485,55 +927,137 @@ main {
       return points;
     }
 
-    // Builds one series' <path> (broken wherever a value is null, instead
-    // of interpolating across a night with no data) plus its dots. Each
-    // dot gets a paired invisible larger circle so mobile taps land
-    // reliably without enlarging the visible marker.
-    function buildSeriesLine(vals, kind, xAt, yAt) {
-      let d = '', dots = '', started = false;
+    const SLEEP_Y_MAX = 10;
+    // 4 evenly-ish spread horizontal references instead of one per hour —
+    // same fixed 0-10h axis, just less grid clutter.
+    const SLEEP_GRID_REFS = [0, 3, 7, 10];
+
+    // Smooths one contiguous run of points with the same Q/T quadratic-
+    // Bezier technique used for the Daily Steps chart in gym.html.
+    function sleepSmoothSegment(points) {
+      if (points.length === 1) return 'M ' + points[0].x.toFixed(2) + ' ' + points[0].y.toFixed(2);
+      let d = 'M ' + points[0].x.toFixed(2) + ' ' + points[0].y.toFixed(2);
+      for (let i = 1; i < points.length; i++) {
+        const prev = points[i - 1], curr = points[i];
+        const cx = (prev.x + curr.x) / 2;
+        d += ' Q ' + cx.toFixed(2) + ' ' + prev.y.toFixed(2) + ', ' + cx.toFixed(2) + ' ' + ((prev.y + curr.y) / 2).toFixed(2);
+        d += ' T ' + curr.x.toFixed(2) + ' ' + curr.y.toFixed(2);
+      }
+      return d;
+    }
+    // One series' <path> d-string, as smoothed sub-paths broken wherever a
+    // night has no value — a gap resets the run instead of interpolating
+    // across it (multiple "M"s in one d-string is valid SVG: separate
+    // subpaths, rendered as visually disconnected segments).
+    function buildSeriesLine(vals, xAt, yAt) {
+      const runs = [];
+      let current = [];
       vals.forEach((v, i) => {
-        if (v == null) { started = false; return; }
-        const x = xAt(i), y = yAt(v);
-        d += (started ? ' L ' : 'M ') + x.toFixed(1) + ' ' + y.toFixed(1);
-        started = true;
-        const attrs = ' cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" data-kind="' + kind + '" data-value="' + v + '"';
-        dots += '<circle class="sleep-dot-hit" r="13"' + attrs + '></circle>'
-          + '<circle class="sleep-dot sleep-dot-' + kind + '" r="4.5"' + attrs + '></circle>';
+        if (v == null) { if (current.length) runs.push(current); current = []; return; }
+        current.push({ x: xAt(i), y: yAt(v) });
       });
-      return (d ? '<path class="sleep-line-' + kind + '" d="' + d + '"></path>' : '') + dots;
+      if (current.length) runs.push(current);
+      return runs.map(sleepSmoothSegment).join(' ');
     }
 
-    const SLEEP_Y_MAX = 10, SLEEP_Y_STEP = 1;
+    // Chart SVG — grid/line/dot/hit elements are built ONCE and reused
+    // across renders (attributes updated in place) instead of torn down
+    // via innerHTML each time, so the CSS transitions on d/cx/cy/y
+    // actually animate between the old and new shape instead of popping
+    // instantly. Same technique as the Daily Steps chart in gym.html.
+    const SLEEP_CHART_MAX_POINTS = 7; // week=7 points, month=6 — pool sized to the larger
+    const SLEEP_SERIES_KINDS = ['rem', 'light', 'deep', 'total'];
+    let sleepChartEls = null;
+
+    function sleepEnsureChartSkeleton() {
+      if (sleepChartEls) return sleepChartEls;
+      const svg = $('sleepWeekSvg');
+      let html = '';
+      SLEEP_GRID_REFS.forEach(() => {
+        html += '<line class="sleep-week-grid sleep-grid-line" x1="0" y1="0" x2="0" y2="0"></line>';
+        html += '<text class="sleep-week-yaxis-label sleep-grid-label" x="0" y="0" text-anchor="end"></text>';
+      });
+      SLEEP_SERIES_KINDS.forEach((kind) => { html += '<path class="sleep-line-' + kind + '" d=""></path>'; });
+      SLEEP_SERIES_KINDS.forEach((kind) => {
+        for (let i = 0; i < SLEEP_CHART_MAX_POINTS; i++) {
+          html += '<circle class="sleep-dot sleep-dot-' + kind + ' sleep-chart-el-off" cx="0" cy="0" r="4.5"></circle>';
+        }
+      });
+      for (let i = 0; i < SLEEP_CHART_MAX_POINTS; i++) {
+        html += '<text class="sleep-day-label sleep-chart-el-off" x="0" y="0" text-anchor="middle"></text>';
+      }
+      for (let i = 0; i < SLEEP_CHART_MAX_POINTS; i++) {
+        html += '<rect class="sleep-day-hit sleep-chart-el-off" x="0" y="0" width="0" height="0"></rect>';
+      }
+      svg.innerHTML = html;
+      const dots = {};
+      SLEEP_SERIES_KINDS.forEach((kind) => { dots[kind] = Array.from(svg.querySelectorAll('.sleep-dot-' + kind)); });
+      sleepChartEls = {
+        gridLines: Array.from(svg.querySelectorAll('.sleep-grid-line')),
+        gridLabels: Array.from(svg.querySelectorAll('.sleep-grid-label')),
+        paths: {
+          rem: svg.querySelector('.sleep-line-rem'), light: svg.querySelector('.sleep-line-light'),
+          deep: svg.querySelector('.sleep-line-deep'), total: svg.querySelector('.sleep-line-total'),
+        },
+        dots,
+        dayLabels: Array.from(svg.querySelectorAll('.sleep-day-label')),
+        dayHits: Array.from(svg.querySelectorAll('.sleep-day-hit')),
+      };
+      // Wired exactly once, here — the hit rects are persistent across
+      // renders now (attributes updated in place below), so attaching
+      // listeners per-render like the old wireSleepDotEvents() did would
+      // stack duplicate handlers.
+      sleepChartEls.dayHits.forEach((hit) => {
+        hit.addEventListener('mouseenter', () => showSleepTooltip(hit));
+        hit.addEventListener('mouseleave', hideSleepTooltip);
+        hit.addEventListener('click', (e) => { e.stopPropagation(); showSleepTooltip(hit); });
+      });
+      return sleepChartEls;
+    }
 
     function hideSleepTooltip() {
       const tip = $('sleepWeekTooltip');
-      if (tip) tip.style.display = 'none';
+      if (!tip) return;
+      tip.classList.remove('visible');
+      setTimeout(() => { if (!tip.classList.contains('visible')) tip.classList.remove('open'); }, 160);
     }
-    function showSleepTooltip(dotEl) {
+    // Shows all 4 metrics for one night/month together (instead of a
+    // single series' value), keyed to the hovered/tapped day column —
+    // reduces the need to land exactly on one series' dot in spots where
+    // the lines cross.
+    function showSleepTooltip(hitEl) {
+      const total = hitEl.getAttribute('data-total'), rem = hitEl.getAttribute('data-rem');
+      const light = hitEl.getAttribute('data-light'), deep = hitEl.getAttribute('data-deep');
+      if (total === '' && rem === '' && light === '' && deep === '') return; // nothing logged that night
       const tip = $('sleepWeekTooltip');
       const wrap = $('sleepWeekChartWrap');
-      const kind = dotEl.getAttribute('data-kind');
-      const value = Number(dotEl.getAttribute('data-value'));
-      const label = kind.charAt(0).toUpperCase() + kind.slice(1);
-      tip.textContent = label + ': ' + value.toFixed(1) + 'h';
-      tip.style.display = 'block';
-      const wrapRect = wrap.getBoundingClientRect();
-      const dotRect = dotEl.getBoundingClientRect();
-      tip.style.left = (dotRect.left + dotRect.width / 2 - wrapRect.left) + 'px';
-      tip.style.top = (dotRect.top - wrapRect.top) + 'px';
-    }
-    function wireSleepDotEvents() {
-      $('sleepWeekSvg').querySelectorAll('.sleep-dot, .sleep-dot-hit').forEach((dot) => {
-        dot.addEventListener('mouseenter', () => showSleepTooltip(dot));
-        dot.addEventListener('mouseleave', hideSleepTooltip);
-        dot.addEventListener('click', (e) => { e.stopPropagation(); showSleepTooltip(dot); });
+      const rows = [['total', 'Total', total], ['rem', 'REM', rem], ['light', 'Light', light], ['deep', 'Deep', deep]];
+      let html = '<div class="sleep-tooltip-label">' + hitEl.getAttribute('data-label') + '</div>';
+      rows.forEach(([kind, name, val]) => {
+        if (val === '') return;
+        html += '<div class="sleep-tooltip-row"><span class="sleep-tooltip-dot d-' + kind + '"></span>'
+          + '<span class="sleep-tooltip-name">' + name + '</span>'
+          + '<span class="sleep-tooltip-val">' + Number(val).toFixed(1) + 'h</span></div>';
       });
+      tip.innerHTML = html;
+      tip.classList.add('open');
+      void tip.offsetWidth; // force reflow so the fade/scale-in actually plays
+      requestAnimationFrame(() => tip.classList.add('visible'));
+      const wrapRect = wrap.getBoundingClientRect();
+      const hitRect = hitEl.getBoundingClientRect();
+      tip.style.left = (hitRect.left + hitRect.width / 2 - wrapRect.left) + 'px';
+      tip.style.top = (hitRect.top - wrapRect.top) + 'px';
     }
-    // Tap/click anywhere outside a dot dismisses the tooltip — registered
-    // once, not per render.
+    // Tap/click anywhere outside a hit column dismisses the tooltip —
+    // registered once, not per render.
     document.addEventListener('click', (e) => {
-      if (!e.target.closest('.sleep-dot, .sleep-dot-hit')) hideSleepTooltip();
+      if (!e.target.closest('.sleep-day-hit')) hideSleepTooltip();
     });
+
+    function sleepCurrentPointIndex(isMonth, data) {
+      if (isMonth) return data.length - 1; // monthChartData always ends on the current month
+      return currentWeekKeys().indexOf(todayStr());
+    }
 
     function renderWeekChart(entries) {
       const svg = $('sleepWeekSvg');
@@ -542,33 +1066,19 @@ main {
       const data = isMonth ? monthChartData(entries) : weekChartData(entries);
       $('sleepWeekEyebrow').textContent = isMonth ? 'Last 6 months' : 'This week';
 
-      if (!data.some(p => p.total != null || p.rem != null || p.light != null || p.deep != null)) {
-        svg.innerHTML = '';
-        svg.classList.add('hidden');
-        emptyEl.style.display = 'block';
-        hideSleepTooltip();
-        return;
-      }
-      emptyEl.style.display = 'none';
-      svg.classList.remove('hidden');
+      const hasAny = data.some(p => p.total != null || p.rem != null || p.light != null || p.deep != null);
+      emptyEl.classList.toggle('hidden', hasAny);
+      svg.classList.toggle('hidden', !hasAny);
+      if (!hasAny) { hideSleepTooltip(); return; }
 
-      const series = {
-        total: data.map(p => p.total),
-        rem:   data.map(p => p.rem),
-        light: data.map(p => p.light),
-        deep:  data.map(p => p.deep),
-      };
-
+      const els = sleepEnsureChartSkeleton();
       // Fixed 0–10h Y axis — never rescale.
       // W matches the ACTUAL rendered pixel width of the chart (not an
       // arbitrary fixed unit) so widening the container via the
-      // .sleep-week-breakout CSS genuinely spreads the 7 days across
-      // more space, instead of just stretching the same 300-unit grid
-      // over a bigger box (which scales the dots/strokes right along
-      // with the spacing and leaves them just as crowded, only bigger).
-      // It also makes the X and Y scales 1:1, so dots render as true
-      // circles instead of the sideways-stretched ellipses a mismatched
-      // scale would produce.
+      // .sleep-card breakout CSS genuinely spreads the days across more
+      // space, instead of just stretching the same 300-unit grid over a
+      // bigger box. It also makes the X and Y scales 1:1, so dots render
+      // as true circles instead of sideways-stretched ellipses.
       const n = data.length;
       const W = svg.getBoundingClientRect().width || 600, H = 800;
       svg.setAttribute('viewBox', '0 0 ' + W.toFixed(1) + ' ' + H);
@@ -578,21 +1088,100 @@ main {
       const xAt = (i) => padLeft + plotW * (n === 1 ? 0.5 : i / (n - 1));
       const yAt = (v) => padTop + plotH * (1 - Math.min(v, SLEEP_Y_MAX) / SLEEP_Y_MAX);
 
-      let html = '';
-      for (let v = 0; v <= SLEEP_Y_MAX; v += SLEEP_Y_STEP) {
+      SLEEP_GRID_REFS.forEach((v, gi) => {
         const y = yAt(v);
-        html += '<line class="sleep-week-grid" x1="' + padLeft + '" y1="' + y.toFixed(1) + '" x2="' + (W - padRight).toFixed(1) + '" y2="' + y.toFixed(1) + '"></line>'
-          + '<text class="sleep-week-yaxis-label" x="' + (padLeft - 8) + '" y="' + (y + 3).toFixed(1) + '" text-anchor="end">' + v + '</text>';
-      }
-      html += buildSeriesLine(series.rem, 'rem', xAt, yAt);
-      html += buildSeriesLine(series.light, 'light', xAt, yAt);
-      html += buildSeriesLine(series.deep, 'deep', xAt, yAt);
-      html += buildSeriesLine(series.total, 'total', xAt, yAt);
-      data.forEach((p, i) => {
-        html += '<text class="sleep-week-daylabel" x="' + xAt(i).toFixed(1) + '" y="' + (H - 10) + '" text-anchor="middle">' + p.label + '</text>';
+        els.gridLines[gi].setAttribute('x1', padLeft);
+        els.gridLines[gi].setAttribute('x2', (W - padRight).toFixed(1));
+        els.gridLines[gi].setAttribute('y1', y.toFixed(1));
+        els.gridLines[gi].setAttribute('y2', y.toFixed(1));
+        els.gridLabels[gi].setAttribute('x', padLeft - 8);
+        els.gridLabels[gi].setAttribute('y', (y + 3).toFixed(1));
+        els.gridLabels[gi].textContent = v;
       });
-      svg.innerHTML = html;
-      wireSleepDotEvents();
+
+      const series = {
+        rem: data.map(p => p.rem), light: data.map(p => p.light),
+        deep: data.map(p => p.deep), total: data.map(p => p.total),
+      };
+      const currentIndex = sleepCurrentPointIndex(isMonth, data);
+
+      SLEEP_SERIES_KINDS.forEach((kind) => {
+        els.paths[kind].setAttribute('d', buildSeriesLine(series[kind], xAt, yAt));
+        for (let i = 0; i < SLEEP_CHART_MAX_POINTS; i++) {
+          const dot = els.dots[kind][i];
+          if (i >= n || series[kind][i] == null) { dot.classList.add('sleep-chart-el-off'); continue; }
+          const isToday = kind === 'total' && i === currentIndex;
+          dot.setAttribute('cx', xAt(i).toFixed(2));
+          dot.setAttribute('cy', yAt(series[kind][i]).toFixed(2));
+          dot.setAttribute('r', isToday ? 6 : 4.5);
+          dot.classList.toggle('sleep-dot-today', isToday);
+          dot.classList.remove('sleep-chart-el-off');
+        }
+      });
+
+      for (let i = 0; i < SLEEP_CHART_MAX_POINTS; i++) {
+        const label = els.dayLabels[i];
+        const hit = els.dayHits[i];
+        if (i >= n) { label.classList.add('sleep-chart-el-off'); hit.classList.add('sleep-chart-el-off'); continue; }
+        const x = xAt(i), p = data[i];
+        label.setAttribute('x', x.toFixed(2));
+        label.setAttribute('y', H - 10);
+        label.textContent = p.label;
+        label.classList.remove('sleep-chart-el-off');
+
+        hit.setAttribute('x', (x - 16).toFixed(2));
+        hit.setAttribute('y', padTop.toFixed(2));
+        hit.setAttribute('width', 32);
+        hit.setAttribute('height', plotH.toFixed(2));
+        hit.setAttribute('data-label', p.label);
+        hit.setAttribute('data-total', p.total != null ? p.total : '');
+        hit.setAttribute('data-rem', p.rem != null ? p.rem : '');
+        hit.setAttribute('data-light', p.light != null ? p.light : '');
+        hit.setAttribute('data-deep', p.deep != null ? p.deep : '');
+        hit.classList.remove('sleep-chart-el-off');
+      }
+    }
+
+    // ---------- Weekend vs weekday insight ----------
+    // "Weekend night" = the night's `date` falls on Friday or Saturday
+    // (the wake-up lands on Saturday/Sunday); everything else is a
+    // "weekday night". Only looks at the last 28 days, and stays silent
+    // (renders nothing) unless there's a genuine 2-week spread of both
+    // kinds — a lone Friday+Saturday from the same week, or just one or
+    // two scattered nights, would be a misleading sample to summarize.
+    function sleepWeekNumber(key) {
+      const d = parseDateKey(key);
+      const dow = (d.getDay() + 6) % 7; // 0=Mon
+      const monday = new Date(d); monday.setDate(d.getDate() - dow);
+      return Math.floor(monday.getTime() / (7 * 86400000));
+    }
+    function computeWeekendInsight(entries) {
+      const cutoffKey = dateKey(dateOffset(-27));
+      const weekend = [], weekday = [];
+      entries.forEach((e) => {
+        if (e.date < cutoffKey) return;
+        const dur = durationHours(e.bedTime, e.wakeTime);
+        if (dur == null) return;
+        const dow = parseDateKey(e.date).getDay(); // 0=Sun..6=Sat
+        const bucket = { dur, week: sleepWeekNumber(e.date) };
+        if (dow === 5 || dow === 6) weekend.push(bucket); else weekday.push(bucket);
+      });
+      const weekendWeeks = new Set(weekend.map(x => x.week));
+      const weekdayWeeks = new Set(weekday.map(x => x.week));
+      if (weekend.length < 2 || weekday.length < 2 || weekendWeeks.size < 2 || weekdayWeeks.size < 2) return null;
+      const avg = (list) => list.reduce((a, b) => a + b.dur, 0) / list.length;
+      return { diffHours: avg(weekend) - avg(weekday) };
+    }
+    function renderSleepInsight(entries) {
+      const el = $('sleepInsight');
+      const insight = computeWeekendInsight(entries);
+      if (!insight) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+      const absH = Math.abs(insight.diffHours);
+      const amount = absH < 1 ? Math.round(absH * 60) + ' min' : absH.toFixed(1) + 'h';
+      const verb = insight.diffHours >= 0 ? 'more' : 'less';
+      el.innerHTML = '<span class="sleep-insight-icon" aria-hidden="true">💤</span>'
+        + '<span>You sleep <strong>' + amount + '</strong> ' + verb + ' on weekends than on weekdays.</span>';
+      el.classList.remove('hidden');
     }
 
     // ---------- Stats ----------
@@ -642,6 +1231,7 @@ main {
       const entries = loadEntries();
       renderWeekChart(entries);
       renderStats(entries);
+      renderSleepInsight(entries);
     }
 
     $('sleepRangeToggle').querySelectorAll('.sleep-range-btn').forEach(b => {
@@ -653,6 +1243,8 @@ main {
       });
     });
 
+    updateDatePillsUI();
+    updateSleepFormLiveState();
     renderSleep();
   })();
   </script>
