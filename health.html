@@ -314,6 +314,51 @@ main {
     .sleep-cal-day.selected { background: rgba(255,255,255,0.14); color: var(--text-primary); font-weight: 700; }
     .sleep-cal-day:disabled { color: var(--text-quaternary); opacity: 0.4; cursor: default; }
 
+    /* ---------- Detail panel + pie chart (selected day/month from the
+       line chart) — same card language as .sleep-wizard/.sleep-insight
+       (background, radius, padding) so they read as native to the
+       module rather than a bolted-on widget. ---------- */
+    .sleep-detail-panel, .sleep-pie-card {
+      margin-top: 16px; padding: 14px 16px;
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      transition: opacity 0.18s ease;
+    }
+    .sleep-detail-title {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--text-tertiary); margin-bottom: 8px;
+    }
+    .sleep-detail-num-row { display: flex; align-items: baseline; gap: 6px; margin-bottom: 6px; }
+    .sleep-detail-num-label { font-size: 12px; color: var(--text-tertiary); }
+    .sleep-detail-meta { font-size: 12.5px; color: var(--text-secondary); }
+    .sleep-detail-empty {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12.5px; color: var(--text-tertiary); font-style: italic;
+    }
+
+    .sleep-pie-body { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+    .sleep-pie-donut-wrap { position: relative; width: 116px; height: 116px; flex: 0 0 auto; }
+    .sleep-pie-svg { display: block; width: 116px; height: 116px; }
+    .sleep-pie-ring-bg { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 14; }
+    .sleep-pie-seg { fill: none; stroke-width: 14; stroke-linecap: butt; }
+    .sleep-pie-seg-rem { stroke: var(--sleep-rem); }
+    .sleep-pie-seg-light { stroke: var(--sleep-light); }
+    .sleep-pie-seg-deep { stroke: var(--sleep-deep); }
+    .sleep-pie-center {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      font-size: 15px; font-weight: 700; color: var(--text-primary);
+      font-variant-numeric: tabular-nums; pointer-events: none;
+    }
+    .sleep-pie-legend { flex: 1; min-width: 140px; display: flex; flex-direction: column; gap: 7px; }
+    .sleep-pie-leg-row { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text-secondary); }
+    .sleep-pie-leg-dot { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+    .sleep-pie-leg-dot.d-rem { background: var(--sleep-rem); }
+    .sleep-pie-leg-dot.d-light { background: var(--sleep-light); }
+    .sleep-pie-leg-dot.d-deep { background: var(--sleep-deep); }
+    .sleep-pie-leg-name { flex: 0 0 42px; color: var(--text-primary); font-weight: 600; }
+    .sleep-pie-leg-val { color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+    .sleep-pie-msg { font-size: 12px; color: var(--text-tertiary); font-style: italic; }
+
     /* ---------- Weekend-vs-weekday insight ---------- */
     .sleep-insight {
       display: flex; align-items: flex-start; gap: 10px;
@@ -538,6 +583,25 @@ main {
                   <button type="button" class="sleep-wizard-back" id="sleepBackBtn">← Back</button>
                   <button id="sleepSaveBtn" class="sleep-save-btn" type="button">Save</button>
                 </div>
+              </div>
+            </div>
+
+            <!-- Detail panel + pie chart — read-only view of whichever
+                 day (Week mode) or month (Month mode) is selected on the
+                 line chart to the right. Deliberately decoupled from the
+                 wizard above: clicking a chart point never touches
+                 sleepSelectedDate/the pills, and switching the wizard's
+                 date never touches this selection — one flow writes new
+                 entries, the other reads already-saved ones. -->
+            <div class="sleep-detail-panel" id="sleepDetailPanel"></div>
+
+            <div class="sleep-pie-card" id="sleepPieCard">
+              <div class="sleep-pie-body">
+                <div class="sleep-pie-donut-wrap">
+                  <svg class="sleep-pie-svg" id="sleepPieSvg" viewBox="0 0 120 120" aria-hidden="true"></svg>
+                  <div class="sleep-pie-center" id="sleepPieCenterLabel"></div>
+                </div>
+                <div class="sleep-pie-legend" id="sleepPieLegend"></div>
               </div>
             </div>
 
@@ -922,10 +986,17 @@ main {
         const e = byDate[k];
         return {
           label: dayLabel(k),
+          // dateKey/feeling/quality: not used by the line chart itself,
+          // exposed so the detail panel can read a day's full date and
+          // subjective feeling/quality without re-deriving them or
+          // re-scanning entries itself.
+          dateKey: k,
           total: e ? durationHours(e.bedTime, e.wakeTime) : null,
           rem: e && e.remHours != null ? e.remHours : null,
           light: e && e.lightHours != null ? e.lightHours : null,
           deep: e && e.deepHours != null ? e.deepHours : null,
+          feeling: e ? e.feeling : null,
+          quality: e ? e.quality : null,
         };
       });
     }
@@ -946,6 +1017,13 @@ main {
         });
         points.push({
           label: SLEEP_MONTH_LABELS[m],
+          // monthLabel/count: not used by the line chart itself, exposed
+          // so the detail panel can show "July 2026" and "18 nights
+          // logged" without re-deriving the month filter itself (the
+          // abbreviated `label` alone is ambiguous once 6 months back
+          // crosses a year boundary).
+          monthLabel: SLEEP_MONTH_FULL[m] + ' ' + y,
+          count: monthEntries.length,
           total: avg(monthEntries, e => durationHours(e.bedTime, e.wakeTime)),
           rem: avg(monthEntries, e => e.remHours),
           light: avg(monthEntries, e => e.lightHours),
@@ -1035,10 +1113,14 @@ main {
       // renders now (attributes updated in place below), so attaching
       // listeners per-render like the old wireSleepDotEvents() did would
       // stack duplicate handlers.
-      sleepChartEls.dayHits.forEach((hit) => {
+      sleepChartEls.dayHits.forEach((hit, i) => {
         hit.addEventListener('mouseenter', () => showSleepTooltip(hit));
         hit.addEventListener('mouseleave', hideSleepTooltip);
-        hit.addEventListener('click', (e) => { e.stopPropagation(); showSleepTooltip(hit); });
+        hit.addEventListener('click', (e) => {
+          e.stopPropagation();
+          showSleepTooltip(hit);
+          selectSleepDetailFromHit(i);
+        });
       });
       return sleepChartEls;
     }
@@ -1092,12 +1174,17 @@ main {
       const emptyEl = $('sleepWeekEmpty');
       const isMonth = sleepChartMode === 'month';
       const data = isMonth ? monthChartData(entries) : weekChartData(entries);
+      // Kept around so the detail panel/pie chart (and the toggle
+      // handler, when it forces a re-pick) can read exactly the same
+      // points the line chart just drew, instead of recomputing
+      // weekChartData/monthChartData a second time.
+      sleepLastChartData = data;
       $('sleepWeekEyebrow').textContent = isMonth ? 'Last 6 months' : 'This week';
 
       const hasAny = data.some(p => p.total != null || p.rem != null || p.light != null || p.deep != null);
       emptyEl.classList.toggle('hidden', hasAny);
       svg.classList.toggle('hidden', !hasAny);
-      if (!hasAny) { hideSleepTooltip(); return; }
+      if (!hasAny) { hideSleepTooltip(); updateSleepDetailPanel(); return; }
 
       const els = sleepEnsureChartSkeleton();
       // Fixed 0–10h Y axis — never rescale.
@@ -1168,6 +1255,161 @@ main {
         hit.setAttribute('data-deep', p.deep != null ? p.deep : '');
         hit.classList.remove('sleep-chart-el-off');
       }
+
+      updateSleepDetailPanel();
+    }
+
+    // ---------- Detail panel + pie chart ----------
+    // Reads sleepLastChartData (set by renderWeekChart, same array the
+    // line chart itself just drew) — never recomputes weekChartData/
+    // monthChartData on its own.
+    let sleepLastChartData = [];
+    // Index into sleepLastChartData currently shown in the detail panel/
+    // pie — null means "not chosen yet, auto-pick the most recent point
+    // with data" (the state used on first load and right after a
+    // Week/Month toggle, which resets this to null before re-rendering).
+    let sleepSelectedDetailIndex = null;
+    const sleepFadeTimers = new WeakMap();
+
+    function sleepPointHasData(p) {
+      return !!p && (p.total != null || p.rem != null || p.light != null || p.deep != null);
+    }
+    // Scans from the most recent point backwards — used both for the
+    // initial auto-selection and after a Week/Month switch, so this
+    // logic lives in exactly one place instead of being reimplemented at
+    // each call site.
+    function findMostRecentDataPoint(data) {
+      for (let i = data.length - 1; i >= 0; i--) {
+        if (sleepPointHasData(data[i])) return i;
+      }
+      return -1;
+    }
+    function formatFullDate(k) {
+      return parseDateKey(k).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+    }
+    // Reads the emoji + label straight off the existing feeling button
+    // markup (the single source of truth for what each 1-5 value means)
+    // instead of duplicating a parallel lookup table here.
+    function feelingDisplay(feelingNum) {
+      const btn = $('sleepFeelingRow').querySelector('.sleep-feeling-btn[data-v="' + feelingNum + '"]');
+      return btn ? btn.textContent + ' ' + btn.getAttribute('aria-label') : '';
+    }
+
+    // Fades `el` out, swaps its content via updateFn while invisible,
+    // then fades it back in — same short (~150-300ms total), non-abrupt
+    // transition already used elsewhere in this module (e.g. the saved-
+    // confirmation message), applied here to content updates instead of
+    // a show/hide toggle. Keyed per-element so updating the detail panel
+    // and the pie card side by side don't cancel each other's timers.
+    function sleepCrossfadeContent(el, updateFn) {
+      el.style.opacity = '0';
+      clearTimeout(sleepFadeTimers.get(el));
+      sleepFadeTimers.set(el, setTimeout(() => {
+        updateFn();
+        el.style.opacity = '1';
+      }, 140));
+    }
+
+    function renderSleepDetailPanelContent(point) {
+      const el = $('sleepDetailPanel');
+      if (!point) {
+        el.innerHTML = '<div class="sleep-detail-empty"><span aria-hidden="true">🌙</span><span>No sleep data yet — log your first night above.</span></div>';
+        return;
+      }
+      const isMonth = sleepChartMode === 'month';
+      let html;
+      if (isMonth) {
+        html = '<div class="sleep-detail-title">' + point.monthLabel + '</div>'
+          + '<div class="sleep-detail-num-row"><span class="sleep-preview-num">' + (point.total != null ? point.total.toFixed(1) + 'h' : '—') + '</span><span class="sleep-detail-num-label">avg</span></div>'
+          + '<div class="sleep-detail-meta">' + point.count + (point.count === 1 ? ' night logged' : ' nights logged') + '</div>';
+      } else {
+        html = '<div class="sleep-detail-title">' + formatFullDate(point.dateKey) + '</div>'
+          + '<div class="sleep-detail-num-row"><span class="sleep-preview-num">' + (point.total != null ? point.total.toFixed(1) + 'h' : '—') + '</span><span class="sleep-detail-num-label">of sleep</span></div>';
+        const metaParts = [];
+        if (point.feeling != null) metaParts.push(feelingDisplay(point.feeling));
+        if (point.quality != null) metaParts.push('Quality: ' + point.quality.charAt(0).toUpperCase() + point.quality.slice(1));
+        if (metaParts.length) html += '<div class="sleep-detail-meta">' + metaParts.join(' · ') + '</div>';
+      }
+      el.innerHTML = html;
+    }
+
+    const SLEEP_PIE_R = 50, SLEEP_PIE_CX = 60, SLEEP_PIE_CY = 60;
+    const SLEEP_PIE_CIRC = 2 * Math.PI * SLEEP_PIE_R;
+
+    function renderSleepPieContent(point) {
+      const svg = $('sleepPieSvg');
+      const legend = $('sleepPieLegend');
+      const centerLabel = $('sleepPieCenterLabel');
+      const bgRing = '<circle class="sleep-pie-ring-bg" cx="' + SLEEP_PIE_CX + '" cy="' + SLEEP_PIE_CY + '" r="' + SLEEP_PIE_R + '"></circle>';
+
+      if (!point) {
+        svg.innerHTML = bgRing;
+        centerLabel.textContent = '';
+        legend.innerHTML = '<div class="sleep-pie-msg">No sleep data yet.</div>';
+        return;
+      }
+
+      const stages = [['rem', 'REM', point.rem], ['light', 'Light', point.light], ['deep', 'Deep', point.deep]];
+      // % is computed against the sum of whichever stages are actually
+      // logged, not against `total` — those can legitimately disagree
+      // (missing stages, tracker rounding), and dividing by `total`
+      // would produce percentages that visibly don't add up to 100%.
+      const stagesTotal = stages.reduce((s, st) => s + (st[2] != null ? st[2] : 0), 0);
+
+      if (stagesTotal <= 0) {
+        svg.innerHTML = bgRing;
+        centerLabel.textContent = point.total != null ? point.total.toFixed(1) + 'h' : '';
+        const noun = sleepChartMode === 'month' ? 'month' : 'night';
+        legend.innerHTML = '<div class="sleep-pie-msg">No stage data for this ' + noun + '.</div>';
+        return;
+      }
+
+      let offset = 0, segsHtml = '', legendHtml = '';
+      stages.forEach(([kind, name, v]) => {
+        if (v == null || v <= 0) return;
+        const frac = v / stagesTotal;
+        const segLen = frac * SLEEP_PIE_CIRC;
+        segsHtml += '<circle class="sleep-pie-seg sleep-pie-seg-' + kind + '" cx="' + SLEEP_PIE_CX + '" cy="' + SLEEP_PIE_CY + '" r="' + SLEEP_PIE_R + '"'
+          + ' stroke-dasharray="' + segLen.toFixed(2) + ' ' + (SLEEP_PIE_CIRC - segLen).toFixed(2) + '"'
+          + ' stroke-dashoffset="' + (-offset).toFixed(2) + '"></circle>';
+        offset += segLen;
+        legendHtml += '<div class="sleep-pie-leg-row"><span class="sleep-pie-leg-dot d-' + kind + '"></span>'
+          + '<span class="sleep-pie-leg-name">' + name + '</span>'
+          + '<span class="sleep-pie-leg-val">' + v.toFixed(1) + 'h · ' + Math.round(frac * 100) + '%</span></div>';
+      });
+      // Wrapped in a rotated <g> so the first segment starts at 12
+      // o'clock (SVG circles otherwise start their stroke at 3 o'clock).
+      svg.innerHTML = bgRing + '<g transform="rotate(-90 ' + SLEEP_PIE_CX + ' ' + SLEEP_PIE_CY + ')">' + segsHtml + '</g>';
+      centerLabel.textContent = point.total != null ? point.total.toFixed(1) + 'h' : stagesTotal.toFixed(1) + 'h';
+      legend.innerHTML = legendHtml;
+    }
+
+    // Re-renders the detail panel + pie for whichever index is currently
+    // selected (or auto-picks the most recent point with data, when
+    // forceIndex/sleepSelectedDetailIndex is null or no longer valid —
+    // e.g. right after a Week/Month toggle reset it to null). Called
+    // after every renderWeekChart() so both stay in sync with whatever
+    // the line chart just drew.
+    function updateSleepDetailPanel(forceIndex) {
+      const data = sleepLastChartData;
+      let idx = typeof forceIndex === 'number' ? forceIndex : sleepSelectedDetailIndex;
+      if (idx == null || idx < 0 || idx >= data.length || !sleepPointHasData(data[idx])) {
+        idx = findMostRecentDataPoint(data);
+      }
+      sleepSelectedDetailIndex = idx;
+      const point = idx >= 0 ? data[idx] : null;
+      sleepCrossfadeContent($('sleepDetailPanel'), () => renderSleepDetailPanelContent(point));
+      sleepCrossfadeContent($('sleepPieCard'), () => renderSleepPieContent(point));
+    }
+
+    // Click handler for a chart hit-target — a no-op (leaves the panel/
+    // pie showing whatever was last valid) when the clicked day/month
+    // has no data at all, same "nothing to show" check showSleepTooltip
+    // already uses.
+    function selectSleepDetailFromHit(index) {
+      const point = sleepLastChartData[index];
+      if (!sleepPointHasData(point)) return;
+      updateSleepDetailPanel(index);
     }
 
     // ---------- Weekend vs weekday insight ----------
@@ -1267,6 +1509,12 @@ main {
         $('sleepRangeToggle').querySelectorAll('.sleep-range-btn').forEach(x => x.classList.remove('active'));
         b.classList.add('active');
         sleepChartMode = b.dataset.range;
+        // Whatever index was selected belonged to the OTHER mode's data
+        // array (a different length, different meaning per index) — null
+        // it out so updateSleepDetailPanel() re-picks the most recent
+        // point with data in the new mode, instead of reusing a
+        // now-meaningless index.
+        sleepSelectedDetailIndex = null;
         renderWeekChart(loadEntries());
       });
     });
