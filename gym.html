@@ -100,6 +100,23 @@ html, body {
      partial column (which left unpredictable gaps depending on how many
      rows its neighbors occupied). */
   .po-group-today { grid-column: 1 / -1; }
+  /* "Tu progreso" is full-width too — it gets its own internal multi-
+     column layout (.po-progress-grid below) instead of being squeezed
+     into a single 1.2fr-wide column with the other column left empty. */
+  .po-group-progress { grid-column: 1 / -1; }
+}
+
+/* "Tu progreso" cards (weight, workout history, charts, mapa muscular,
+   movilidad, progresión) — CSS multi-column instead of CSS grid, since
+   card heights vary a lot and columns pack top-to-bottom like a real
+   masonry without needing row-span math. break-inside keeps a card from
+   being split across two columns. */
+.po-progress-grid > * { break-inside: avoid; }
+@media (min-width: 700px) {
+  .po-progress-grid { column-count: 2; column-gap: 20px; }
+}
+@media (min-width: 1400px) {
+  .po-progress-grid { column-count: 3; }
 }
 /* No image, video, or canvas can ever push the page past the viewport */
 img, video, canvas, svg { max-width: 100%; }
@@ -1491,19 +1508,24 @@ img, video, canvas, svg { max-width: 100%; }
 .tr-pesas-ex-name:focus { outline: none; border-color: rgba(255,255,255,0.40); }
 .tr-pesas-sets { display: flex; flex-direction: column; gap: 6px; }
 .tr-pesas-set-row {
-  display: grid; grid-template-columns: 18px 1fr 1fr auto;
-  align-items: center; gap: 8px;
+  display: grid; grid-template-columns: 14px 52px 60px 1fr auto;
+  align-items: center; gap: 6px;
 }
-.tr-set-row-num { color: var(--text-4); font-size: 13px; }
-.tr-pesas-set-reps, .tr-pesas-set-weight {
+.tr-set-row-num { color: var(--text-4); font-size: 12px; }
+.tr-pesas-set-reps, .tr-pesas-set-weight, .tr-pesas-set-rir {
   background: rgba(0,0,0,0.28); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text-1); font-family: inherit; font-size: 13px; padding: 8px 6px;
-  text-align: center; min-width: 0;
+  color: var(--text-1); font-family: inherit; font-size: 12.5px; padding: 8px 4px;
+  text-align: center; min-width: 0; width: 100%; box-sizing: border-box;
   -moz-appearance: textfield;
 }
 .tr-pesas-set-reps::-webkit-outer-spin-button, .tr-pesas-set-reps::-webkit-inner-spin-button,
 .tr-pesas-set-weight::-webkit-outer-spin-button, .tr-pesas-set-weight::-webkit-inner-spin-button {
   -webkit-appearance: none; margin: 0;
+}
+.tr-pesas-set-rir {
+  appearance: none; -webkit-appearance: none;
+  padding-right: 4px; text-align: center; text-align-last: center;
+  cursor: pointer;
 }
 
 /* Home strip (streak / weekly volume / muscle teaser) + 4 discipline cards. */
@@ -1661,6 +1683,8 @@ img, video, canvas, svg { max-width: 100%; }
          someone just wants to log a set. ===== -->
     <div class="po-group-progress">
       <div class="wt-divider"><span>TU PROGRESO</span></div>
+
+      <div class="po-progress-grid">
 
       <!-- WEIGHT + PROGRESS PHOTOS -->
       <div class="wt-section">
@@ -1913,6 +1937,8 @@ img, video, canvas, svg { max-width: 100%; }
       <div class="wh-block">
         <div class="wh-block-title">Progresión por ejercicio</div>
         <div id="trExerciseProgressionWrap"></div>
+      </div>
+
       </div>
     </div>
 

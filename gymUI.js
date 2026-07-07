@@ -478,12 +478,33 @@
   // mobility log purely by its classification in GymPesasStore — same
   // partitionWorkoutExercises() the Lyfta import uses.
   // ============================================================
-  let pesasLogRows = [];   // [{rowId, name, sets:[{reps,weight}]}]
+  let pesasLogRows = [];   // [{rowId, name, sets:[{reps,weight,rir}]}]
   let pesasLogRowSeq = 0;
   let pesasLogDatePicker = null; // lazily created, reset to "Hoy" every time
 
+  // RIR (reps in reserve) or Fallo (failure) — optional per-set effort tag.
+  // Purely informational: stored as `sets[].rir` (already part of the
+  // workout_history schema, see whNormalizeWorkout) and never affects
+  // PRs/volume/streak.
+  const RIR_SELECT_OPTIONS = [
+    { value: '', label: 'RIR / Fallo' },
+    { value: 'RIR5', label: 'RIR 5' },
+    { value: 'RIR4', label: 'RIR 4' },
+    { value: 'RIR3', label: 'RIR 3' },
+    { value: 'RIR2', label: 'RIR 2' },
+    { value: 'RIR1', label: 'RIR 1' },
+    { value: 'fallo', label: 'Fallo' },
+  ];
+  function rirSelectHtml(selected) {
+    return '<select class="tr-pesas-set-rir" aria-label="RIR o fallo">'
+      + RIR_SELECT_OPTIONS.map(function (o) {
+          return '<option value="' + o.value + '"' + (o.value === (selected || '') ? ' selected' : '') + '>' + o.label + '</option>';
+        }).join('')
+      + '</select>';
+  }
+
   function openPesasLogModal() {
-    pesasLogRows = [{ rowId: ++pesasLogRowSeq, name: '', sets: [{ reps: 8, weight: 20 }] }];
+    pesasLogRows = [{ rowId: ++pesasLogRowSeq, name: '', sets: [{ reps: 8, weight: 20, rir: '' }] }];
     renderPesasLogRows();
     $('trPesasLogStatus').textContent = '';
     if (!pesasLogDatePicker) pesasLogDatePicker = createDatePicker($('trPesasLogDatePicker'));
@@ -499,6 +520,7 @@
         + '<span class="tr-set-row-num">' + (i + 1) + '</span>'
         + '<input type="number" class="tr-pesas-set-reps" value="' + s.reps + '" min="0" placeholder="reps" aria-label="Reps">'
         + '<input type="number" class="tr-pesas-set-weight" value="' + s.weight + '" min="0" step="0.5" placeholder="kg" aria-label="Peso (kg)">'
+        + rirSelectHtml(s.rir)
         + '<button type="button" class="po-mini-btn tr-pesas-set-remove" title="Quitar serie">×</button>'
         + '</div>';
     }).join('');
@@ -525,14 +547,15 @@
         renderPesasLogRows();
       });
       blockEl.querySelector('.tr-pesas-add-set').addEventListener('click', function () {
-        const lastWeight = row.sets.length ? row.sets[row.sets.length - 1].weight : 20;
-        row.sets.push({ reps: 8, weight: lastWeight });
+        const last = row.sets.length ? row.sets[row.sets.length - 1] : null;
+        row.sets.push({ reps: 8, weight: last ? last.weight : 20, rir: last ? last.rir : '' });
         renderPesasLogRows();
       });
       blockEl.querySelectorAll('.tr-pesas-set-row').forEach(function (setEl) {
         const i = Number(setEl.dataset.setI);
         setEl.querySelector('.tr-pesas-set-reps').addEventListener('input', function (e) { row.sets[i].reps = Number(e.target.value) || 0; });
         setEl.querySelector('.tr-pesas-set-weight').addEventListener('input', function (e) { row.sets[i].weight = Number(e.target.value) || 0; });
+        setEl.querySelector('.tr-pesas-set-rir').addEventListener('change', function (e) { row.sets[i].rir = e.target.value; });
         setEl.querySelector('.tr-pesas-set-remove').addEventListener('click', function () {
           row.sets.splice(i, 1);
           renderPesasLogRows();
@@ -542,7 +565,7 @@
   }
 
   function pesasLogAddExercise() {
-    pesasLogRows.push({ rowId: ++pesasLogRowSeq, name: '', sets: [{ reps: 8, weight: 20 }] });
+    pesasLogRows.push({ rowId: ++pesasLogRowSeq, name: '', sets: [{ reps: 8, weight: 20, rir: '' }] });
     renderPesasLogRows();
   }
 
