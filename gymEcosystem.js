@@ -15,6 +15,17 @@
     try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; }
   }
 
+  // Cross-device fix: a value pulled from another device's Supabase row
+  // (see gym.html's warmUpEcosystemInputs, index.html's warmUpFromCloud)
+  // takes priority over this device's own localStorage, which may never
+  // have been hydrated if the owning page (health.html/nutrition.html/
+  // habits.html) was never opened here. `overrides` is a plain object
+  // keyed by the same localStorage key names — absent key falls back to
+  // readJSON so single-device callers (and existing tests) are unaffected.
+  function pick(overrides, key) {
+    return (overrides && Object.prototype.hasOwnProperty.call(overrides, key)) ? overrides[key] : readJSON(key);
+  }
+
   function minutesSinceMidnight(hhmm) {
     if (!hhmm) return null;
     const parts = String(hhmm).split(':').map(Number);
@@ -32,9 +43,10 @@
   }
 
   // @param {string} date "YYYY-MM-DD"
+  // @param {Object} [overrides] optional {sleepEntries} — see pick() above
   // @returns {number|null} hours slept that date, or null if no sleepEntries row for it
-  function getSleepHoursForDate(date) {
-    const entries = readJSON('sleepEntries');
+  function getSleepHoursForDate(date, overrides) {
+    const entries = pick(overrides, 'sleepEntries');
     if (!Array.isArray(entries)) return null;
     const entry = entries.find(function (e) { return e && e.date === date; });
     if (!entry) return null;
@@ -48,12 +60,13 @@
   }
 
   // @param {string} date "YYYY-MM-DD"
+  // @param {Object} [overrides] optional {'nut:log','nut:foods','nut:goals'}
   // @returns {number|null} protein logged that date / nut:goals.protein, or
   //   null if no protein goal is configured or nothing was logged that date
-  function getProteinRatioForDate(date) {
-    const log = readJSON('nut:log');
-    const foods = readJSON('nut:foods');
-    const goals = readJSON('nut:goals');
+  function getProteinRatioForDate(date, overrides) {
+    const log = pick(overrides, 'nut:log');
+    const foods = pick(overrides, 'nut:foods');
+    const goals = pick(overrides, 'nut:goals');
     if (!Array.isArray(log) || !Array.isArray(foods) || !goals || !(goals.protein > 0)) return null;
     const range = dayRangeMs(date);
     const dayEntries = log.filter(function (l) { return l && l.ts >= range[0] && l.ts < range[1]; });
@@ -71,10 +84,11 @@
   }
 
   // @param {string} date "YYYY-MM-DD"
+  // @param {Object} [overrides] optional {po_habits_v1}
   // @returns {number|null} screen hours that date / goalHours, or null if
   //   no goal is set or nothing was logged that date
-  function getScreenTimeRatioForDate(date) {
-    const habits = readJSON('po_habits_v1');
+  function getScreenTimeRatioForDate(date, overrides) {
+    const habits = pick(overrides, 'po_habits_v1');
     const screenTime = habits && habits.screenTime;
     if (!screenTime || !(screenTime.goalHours > 0)) return null;
     const hrs = screenTime.logs && screenTime.logs[date];
@@ -101,14 +115,15 @@
   // say WHY, not just by how much) are both thin wrappers around this.
   // @param {string} date "YYYY-MM-DD"
   // @param {Object} config  the full muscleFatigueConfig (reads config.ecosystem)
-  function getEcosystemBreakdown(date, config) {
+  // @param {Object} [overrides] optional cross-device signal values — see pick() above
+  function getEcosystemBreakdown(date, config, overrides) {
     const eco = config && config.ecosystem;
     if (!eco || eco.enabled === false) return { modifier: 1, penalties: {}, contributing: [] };
 
     const penalties = {};
-    if (eco.sleep) penalties.sleep = linearPenalty(getSleepHoursForDate(date), eco.sleep.goodHours, eco.sleep.poorHours, eco.sleep.maxPenalty);
-    if (eco.protein) penalties.protein = linearPenalty(getProteinRatioForDate(date), eco.protein.goodRatio, eco.protein.poorRatio, eco.protein.maxPenalty);
-    if (eco.screenTime) penalties.screenTime = linearPenalty(getScreenTimeRatioForDate(date), eco.screenTime.goodRatioMax, eco.screenTime.poorRatioMax, eco.screenTime.maxPenalty);
+    if (eco.sleep) penalties.sleep = linearPenalty(getSleepHoursForDate(date, overrides), eco.sleep.goodHours, eco.sleep.poorHours, eco.sleep.maxPenalty);
+    if (eco.protein) penalties.protein = linearPenalty(getProteinRatioForDate(date, overrides), eco.protein.goodRatio, eco.protein.poorRatio, eco.protein.maxPenalty);
+    if (eco.screenTime) penalties.screenTime = linearPenalty(getScreenTimeRatioForDate(date, overrides), eco.screenTime.goodRatioMax, eco.screenTime.poorRatioMax, eco.screenTime.maxPenalty);
 
     const contributing = Object.keys(penalties).filter(function (k) { return penalties[k] > 0; });
     const total = Math.min(PENALTY_CAP, contributing.reduce(function (sum, k) { return sum + penalties[k]; }, 0));
@@ -116,8 +131,8 @@
   }
 
   // @returns {number} multiplier >= 1.0 to apply to recoveryHours for `date`
-  function computeEcosystemModifier(date, config) {
-    return getEcosystemBreakdown(date, config).modifier;
+  function computeEcosystemModifier(date, config, overrides) {
+    return getEcosystemBreakdown(date, config, overrides).modifier;
   }
 
   function joinEs(items) {
@@ -127,8 +142,8 @@
   }
 
   // @returns {string|null} a short UI line for TODAY's modifier, or null when neutral (1.0)
-  function describeEcosystemModifier(date, config) {
-    const b = getEcosystemBreakdown(date, config);
+  function describeEcosystemModifier(date, config, overrides) {
+    const b = getEcosystemBreakdown(date, config, overrides);
     if (b.modifier <= 1) return null;
     const pct = Math.round((b.modifier - 1) * 100);
     const labels = b.contributing.map(function (k) { return SIGNAL_LABELS[k] || k; });

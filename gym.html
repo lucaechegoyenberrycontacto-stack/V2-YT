@@ -4044,6 +4044,60 @@ img, video, canvas, svg { max-width: 100%; }
   })();
 
   // ============================================================
+  // ECOSYSTEM INPUTS WARM-UP (cross-device sleep/protein/screen-time)
+  // ------------------------------------------------------------
+  // gymEcosystem.js's 3 read functions default to THIS device's own
+  // localStorage, which only gets hydrated once health.html/nutrition.html/
+  // habits.html have each been opened here at least once (it's those pages'
+  // own initCloudSync that pulls their row). A device that's never opened
+  // them locally would otherwise compute the recovery modifier as if the
+  // user had never logged sleep/protein/screen time at all, even though
+  // the data exists in Supabase. Reuses pcSupa (no new client, read-only
+  // select — never writes to these other pages' rows) and hands the result
+  // to GymEcosystem as `overrides`, so gymEcosystem.js itself stays a pure
+  // module with no Supabase dependency of its own.
+  // ============================================================
+  let ecosystemOverrides = {};
+  let ecosystemOverridesLastWarmAt = 0;
+  window.ecosystemOverrides = ecosystemOverrides;
+
+  async function warmUpEcosystemInputs() {
+    ecosystemOverridesLastWarmAt = Date.now();
+    if (!pcSupa) return; // local-only mode — GymEcosystem falls back to localStorage
+    try {
+      const [healthRes, nutritionRes, habitsRes] = await Promise.allSettled([
+        pcSupa.from('app_state').select('data').eq('key', 'health').maybeSingle(),
+        pcSupa.from('app_state').select('data').eq('key', 'nutrition').maybeSingle(),
+        pcSupa.from('app_state').select('data').eq('key', 'habits').maybeSingle(),
+      ]);
+      const health = pcSettledRowData(healthRes);
+      const nutrition = pcSettledRowData(nutritionRes);
+      const habits = pcSettledRowData(habitsRes);
+      if (health && health.sleepEntries !== undefined) ecosystemOverrides.sleepEntries = health.sleepEntries;
+      if (nutrition) {
+        if (nutrition['nut:log'] !== undefined) ecosystemOverrides['nut:log'] = nutrition['nut:log'];
+        if (nutrition['nut:foods'] !== undefined) ecosystemOverrides['nut:foods'] = nutrition['nut:foods'];
+        if (nutrition['nut:goals'] !== undefined) ecosystemOverrides['nut:goals'] = nutrition['nut:goals'];
+      }
+      if (habits && habits.po_habits_v1 !== undefined) ecosystemOverrides.po_habits_v1 = habits.po_habits_v1;
+    } catch (_) {}
+  }
+  function pcSettledRowData(res) {
+    return (res.status === 'fulfilled' && res.value && res.value.data && res.value.data.data) || null;
+  }
+  window.warmUpEcosystemInputs = warmUpEcosystemInputs;
+
+  // Re-warm (throttled to once per 60s) when the user comes back after
+  // being away — e.g. logged sleep on another device while this tab sat in
+  // the background. Separate listener from the one below that only fires
+  // on hidden (unload flush); this one only acts on becoming visible.
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    if (Date.now() - ecosystemOverridesLastWarmAt < 60000) return;
+    warmUpEcosystemInputs().then(() => { if (window.renderMuscleMap) window.renderMuscleMap(); }).catch(() => {});
+  });
+
+  // ============================================================
   // WORKOUT HISTORY CLOUD SYNC (Lyfta, manual — unified)
   // ------------------------------------------------------------
   // Separate table from the rest of the app — public.workout_history,

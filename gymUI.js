@@ -203,8 +203,13 @@
     const config = (window.GymPesasStore && window.GymPesasStore.getMuscleFatigueConfig)
       ? window.GymPesasStore.getMuscleFatigueConfig()
       : window.DEFAULT_MUSCLE_FATIGUE_CONFIG;
+    // Cross-device sleep/protein/screen-time, warmed by gym.html's
+    // warmUpEcosystemInputs (see renderMuscleMapAfterWarmUp below) — falls
+    // back to {} (→ this device's own localStorage inside GymEcosystem)
+    // before that warm-up has run, e.g. Supabase not configured.
+    const ecosystemOverrides = window.ecosystemOverrides || {};
     const result = window.computeMuscleFatigue
-      ? window.computeMuscleFatigue(sessions, config)
+      ? window.computeMuscleFatigue(sessions, config, undefined, ecosystemOverrides)
       : { isPlaceholder: true, muscles: {} };
 
     if (result.isPlaceholder) {
@@ -239,11 +244,26 @@
     // screen-time signals are actually slowing recovery down. Nothing
     // shown at all when neutral or when none of those 3 modules have data.
     const ecoNote = (window.GymEcosystem && window.GymEcosystem.describeEcosystemModifier)
-      ? window.GymEcosystem.describeEcosystemModifier(dpDateKey(dpDateOffset(0)), config)
+      ? window.GymEcosystem.describeEcosystemModifier(dpDateKey(dpDateOffset(0)), config, ecosystemOverrides)
       : null;
     if (ecoNote) {
       wrap.insertAdjacentHTML('beforeend', '<div class="tr-eco-note">' + escapeHtml(ecoNote) + '</div>');
     }
+  }
+  window.renderMuscleMap = renderMuscleMap;
+
+  // First render after page load waits for the cross-device ecosystem
+  // warm-up (brief "Cargando…" state) instead of rendering with whatever
+  // happened to already be in window.ecosystemOverrides and then silently
+  // re-rendering a moment later. Every other call site (config save, Pesas
+  // log save, mobility log save, gpsOnChange) calls renderMuscleMap()
+  // directly and reuses whatever's already there — gym.html's
+  // warmUpEcosystemInputs throttles itself, this doesn't re-trigger it.
+  function renderMuscleMapAfterWarmUp() {
+    const wrap = $('trMuscleMapWrap');
+    if (wrap) wrap.innerHTML = '<div class="po-empty">Cargando datos de recovery…</div>';
+    const warmup = window.warmUpEcosystemInputs ? window.warmUpEcosystemInputs() : Promise.resolve();
+    Promise.resolve(warmup).catch(function () {}).then(renderMuscleMap);
   }
 
   function openMuscleDetailModal(muscle) {
@@ -866,7 +886,7 @@
   }
 
   function init() {
-    renderMuscleMap();
+    renderMuscleMapAfterWarmUp();
     initMuscleConfigModal();
     initExerciseLibraryModals();
     initPesasLogModal();

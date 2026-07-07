@@ -407,6 +407,28 @@ body::after {
       caffeineMgPerDay:200, substances:[], logs:{} };
   }
 
+  // Cross-device fix: this page edits po_water_v1 (the profile lives inside
+  // it) but never called initCloudSync, so edits made here stayed local
+  // until the user happened to open another page that syncs that key.
+  // Reuses appKey 'health' — the SAME row health.html and topbar.js's
+  // "+1 agua" button already merge into — never a new appKey, or this
+  // page's data would fork into its own row instead of merging.
+  // DOMContentLoaded-wrapped because sync.js is loaded with `defer` while
+  // this inline <script> isn't, so window.initCloudSync wouldn't exist yet
+  // if called at the top level (same pattern as habits.html).
+  document.addEventListener('DOMContentLoaded', function () {
+    if (!window.initCloudSync) return;
+    window.initCloudSync({
+      appKey: 'health',
+      syncedKeys: [WATER_KEY],
+      onApplied: function () {
+        // Refresh visible form fields if the profile modal is open right
+        // now; if it's closed, the next open() already calls populate().
+        if ($('settingsBg').classList.contains('show')) populate();
+      }
+    });
+  });
+
   /* ---------- unit state ---------- */
   let heightUnit = 'cm';   // 'cm' | 'ft'
   let weightUnit = 'kg';   // 'kg' | 'lb'

@@ -868,6 +868,68 @@ body::after {
   }
 
   /* ============================================================
+     CROSS-DEVICE WARM-UP — read-only pull for stats whose owning page
+     (health.html/nutrition.html/gym.html) may never have been opened on
+     THIS device. Those pages' own initCloudSync does the localStorage
+     hydration on open; without ever opening them here, the keys above can
+     read as empty even though the data exists in Supabase. select() only —
+     no upsert, no realtime subscription — this page stays strictly
+     read-only, same as the INIT comment below says.
+     ============================================================ */
+  const WARMUP_SUPABASE_URL = window.DASH_SUPABASE_URL || 'https://bkkjtxvneldsqwyhrhub.supabase.co';
+  const WARMUP_SUPABASE_KEY = window.DASH_SUPABASE_KEY || 'sb_publishable_G8LqREPRDk0_tMEJNSFBxA_mIXNAnmT';
+  let warmupSupa = null;
+  if (window.supabase && WARMUP_SUPABASE_URL && WARMUP_SUPABASE_KEY &&
+      WARMUP_SUPABASE_URL.indexOf('PASTE-') !== 0 && WARMUP_SUPABASE_KEY.indexOf('PASTE-') !== 0) {
+    try { warmupSupa = window.supabase.createClient(WARMUP_SUPABASE_URL, WARMUP_SUPABASE_KEY); } catch (e) {}
+  }
+  let lastWarmUpAt = 0;
+
+  // Native localStorage.setItem — this page never calls initCloudSync, so
+  // sync.js's setItem patch (which schedules a push) is never installed
+  // here; writing directly is safe and correct.
+  function applyIfDifferent(key, value) {
+    if (value === undefined) return false;
+    const incoming = JSON.stringify(value);
+    if (localStorage.getItem(key) === incoming) return false;
+    try { localStorage.setItem(key, incoming); return true; } catch (e) { return false; }
+  }
+  function warmUpRowData(res) {
+    return (res.status === 'fulfilled' && res.value && res.value.data && res.value.data.data) || null;
+  }
+  async function warmUpFromCloud() {
+    if (!warmupSupa) return;
+    lastWarmUpAt = Date.now();
+    try {
+      const [healthRes, nutritionRes, coachRes] = await Promise.allSettled([
+        warmupSupa.from('app_state').select('data').eq('key', 'health').maybeSingle(),
+        warmupSupa.from('app_state').select('data').eq('key', 'nutrition').maybeSingle(),
+        warmupSupa.from('app_state').select('data').eq('key', 'po-coach').maybeSingle(),
+      ]);
+      const health = warmUpRowData(healthRes);
+      const nutrition = warmUpRowData(nutritionRes);
+      const coach = warmUpRowData(coachRes);
+      let changed = false;
+      if (health) {
+        changed = applyIfDifferent('sleepEntries', health.sleepEntries) || changed;
+        changed = applyIfDifferent('po_water_v1', health.po_water_v1) || changed;
+        changed = applyIfDifferent('caloriesBurnedEntries', health.caloriesBurnedEntries) || changed;
+      }
+      if (nutrition) {
+        changed = applyIfDifferent('nut:log', nutrition['nut:log']) || changed;
+        changed = applyIfDifferent('nut:foods', nutrition['nut:foods']) || changed;
+        changed = applyIfDifferent('nut:goals', nutrition['nut:goals']) || changed;
+      }
+      if (coach) {
+        changed = applyIfDifferent('gym:steps', coach['gym:steps']) || changed;
+        changed = applyIfDifferent('gym:stepsGoal', coach['gym:stepsGoal']) || changed;
+        changed = applyIfDifferent('po_coach_v1', coach['po_coach_v1']) || changed;
+      }
+      if (changed) renderAllStats();
+    } catch (e) {}
+  }
+
+  /* ============================================================
      INIT — read-only, no writes, no initCloudSync (per spec).
      ============================================================ */
   function renderAllStats() {
@@ -879,12 +941,19 @@ body::after {
     renderStepsStat();
   }
   renderAllStats();
+  warmUpFromCloud();
 
   // Other tabs/pages write these keys — refresh when they change or
   // when this tab regains focus, same convention as topbar.js.
   window.addEventListener('storage', renderAllStats);
   window.addEventListener('focus', renderAllStats);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) renderAllStats(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    renderAllStats();
+    // Throttled re-pull — e.g. sleep logged on another device while this
+    // tab sat in the background.
+    if (Date.now() - lastWarmUpAt > 30000) warmUpFromCloud();
+  });
 })();
 </script>
 </body>

@@ -52,9 +52,13 @@
    * @param {Array} sessions  Normalized workout_history entries (window.WH.getAllWorkouts()).
    * @param {Object} config   muscleFatigueConfig — see DEFAULT_MUSCLE_FATIGUE_CONFIG shape.
    * @param {Date}   [now]    Injected for testability; defaults to current time.
+   * @param {Object} [ecosystemOverrides] Cross-device sleep/protein/screen-time
+   *   values (see gym.html's warmUpEcosystemInputs) forwarded as-is to
+   *   GymEcosystem.computeEcosystemModifier — keeps this function pure;
+   *   omitting it falls back to this device's own localStorage per signal.
    * @returns {{ isPlaceholder: boolean, muscles: Object<string, {score:number, lastTrainedAt:string|null}> }}
    */
-  function computeMuscleFatigue(sessions, config, now) {
+  function computeMuscleFatigue(sessions, config, now, ecosystemOverrides) {
     now = now || new Date();
     const groups = window.MUSCLE_GROUPS || [];
     const muscles = {};
@@ -72,7 +76,7 @@
     function ecoModifierFor(dateStr) {
       if (!(dateStr in ecoModifierCache)) {
         ecoModifierCache[dateStr] = (window.GymEcosystem && window.GymEcosystem.computeEcosystemModifier)
-          ? window.GymEcosystem.computeEcosystemModifier(dateStr, config)
+          ? window.GymEcosystem.computeEcosystemModifier(dateStr, config, ecosystemOverrides)
           : 1;
       }
       return ecoModifierCache[dateStr];
