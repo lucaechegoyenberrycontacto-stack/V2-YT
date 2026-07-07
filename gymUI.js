@@ -234,6 +234,16 @@
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openMuscleDetailModal(row.dataset.muscle); }
       });
     });
+
+    // Discreet ecosystem-modifier note — only when today's sleep/protein/
+    // screen-time signals are actually slowing recovery down. Nothing
+    // shown at all when neutral or when none of those 3 modules have data.
+    const ecoNote = (window.GymEcosystem && window.GymEcosystem.describeEcosystemModifier)
+      ? window.GymEcosystem.describeEcosystemModifier(dpDateKey(dpDateOffset(0)), config)
+      : null;
+    if (ecoNote) {
+      wrap.insertAdjacentHTML('beforeend', '<div class="tr-eco-note">' + escapeHtml(ecoNote) + '</div>');
+    }
   }
 
   function openMuscleDetailModal(muscle) {

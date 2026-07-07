@@ -2,31 +2,51 @@
 // No DOM access, no localStorage, no fetch — takes plain data in, returns
 // plain data out. The UI (gymUI.js) decides how to render the result.
 (function () {
-  // PLACEHOLDER — replace with the user's real training documentation.
-  // Every numeric value below is an illustrative example, not a verified
-  // physiological fact. This object only ever ships as the seed value for
-  // a brand-new gym_pesas_store row; the user's real config replaces
-  // it wholesale (see `isPlaceholder`) once loaded.
+  // Real config — recoveryHours/weight per muscle are standard strength-
+  // training reference ranges (bigger/compound-heavy groups take longer
+  // than small/isolated ones), assuming average fitness — a starting
+  // point the user can edit later (same "Cargar configuración" modal as
+  // before), not medical prescription or a value verified for any one
+  // individual. cardioMuscleMap is unchanged from the previous placeholder.
+  // The ecosystem block (sleep/protein/screen-time daily modifier) is
+  // consumed by computeMuscleFatigue below via gymEcosystem.js — this
+  // file only defines the per-muscle base values and the ecosystem
+  // thresholds, not the modifier math itself.
   const DEFAULT_MUSCLE_FATIGUE_CONFIG = {
-    isPlaceholder: true,
-    version: 0,
-    muscles: {},
-    // PLACEHOLDER — how many "minutes of muscle-minutes" each cardio/martial-arts
-    // subtype contributes per muscle, as a multiplier of session duration.
-    // Invented for illustration only, not an exercise-science fact.
+    isPlaceholder: false,
+    version: 1,
+    muscles: {
+      'Pecho':            { recoveryHours: 72, weight: 1.0 },
+      'Espalda alta':     { recoveryHours: 72, weight: 1.0 },
+      'Espalda baja':     { recoveryHours: 96, weight: 1.0 },
+      'Hombros':          { recoveryHours: 48, weight: 1.0 },
+      'Bíceps':           { recoveryHours: 48, weight: 1.0 },
+      'Tríceps':          { recoveryHours: 48, weight: 1.0 },
+      'Antebrazos':       { recoveryHours: 36, weight: 1.0 },
+      'Abdominales/Core': { recoveryHours: 36, weight: 1.0 },
+      'Cuádriceps':       { recoveryHours: 72, weight: 1.0 },
+      'Isquiotibiales':   { recoveryHours: 72, weight: 1.0 },
+      'Glúteos':          { recoveryHours: 72, weight: 1.0 },
+      'Gemelos':          { recoveryHours: 48, weight: 1.0 },
+      'Cuello':           { recoveryHours: 48, weight: 1.0 },
+    },
     cardioMuscleMap: {
       boxeo:    { 'Hombros': 0.6, 'Antebrazos': 0.5, 'Abdominales/Core': 0.4, 'Espalda alta': 0.3 },
       muaythai: { 'Cuádriceps': 0.5, 'Isquiotibiales': 0.4, 'Abdominales/Core': 0.5, 'Hombros': 0.4 },
       running:  { 'Cuádriceps': 0.6, 'Isquiotibiales': 0.5, 'Gemelos': 0.6, 'Glúteos': 0.4 },
       bici:     { 'Cuádriceps': 0.7, 'Isquiotibiales': 0.3, 'Gemelos': 0.4, 'Glúteos': 0.3 },
     },
+    // Daily multiplier (>=1.0), applied EQUALLY to every muscle's
+    // recoveryHours for sessions logged on a given date — never
+    // differentiated per muscle. Each signal contributes 1.0 (neutral)
+    // when there's no data for that date; see gymEcosystem.js.
+    ecosystem: {
+      enabled: true,
+      sleep:      { goodHours: 7.5, poorHours: 5.5, maxPenalty: 0.25 },
+      protein:    { goodRatio: 0.9, poorRatio: 0.5, maxPenalty: 0.20 },
+      screenTime: { goodRatioMax: 1.0, poorRatioMax: 2.0, maxPenalty: 0.15 },
+    },
   };
-  (window.MUSCLE_GROUPS || []).forEach(function (m) {
-    DEFAULT_MUSCLE_FATIGUE_CONFIG.muscles[m] = {
-      recoveryHours: 48, // PLACEHOLDER — replace with the user's real doc
-      weight: 1.0,       // PLACEHOLDER — relative contribution weight
-    };
-  });
 
   /**
    * @param {Array} sessions  Normalized workout_history entries (window.WH.getAllWorkouts()).
@@ -45,10 +65,24 @@
     const isPlaceholder = !config || config.isPlaceholder !== false;
     if (isPlaceholder) return { isPlaceholder: true, muscles: muscles };
 
+    // The ecosystem modifier only depends on the session's date, not the
+    // exercise/muscle — cache per date so a multi-exercise session only
+    // triggers the sleep/protein/screen-time lookups once.
+    const ecoModifierCache = {};
+    function ecoModifierFor(dateStr) {
+      if (!(dateStr in ecoModifierCache)) {
+        ecoModifierCache[dateStr] = (window.GymEcosystem && window.GymEcosystem.computeEcosystemModifier)
+          ? window.GymEcosystem.computeEcosystemModifier(dateStr, config)
+          : 1;
+      }
+      return ecoModifierCache[dateStr];
+    }
+
     function addLoad(muscle, units, hoursAgo, dateStr) {
       if (!muscle || !muscles[muscle] || units <= 0) return;
       const cfg = (config.muscles && config.muscles[muscle]) || {};
-      const recoveryHours = cfg.recoveryHours || 48;
+      const baseRecoveryHours = cfg.recoveryHours || 48;
+      const recoveryHours = baseRecoveryHours * ecoModifierFor(dateStr);
       const weight = cfg.weight != null ? cfg.weight : 1;
       const remainingFrac = Math.max(0, 1 - hoursAgo / recoveryHours);
       if (remainingFrac <= 0) return;

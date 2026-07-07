@@ -60,7 +60,14 @@
     }
     return {
       exerciseOverrides: overrides,
-      muscleFatigueConfig: (raw.muscleFatigueConfig && typeof raw.muscleFatigueConfig === 'object')
+      // A stored config that's still isPlaceholder:true was never
+      // customized by the user (pasting a real config via "Cargar
+      // configuración" always ships with isPlaceholder:false) — safe to
+      // replace with the bundled real default so a stale placeholder
+      // saved before gymMuscleFatigue.js had real values doesn't stick
+      // around forever. A genuinely real (isPlaceholder:false) stored
+      // config, whether bundled or user-edited, is always preserved as-is.
+      muscleFatigueConfig: (raw.muscleFatigueConfig && typeof raw.muscleFatigueConfig === 'object' && raw.muscleFatigueConfig.isPlaceholder === false)
         ? raw.muscleFatigueConfig
         : gpDefaultFatigueConfig(),
       mobilityLog: Array.isArray(raw.mobilityLog) ? raw.mobilityLog.map(gpNormalizeMobilityEntry) : [],
