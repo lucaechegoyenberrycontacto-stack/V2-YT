@@ -940,9 +940,17 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
   renderAll();
 
   /* ============ Cloud sync ============ */
-  if (window.initCloudSync) {
-    window.initCloudSync({ appKey:'nutrition', syncedKeys:[FOODS_KEY, COMBOS_KEY, LOG_KEY, GOALS_KEY, PROFILE_KEY],
-      onApplied:function(){
+  // sync.js is loaded with `defer`, but this main IIFE isn't — without this
+  // wrapper, window.initCloudSync is still undefined at the moment this
+  // line runs, so the `if` below silently never fires and this page never
+  // syncs. DOMContentLoaded fires only after all deferred scripts have
+  // run, guaranteeing initCloudSync exists (same pattern as habits.html).
+  document.addEventListener('DOMContentLoaded', function () {
+    if (typeof initCloudSync !== 'function') return;
+    initCloudSync({
+      appKey: 'nutrition',
+      syncedKeys: [FOODS_KEY, COMBOS_KEY, LOG_KEY, GOALS_KEY, PROFILE_KEY],
+      onApplied: function () {
         foods = loadJSON(FOODS_KEY, foods);
         combos = loadJSON(COMBOS_KEY, combos);
         log = loadJSON(LOG_KEY, log);
@@ -951,7 +959,7 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
         renderAll();
       }
     });
-  }
+  });
 })();
 </script>
 </body>

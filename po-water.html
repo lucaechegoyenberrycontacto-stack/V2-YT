@@ -48,9 +48,6 @@ const CONFIG = {
     activityHrsPerWeek: 5
   },
 
-  // Default daily caffeine in mg (200 mg ≈ two cups of coffee).
-  caffeineMgPerDay: 200,
-
   // Pre-loaded substances. The Settings → Stimulants & meds search uses
   // this list; users can add custom entries with `extraWaterMl` each.
   // Numbers are conservative additions to daily water needs based on
@@ -586,18 +583,6 @@ html, body {
     </div>
 
     <div class="set-section">
-      <h4>Caffeine</h4>
-      <div class="field">
-        <label>Average caffeine per day (mg)</label>
-        <input type="number" id="setCaffeine" min="0" max="1000" step="10">
-        <div style="font-size:11px;color:var(--text-3);margin-top:4px;line-height:1.4">
-          ~1 cup of coffee = 95mg · espresso shot = 75mg · energy drink = 160mg.
-          Above 200mg/day starts to add a small water requirement.
-        </div>
-      </div>
-    </div>
-
-    <div class="set-section">
       <h4>Stimulants & meds</h4>
       <div class="field">
         <label>Search to add</label>
@@ -702,7 +687,6 @@ html, body {
     s.glassMl  = s.glassMl  || CONFIG.glassMl  || 250;
     s.weightUnit = s.weightUnit || 'kg';
     s.profile = Object.assign({}, CONFIG.profile, s.profile || {});
-    s.caffeineMgPerDay = (s.caffeineMgPerDay != null) ? s.caffeineMgPerDay : (CONFIG.caffeineMgPerDay || 200);
     s.substances = Array.isArray(s.substances) ? s.substances : (CONFIG.defaultSubstances || []);
     s.logs = (s.logs && typeof s.logs === 'object') ? s.logs : {};  // {YYYY-MM-DD: number_of_servings}
     return s;
@@ -731,7 +715,6 @@ html, body {
   //
   //   base_ml    = weight_kg × 35 ml      (NAM/IOM standard)
   //   exercise   = activity_hrs/wk ÷ 7 × 500 ml/day   (≈500 ml/hr training)
-  //   caffeine   = max(0, caffeineMg − 200) × 1.5 ml  (mild diuresis)
   //   substances = sum of extraMl for each added med/stim
   //   adjustments: +200 ml male, +100 ml age 50+
   // ============================================================
@@ -740,14 +723,13 @@ html, body {
     const wKg = state.weightUnit === 'lb' ? p.weightKg / 2.20462 : p.weightKg;
     const base = wKg * 35;
     const exercise = (p.activityHrsPerWeek || 0) / 7 * 500;
-    const caffeine = Math.max(0, (state.caffeineMgPerDay || 0) - 200) * 1.5;
     const subs = (state.substances || []).reduce((s, x) => s + subExtraMl(x), 0);
     let adjust = 0;
     if (p.sex === 'm') adjust += 200;
     if ((p.age || 0) >= 50) adjust += 100;
     return {
-      base, exercise, caffeine, subs, adjust,
-      total: base + exercise + caffeine + subs + adjust
+      base, exercise, subs, adjust,
+      total: base + exercise + subs + adjust
     };
   }
 
@@ -831,8 +813,6 @@ html, body {
     html += '<div class="why-row"><span class="why-label">Base (' + wDisp + ' ' + u + ' × 35 ml)</span><span class="why-val">' + fmtMl(calc.base) + '</span></div>';
     if (calc.exercise > 0)
       html += '<div class="why-row"><span class="why-label">+ Exercise (' + state.profile.activityHrsPerWeek + ' h/wk)</span><span class="why-val">+ ' + fmtMl(calc.exercise) + '</span></div>';
-    if (calc.caffeine > 0)
-      html += '<div class="why-row"><span class="why-label">+ Caffeine (' + state.caffeineMgPerDay + ' mg/day)</span><span class="why-val">+ ' + fmtMl(calc.caffeine) + '</span></div>';
     (state.substances || []).forEach(s => {
       html += '<div class="why-row"><span class="why-label">+ ' + escape(s.name) + ' (' + escape(subDoseLabel(s)) + ')</span><span class="why-val">+ ' + fmtMl(subExtraMl(s)) + '</span></div>';
     });
@@ -926,7 +906,6 @@ html, body {
     $('setWeight').value = state.profile.weightKg;
     $('setAge').value = state.profile.age;
     $('setActivity').value = state.profile.activityHrsPerWeek;
-    $('setCaffeine').value = state.caffeineMgPerDay;
     $('setBottleMl').value = state.bottleMl;
     $('setGlassMl').value = state.glassMl;
 
@@ -956,13 +935,12 @@ html, body {
   bindSeg('setWeightUnit', 'u', (v) => { state.weightUnit = v; saveState(); renderWater(); });
   bindSeg('setSex', 's', (v) => { state.profile.sex = v; saveState(); renderWater(); });
 
-  ['setWeight','setAge','setActivity','setCaffeine','setBottleMl','setGlassMl'].forEach(id => {
+  ['setWeight','setAge','setActivity','setBottleMl','setGlassMl'].forEach(id => {
     $(id).addEventListener('input', () => {
       const v = parseFloat($(id).value);
       if (id === 'setWeight') state.profile.weightKg = v || 0;
       else if (id === 'setAge') state.profile.age = v || 0;
       else if (id === 'setActivity') state.profile.activityHrsPerWeek = v || 0;
-      else if (id === 'setCaffeine') state.caffeineMgPerDay = v || 0;
       else if (id === 'setBottleMl') state.bottleMl = v || 500;
       else if (id === 'setGlassMl') state.glassMl = v || 250;
       saveState(); renderWater();
