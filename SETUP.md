@@ -73,6 +73,26 @@ create policy "anon manage progress-photos"
   with check (bucket_id = 'progress-photos');
 ```
 
+### SQL #4 — `gym_training_config` (Training module: exercise library, routines, muscle fatigue config)
+Only needed if you use the multi-discipline training module on the Fitness page (Pesas/Boxeo-
+MuayThai/Bici/Running). Holds reference data — exercise library, routine templates and their
+full version history, and the muscle-fatigue config — separate from `workout_history`, which
+only holds the per-session log.
+```sql
+create table if not exists public.gym_training_config (
+  key        text primary key,
+  data       jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.gym_training_config enable row level security;
+create policy "anon full access gym_training_config"
+  on public.gym_training_config for all
+  to anon using (true) with check (true);
+
+alter publication supabase_realtime add table public.gym_training_config;
+```
+
 ### Connect YOUR Supabase — pick ONE way
 Supabase → **Project Settings → API**. Copy the **Project URL** and the **anon / publishable** key.
 
