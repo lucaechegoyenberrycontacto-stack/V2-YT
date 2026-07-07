@@ -98,6 +98,138 @@
   window.DIFFICULTY_OPTIONS = DIFFICULTY_OPTIONS;
   window.renderNumericStepper = renderNumericStepper;
 
+  // ---- Reusable date picker (Hoy / Ayer / Elegir fecha) — same HTML
+  // structure, CSS classes, and interaction model as the Steps module's
+  // date picker (stepsDateSeg/stepsCalPopover in gym.html), reimplemented
+  // here scoped-per-instance (not sharing Steps' single global popover
+  // state, which is private to gym.html's inline script and not reachable
+  // from this file) so it can be mounted more than once (Pesas session +
+  // cardio form) without id collisions. Steps' own implementation is
+  // untouched — only its CSS classes are reused.
+  const DP_DOW_ES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+  const DP_MONTH_SHORT_ES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+  const DP_MONTH_FULL_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+  function dpDateOffset(days) {
+    const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + days); return d;
+  }
+  function dpDateKey(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function dpParseKey(key) {
+    const parts = key.split('-').map(Number);
+    return new Date(parts[0], parts[1] - 1, parts[2]);
+  }
+  function dpFormatShort(d) { return d.getDate() + ' ' + DP_MONTH_SHORT_ES[d.getMonth()].toLowerCase(); }
+
+  function createDatePicker(container) {
+    container.innerHTML =
+      '<div class="steps-date-row">'
+      + '<div class="po-seg-control steps-date-seg" role="group" aria-label="Elegir día">'
+      +   '<button type="button" class="po-seg-btn active" data-role="today" aria-pressed="true">Hoy</button>'
+      +   '<button type="button" class="po-seg-btn" data-role="yesterday" aria-pressed="false">Ayer</button>'
+      +   '<button type="button" class="po-seg-btn steps-pill-cal" data-role="calendar" aria-pressed="false" aria-haspopup="dialog" aria-expanded="false">'
+      +     '<svg class="steps-cal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+      +     '<span data-role="cal-label">Elegir fecha</span>'
+      +   '</button>'
+      + '</div>'
+      + '<div class="steps-popover hidden" data-role="popover" role="dialog" aria-modal="false" aria-label="Elegir fecha">'
+      +   '<div class="steps-cal-head">'
+      +     '<button type="button" class="steps-cal-nav" data-role="cal-prev" aria-label="Mes anterior">‹</button>'
+      +     '<div class="steps-cal-month" data-role="cal-month"></div>'
+      +     '<button type="button" class="steps-cal-nav" data-role="cal-next" aria-label="Mes siguiente">›</button>'
+      +   '</div>'
+      +   '<div class="steps-cal-grid" data-role="cal-grid"></div>'
+      + '</div>'
+      + '</div>';
+
+    function q(role) { return container.querySelector('[data-role="' + role + '"]'); }
+
+    let selectedDate = dpDateOffset(0);
+    let calViewYear, calViewMonth;
+
+    function selectedDateKey() { return dpDateKey(selectedDate); }
+
+    function updatePillsUI() {
+      const key = selectedDateKey();
+      const isToday = key === dpDateKey(dpDateOffset(0));
+      const isYest = !isToday && key === dpDateKey(dpDateOffset(-1));
+      const isOther = !isToday && !isYest;
+      q('today').classList.toggle('active', isToday); q('today').setAttribute('aria-pressed', String(isToday));
+      q('yesterday').classList.toggle('active', isYest); q('yesterday').setAttribute('aria-pressed', String(isYest));
+      q('calendar').classList.toggle('active', isOther); q('calendar').setAttribute('aria-pressed', String(isOther));
+      q('cal-label').textContent = isOther ? dpFormatShort(selectedDate) : 'Elegir fecha';
+    }
+
+    function setSelectedDate(d) { selectedDate = d; updatePillsUI(); }
+
+    function renderCal() {
+      const y = calViewYear, m = calViewMonth;
+      q('cal-month').textContent = DP_MONTH_FULL_ES[m] + ' ' + y;
+      const now = new Date();
+      q('cal-next').disabled = (y === now.getFullYear() && m === now.getMonth());
+      const startDow = new Date(y, m, 1).getDay();
+      const daysInMonth = new Date(y, m + 1, 0).getDate();
+      const todayKey = dpDateKey(now);
+      const selKey = selectedDateKey();
+      let html = DP_DOW_ES.map(function (l) { return '<div class="steps-cal-dow">' + l + '</div>'; }).join('');
+      for (let i = 0; i < startDow; i++) html += '<div class="steps-cal-cell"></div>';
+      for (let d = 1; d <= daysInMonth; d++) {
+        const key = dpDateKey(new Date(y, m, d));
+        const isFuture = key > todayKey;
+        const cls = ['steps-cal-day'];
+        if (key === selKey) cls.push('selected');
+        if (key === todayKey) cls.push('today');
+        html += '<div class="steps-cal-cell"><button type="button" class="' + cls.join(' ') + '"'
+          + (isFuture ? ' disabled aria-disabled="true"' : ' data-key="' + key + '"')
+          + '>' + d + '</button></div>';
+      }
+      q('cal-grid').innerHTML = html;
+      q('cal-grid').querySelectorAll('.steps-cal-day:not([disabled])').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          setSelectedDate(dpParseKey(btn.dataset.key));
+          closePopover();
+        });
+      });
+    }
+
+    function outsideClick(e) {
+      if (q('popover').contains(e.target) || q('calendar').contains(e.target)) return;
+      closePopover();
+    }
+    function openPopover() {
+      q('popover').classList.remove('hidden');
+      requestAnimationFrame(function () { q('popover').classList.add('open'); });
+      q('calendar').setAttribute('aria-expanded', 'true');
+      document.addEventListener('mousedown', outsideClick, true);
+    }
+    function closePopover() {
+      q('popover').classList.remove('open');
+      q('calendar').setAttribute('aria-expanded', 'false');
+      document.removeEventListener('mousedown', outsideClick, true);
+      setTimeout(function () { if (!q('popover').classList.contains('open')) q('popover').classList.add('hidden'); }, 160);
+    }
+
+    q('today').addEventListener('click', function () { setSelectedDate(dpDateOffset(0)); });
+    q('yesterday').addEventListener('click', function () { setSelectedDate(dpDateOffset(-1)); });
+    q('calendar').addEventListener('click', function () {
+      calViewYear = selectedDate.getFullYear();
+      calViewMonth = selectedDate.getMonth();
+      renderCal();
+      openPopover();
+    });
+    q('cal-prev').addEventListener('click', function () { calViewMonth--; if (calViewMonth < 0) { calViewMonth = 11; calViewYear--; } renderCal(); });
+    q('cal-next').addEventListener('click', function () { calViewMonth++; if (calViewMonth > 11) { calViewMonth = 0; calViewYear++; } renderCal(); });
+
+    updatePillsUI();
+
+    return {
+      getSelectedDate: function () { return selectedDate; },
+      getSelectedDateKey: selectedDateKey,
+      reset: function () { setSelectedDate(dpDateOffset(0)); },
+    };
+  }
+
   // ============================================================
   // MUSCLE MAP
   // ============================================================
@@ -289,6 +421,11 @@
   // ROUTINE LIBRARY
   // ============================================================
   let editingRoutineId = null;
+  // Which flow opened the routine editor, so save/cancel can return to the
+  // right place: 'library' (Settings, default), 'session-first' (no
+  // routines existed yet — tapping Pesas skipped straight here),
+  // 'session-add' ("+ Crear nueva rutina" from the session picker).
+  let routineEditContext = 'library';
 
   function renderRoutineLibraryList() {
     const wrap = $('trRoutineLibraryList');
@@ -378,8 +515,9 @@
     });
   }
 
-  function openRoutineEditModal(existingId) {
+  function openRoutineEditModal(existingId, context) {
     editingRoutineId = existingId || null;
+    routineEditContext = context || 'library';
     const rt = editingRoutineId ? window.GymData.getRoutine(editingRoutineId) : null;
     const currentVersion = (rt && window.GymData.getRoutineCurrentVersion(rt.id)) || null;
     $('trRoutineEditTitle').textContent = rt ? 'Editar rutina' : 'Nueva rutina';
@@ -412,23 +550,41 @@
       return { exerciseId: r.exerciseId, targetRepMin: r.targetRepMin, targetRepMax: r.targetRepMax, targetWeight: r.targetWeight };
     });
 
+    let savedRoutine;
     if (editingRoutineId) {
       window.GymData.updateRoutineName(editingRoutineId, name);
       // Any explicit save from this editor is an intentional template
       // revision — always creates a new version (append-only history).
       window.GymData.bumpRoutineVersion(editingRoutineId, exercisesPayload);
+      savedRoutine = window.GymData.getRoutine(editingRoutineId);
     } else {
-      window.GymData.createRoutine({ name: name, exercises: exercisesPayload });
+      savedRoutine = window.GymData.createRoutine({ name: name, exercises: exercisesPayload });
     }
     closeRoutineEditModal();
-    renderRoutineLibraryList();
+
+    // Return to wherever this editor was opened from.
+    if (routineEditContext === 'session-first') {
+      startSession(savedRoutine);
+    } else if (routineEditContext === 'session-add') {
+      openSessionPicker();
+    } else {
+      renderRoutineLibraryList();
+    }
+    routineEditContext = 'library';
   }
 
   function initRoutineLibraryModals() {
     $('trOpenRoutineLibraryBtn').addEventListener('click', openRoutineLibraryModal);
     $('trRoutineLibraryClose').addEventListener('click', closeRoutineLibraryModal);
-    $('trRoutineLibraryAddBtn').addEventListener('click', function () { openRoutineEditModal(null); });
-    $('trRoutineEditCancel').addEventListener('click', closeRoutineEditModal);
+    $('trRoutineLibraryAddBtn').addEventListener('click', function () { openRoutineEditModal(null, 'library'); });
+    $('trRoutineEditCancel').addEventListener('click', function () {
+      closeRoutineEditModal();
+      // 'session-first' cancels straight back to the 4 discipline cards
+      // (nothing else to close/reopen). 'session-add' returns to the
+      // picker it was launched from instead of stranding the user.
+      if (routineEditContext === 'session-add') openSessionPicker();
+      routineEditContext = 'library';
+    });
     $('trRoutineEditSave').addEventListener('click', saveRoutineEdit);
     $('trRoutineAddExBtn').addEventListener('click', function () {
       const exercises = window.GymData.getExercises();
@@ -449,6 +605,7 @@
   let restTimerHandle = null;
   let restTimerRemaining = 0;
   const REST_TIMER_DEFAULT = 90;
+  let sessionDatePicker = null; // lazily created on first startSession(), reset to "Hoy" every time
 
   function daysAgoLabel(dateStr) {
     if (!dateStr) return null;
@@ -521,28 +678,31 @@
 
   // ---- Routine/free-session picker ----
   function openSessionPicker() {
-    const wrap = $('trSessionPickerRoutineList');
     const routines = window.GymData.getRoutines();
     if (!routines.length) {
-      wrap.innerHTML = '<div class="po-empty">No hay rutinas guardadas — arrancá una sesión libre, o creá una rutina primero en Settings → Entrenamiento.</div>';
-    } else {
-      wrap.innerHTML = routines.map(function (rt) {
-        const v = window.GymData.getRoutineCurrentVersion(rt.id);
-        const n = v ? v.exercises.length : 0;
-        return '<div class="po-set-row" data-id="' + rt.id + '">'
-          + '<span style="flex:1;min-width:0;font-size:13px;color:var(--text-1);">' + escapeHtml(rt.name)
-          +   ' <span style="color:var(--text-3);font-size:11px;">· ' + n + ' ejercicio' + (n === 1 ? '' : 's') + '</span></span>'
-          + '<button type="button" class="po-btn-secondary" style="width:auto;padding:6px 12px;" data-action="start">Empezar</button>'
-          + '</div>';
-      }).join('');
-      wrap.querySelectorAll('[data-action="start"]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          const id = btn.closest('.po-set-row').dataset.id;
-          closeSessionPicker();
-          startSession(window.GymData.getRoutine(id));
-        });
-      });
+      // No dead end — skip the empty picker entirely and go straight to
+      // creating the first routine. Saving it auto-starts the session;
+      // canceling returns cleanly to the 4 discipline cards.
+      openRoutineEditModal(null, 'session-first');
+      return;
     }
+    const wrap = $('trSessionPickerRoutineList');
+    wrap.innerHTML = routines.map(function (rt) {
+      const v = window.GymData.getRoutineCurrentVersion(rt.id);
+      const n = v ? v.exercises.length : 0;
+      return '<div class="po-set-row" data-id="' + rt.id + '">'
+        + '<span style="flex:1;min-width:0;font-size:13px;color:var(--text-1);">' + escapeHtml(rt.name)
+        +   ' <span style="color:var(--text-3);font-size:11px;">· ' + n + ' ejercicio' + (n === 1 ? '' : 's') + '</span></span>'
+        + '<button type="button" class="po-btn-secondary" style="width:auto;padding:6px 12px;" data-action="start">Empezar</button>'
+        + '</div>';
+    }).join('');
+    wrap.querySelectorAll('[data-action="start"]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const id = btn.closest('.po-set-row').dataset.id;
+        closeSessionPicker();
+        startSession(window.GymData.getRoutine(id));
+      });
+    });
     $('trSessionPickerModalBg').classList.add('show');
   }
   function closeSessionPicker() { $('trSessionPickerModalBg').classList.remove('show'); }
@@ -566,6 +726,8 @@
     $('trSessionTitle').textContent = routine ? routine.name : 'Sesión libre';
     stopRestTimer();
     renderSessionExercises();
+    if (!sessionDatePicker) sessionDatePicker = createDatePicker($('trSessionDatePicker'));
+    sessionDatePicker.reset(); // always opens on "Hoy" — retroactive logging is an explicit choice
     $('trSessionOverlay').classList.add('show');
   }
   function closeSession() {
@@ -704,7 +866,7 @@
 
     const saveAndCelebrate = function (routineVersionUsed) {
       const workout = window.WH.normalizeWorkout({
-        date: new Date().toISOString().slice(0, 10),
+        date: sessionDatePicker ? sessionDatePicker.getSelectedDateKey() : new Date().toISOString().slice(0, 10),
         title: sessionRoutineId ? ($('trSessionTitle').textContent || 'Pesas') : 'Sesión libre',
         source: 'manual',
         discipline: 'pesas',
@@ -773,6 +935,10 @@
   function initSessionFlow() {
     $('trSessionPickerCancel').addEventListener('click', closeSessionPicker);
     $('trSessionPickerFreeBtn').addEventListener('click', function () { closeSessionPicker(); startSession(null); });
+    $('trSessionPickerNewRoutineBtn').addEventListener('click', function () {
+      closeSessionPicker();
+      openRoutineEditModal(null, 'session-add');
+    });
     $('trSessionAddExBtn').addEventListener('click', sessionAddExercise);
     $('trSessionCancel').addEventListener('click', function () {
       if (!confirm('¿Salir sin guardar esta sesión?')) return;
@@ -791,6 +957,7 @@
   let cardioDiscipline = null; // 'boxeo_muaythai' | 'bici' | 'running'
   let cardioSubtype = 'boxeo'; // only meaningful for boxeo_muaythai
   let cardioDifficulty = 3;
+  let cardioDatePicker = null; // lazily created on first openCardioModal(), reset to "Hoy" every time
 
   const CARDIO_TITLES = { boxeo_muaythai: 'Boxeo / Muay Thai', bici: 'Bicicleta', running: 'Running' };
 
@@ -821,6 +988,8 @@
     } else {
       cardioSubtype = discipline; // 'bici' or 'running'
     }
+    if (!cardioDatePicker) cardioDatePicker = createDatePicker($('trCardioDatePicker'));
+    cardioDatePicker.reset(); // always opens on "Hoy"
     $('trCardioModalBg').classList.add('show');
   }
   function closeCardioModal() { $('trCardioModalBg').classList.remove('show'); }
@@ -840,7 +1009,7 @@
       difficulty: cardioDiscipline === 'boxeo_muaythai' ? cardioDifficulty : null,
     };
     const workout = window.WH.normalizeWorkout({
-      date: new Date().toISOString().slice(0, 10),
+      date: cardioDatePicker ? cardioDatePicker.getSelectedDateKey() : new Date().toISOString().slice(0, 10),
       title: CARDIO_TITLES[cardioDiscipline] || cardioDiscipline,
       source: 'manual',
       discipline: cardioDiscipline,

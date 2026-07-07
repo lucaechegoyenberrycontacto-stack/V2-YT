@@ -64,6 +64,17 @@
     return m;
   }
 
+  // `session.date` is always a "YYYY-MM-DD" LOCAL calendar-day string.
+  // `new Date("YYYY-MM-DD")` parses it as UTC midnight, not local midnight —
+  // in any negative UTC-offset timezone that silently shifts it to the
+  // previous local day, which misclassifies sessions logged exactly on a
+  // week boundary into the wrong week. Parse the components explicitly so
+  // the result is local midnight, matching mondayOf() above.
+  function parseLocalDateKey(key) {
+    const parts = (key || '').split('-').map(Number);
+    return new Date(parts[0], (parts[1] || 1) - 1, parts[2] || 1);
+  }
+
   // The ONE function behind all 3 period-comparison charts (weights volume,
   // cardio minutes, run/bike distance) — Monday-starting "this week" vs the
   // full previous Mon-Sun week.
@@ -79,7 +90,7 @@
     let thisWeek = 0, lastWeek = 0;
     (sessions || []).forEach(function (w) {
       if (filterFn && !filterFn(w)) return;
-      const d = new Date(w.date);
+      const d = parseLocalDateKey(w.date);
       if (isNaN(d.getTime())) return;
       const val = valueExtractor(w) || 0;
       if (d >= thisMonday) thisWeek += val;

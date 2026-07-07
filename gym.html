@@ -95,6 +95,11 @@ html, body {
   /* Full-width row so inserting this group between the other two doesn't
      shove "Tu progreso" into row 2 col 1 and leave gaps beside both. */
   .po-group-steps { grid-column: 1 / -1; }
+  /* Same reasoning — the training module's home strip + 4 discipline
+     cards is a single full-width row above Steps, not a dense-packed
+     partial column (which left unpredictable gaps depending on how many
+     rows its neighbors occupied). */
+  .po-group-today { grid-column: 1 / -1; }
 }
 /* No image, video, or canvas can ever push the page past the viewport */
 img, video, canvas, svg { max-width: 100%; }
@@ -2111,6 +2116,7 @@ img, video, canvas, svg { max-width: 100%; }
   <div class="po-modal" style="max-width: 480px;">
     <h3>Pesas</h3>
     <div class="po-set-list" id="trSessionPickerRoutineList"></div>
+    <button class="po-add-row-btn" id="trSessionPickerNewRoutineBtn" type="button">+ Crear nueva rutina</button>
     <button class="po-btn-primary" id="trSessionPickerFreeBtn" type="button" style="margin-top:10px;">Sesión libre (sin rutina)</button>
     <div class="po-modal-actions">
       <button class="po-btn-secondary" id="trSessionPickerCancel" type="button">Cancelar</button>
@@ -2123,6 +2129,8 @@ img, video, canvas, svg { max-width: 100%; }
 <div class="po-modal-bg" id="trSessionOverlay">
   <div class="po-modal tr-session-modal">
     <h3 id="trSessionTitle">Sesión libre</h3>
+
+    <div id="trSessionDatePicker"></div>
 
     <div id="trSessionExList"></div>
     <button class="po-add-row-btn" id="trSessionAddExBtn" type="button">+ Agregar ejercicio</button>
@@ -2160,6 +2168,8 @@ img, video, canvas, svg { max-width: 100%; }
 <div class="po-modal-bg" id="trCardioModalBg">
   <div class="po-modal" style="max-width: 480px;">
     <h3 id="trCardioModalTitle">Boxeo / Muay Thai</h3>
+
+    <div id="trCardioDatePicker"></div>
 
     <div class="po-field" id="trCardioSubtypeField">
       <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Subtipo</label>
