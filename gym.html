@@ -895,7 +895,7 @@ img, video, canvas, svg { max-width: 100%; }
   color: var(--text-3); font-size: 12px; font-style: italic;
 }
 
-/* ----- Workout History (multi-source: Lyfta import, Strava, manual) ----- */
+/* ----- Workout History (multi-source: Lyfta import, manual) ----- */
 /* Plain layout wrapper now — each .wh-block below carries its own
    card styling, matching .wt-card / .po-sub-section. */
 .wh-stats-group { margin-bottom: 14px; }
@@ -936,7 +936,6 @@ img, video, canvas, svg { max-width: 100%; }
   white-space: nowrap; flex-shrink: 0;
 }
 .wh-badge-lyfta  { background: rgba(167,139,250,0.16); color: #A78BFA; }
-.wh-badge-strava { background: rgba(252,76,2,0.16);    color: #FC7A45; }
 .wh-badge-manual { background: rgba(255,255,255,0.08); color: var(--text-2); }
 .wh-pr-row {
   display: flex; justify-content: space-between; align-items: center; gap: 10px;
@@ -1917,11 +1916,11 @@ img, video, canvas, svg { max-width: 100%; }
       </div>
 
       <!-- Workout History — one unified view over public.workout_history,
-           regardless of where each entry came from (Lyfta import today,
-           Strava auto-sync later, or manual entry). Every source is
-           normalized to the same shape before it's saved (see whNormalizeWorkout
-           in the script below), so the lists/PRs/chart never need to
-           know or care where a given workout came from. -->
+           regardless of where each entry came from (Lyfta import or
+           manual entry). Every source is normalized to the same shape
+           before it's saved (see whNormalizeWorkout in the script below),
+           so the lists/PRs/chart never need to know or care where a
+           given workout came from. -->
       <div class="po-sub-section">
         <div class="po-sub-title">Workout History</div>
 
@@ -2071,8 +2070,8 @@ img, video, canvas, svg { max-width: 100%; }
 </div>
 
 <!-- Log Workout Modal — manual entry into workout_history. Saved
-     through the exact same normalize + save path as a Lyfta import
-     or a future Strava sync, just tagged source: 'manual'. -->
+     through the exact same normalize + save path as a Lyfta import,
+     just tagged source: 'manual'. -->
 <div class="po-modal-bg" id="whAddModalBg">
   <div class="po-modal" style="max-width: 480px;">
     <h3>Log a workout</h3>
@@ -2643,15 +2642,12 @@ img, video, canvas, svg { max-width: 100%; }
 
   // ============================================================
   // WORKOUT HISTORY — one unified log fed by multiple sources
-  // (Lyfta import today, Strava auto-sync later, manual entry always).
+  // (Lyfta import, manual entry).
   //
   // Every workout is normalized to the same shape before it's ever
   // saved — { date, title, source, exercises:[{name, sets:[{reps,weight}]}] }
   // — so whRenderRecent/whComputePRs/whComputeWeeklyFrequency don't
-  // know or care which source a workout came from. Adding a new
-  // source later (Strava) means writing a fetch + a call to
-  // whNormalizeWorkouts + whMergeBySource — never a parallel render
-  // or storage path.
+  // know or care which source a workout came from.
   //
   // Synced to its own Supabase table (see WORKOUT HISTORY CLOUD SYNC
   // below) so a large import never bloats the main app_state payload.
@@ -2688,9 +2684,8 @@ img, video, canvas, svg { max-width: 100%; }
   // already-synced data keeps the right badge without re-importing.
   function whFallbackSourceForBlob(blob) {
     const s = blob && blob.source;
-    if (s === 'strava' || s === 'strava_import') return 'strava';
     if (s === 'manual') return 'manual';
-    return 'lyfta';
+    return 'lyfta'; // includes legacy 'strava'/'strava_import' blobs, no longer a supported source
   }
   function whNormalizeBlob(blob) {
     return { workouts: whNormalizeWorkouts(blob && blob.workouts, whFallbackSourceForBlob(blob)) };
@@ -2708,9 +2703,9 @@ img, video, canvas, svg { max-width: 100%; }
   }
   let whData = whLoad();
 
-  // Bulk sources (a Lyfta re-import, a future Strava sync) replace only
-  // the entries tagged with their own source; every other source's
-  // entries are left untouched.
+  // Bulk sources (a Lyfta re-import) replace only the entries tagged
+  // with their own source; every other source's entries are left
+  // untouched.
   function whMergeBySource(newWorkouts, source) {
     const kept = (whData.workouts || []).filter(w => w.source !== source);
     whData = { workouts: kept.concat(newWorkouts) };
@@ -2788,12 +2783,10 @@ img, video, canvas, svg { max-width: 100%; }
   }
 
   function whSourceLabel(source) {
-    if (source === 'strava') return 'Strava';
     if (source === 'manual') return 'Manual';
     return 'Lyfta';
   }
   function whSourceBadgeClass(source) {
-    if (source === 'strava') return 'wh-badge-strava';
     if (source === 'manual') return 'wh-badge-manual';
     return 'wh-badge-lyfta';
   }
@@ -4679,7 +4672,7 @@ img, video, canvas, svg { max-width: 100%; }
   })();
 
   // ============================================================
-  // WORKOUT HISTORY CLOUD SYNC (Lyfta, Strava, manual — unified)
+  // WORKOUT HISTORY CLOUD SYNC (Lyfta, manual — unified)
   // ------------------------------------------------------------
   // Separate table from the rest of the app — public.workout_history,
   // one row keyed 'lyfta_data' — so a full import (which can be large)

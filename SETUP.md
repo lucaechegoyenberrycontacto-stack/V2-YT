@@ -41,8 +41,8 @@ alter publication supabase_realtime add table public.app_state;
 ```
 
 ### SQL #2 — `workout_history` (Workout History, Fitness page)
-Only needed if you use the **Workout History** section on the Fitness page (Lyfta import,
-manual entry, and eventually Strava — they all read/write this same table).
+Only needed if you use the **Workout History** section on the Fitness page (Lyfta import and
+manual entry — they both read/write this same table).
 ```sql
 create table if not exists public.workout_history (
   key        text primary key,
