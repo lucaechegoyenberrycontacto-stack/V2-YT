@@ -32,6 +32,15 @@
     let pushTimer = null;
     let suppressSync = false;
     let lastSyncedJson = null;
+    // Best-effort snapshot of the last remote row contents we saw (from a
+    // pull, a realtime update, or our own last successful merged push).
+    // Used to merge outgoing pushes instead of replacing the whole row —
+    // see pushNow/flushOnUnload below. Two pages can share the same
+    // appKey with different (narrower) syncedKeys (e.g. po-water.html and
+    // health.html both use 'health'); a plain upsert from the narrower
+    // page would otherwise silently wipe out whatever the other page
+    // stored under keys it doesn't know about.
+    let lastKnownRemote = {};
 
     function matches(k) {
       if (!k) return false;
@@ -72,6 +81,7 @@
 
     function applyRemote(remote) {
       if (!remote || typeof remote !== 'object') return false;
+      lastKnownRemote = remote;
       suppressSync = true;
       let changed = false;
       try {
@@ -83,11 +93,12 @@
             try { origSet(k, incoming); changed = true; } catch (e) {}
           }
         }
-        for (const k of listAllKeys()) {
-          if (!(k in remote)) {
-            try { origRemove(k); changed = true; } catch (e) {}
-          }
-        }
+        // Deliberately does NOT delete local keys just because they're
+        // absent from `remote` — a key can be legitimately missing from
+        // this row's snapshot (e.g. another page sharing this appKey with
+        // a narrower syncedKeys list just pushed) without meaning "please
+        // delete this everywhere". No page in this app relies on key
+        // removal propagating through sync; only additive/update.
       } finally { suppressSync = false; }
       if (changed && typeof onApplied === 'function') {
         try { onApplied(); } catch (e) {}
@@ -95,27 +106,41 @@
       return changed;
     }
 
+    // Merges onto the last known remote row instead of replacing it
+    // outright, so this page can never wipe out keys that only a
+    // different page (sharing the same appKey) manages.
     async function pushNow() {
       if (!supa) return;
-      const state = collect();
-      const json = JSON.stringify(state);
+      const localState = collect();
+      const json = JSON.stringify(localState);
       if (json === lastSyncedJson) return;
       try {
+        const { data } = await supa.from('app_state').select('data').eq('key', appKey).maybeSingle();
+        if (data && data.data && typeof data.data === 'object') lastKnownRemote = data.data;
+      } catch (e) {}
+      const merged = Object.assign({}, lastKnownRemote, localState);
+      try {
         const { error } = await supa.from('app_state').upsert(
-          { key: appKey, data: state, updated_at: new Date().toISOString() },
+          { key: appKey, data: merged, updated_at: new Date().toISOString() },
           { onConflict: 'key' }
         );
-        if (!error) lastSyncedJson = json;
+        if (!error) { lastSyncedJson = json; lastKnownRemote = merged; }
       } catch (e) {}
     }
     function schedulePush() {
       clearTimeout(pushTimer);
       pushTimer = setTimeout(pushNow, 250);
     }
+    // Unload fallback — merges onto the last known remote snapshot we
+    // already have in memory (no time for a fresh round-trip before the
+    // page actually closes), which is still far safer than a blind
+    // replace: it only risks staleness for keys another page changed in
+    // the same ~250ms window, never wholesale deletion of them.
     function flushOnUnload() {
-      const state = collect();
-      const json = JSON.stringify(state);
+      const localState = collect();
+      const json = JSON.stringify(localState);
       if (json === lastSyncedJson) return;
+      const merged = Object.assign({}, lastKnownRemote, localState);
       try {
         fetch(SUPABASE_URL + '/rest/v1/app_state?on_conflict=key', {
           method: 'POST',
@@ -125,7 +150,7 @@
             'Content-Type': 'application/json',
             'Prefer': 'resolution=merge-duplicates',
           },
-          body: JSON.stringify({ key: appKey, data: state, updated_at: new Date().toISOString() }),
+          body: JSON.stringify({ key: appKey, data: merged, updated_at: new Date().toISOString() }),
           keepalive: true,
         }).catch(() => {});
         lastSyncedJson = json;
