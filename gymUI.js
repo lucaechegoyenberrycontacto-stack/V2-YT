@@ -514,12 +514,20 @@
   }
   function closePesasLogModal() { $('trPesasLogModalBg').classList.remove('show'); }
 
+  // Column header for the sets grid — inputs come pre-filled with default
+  // values (8 reps / 20kg), so the placeholder text never actually shows;
+  // without this, "which column is reps vs. kg" is only guessable.
+  const PESAS_SET_HEADER_HTML =
+    '<div class="tr-pesas-set-labels">'
+    + '<span></span><span>Reps</span><span>Kg</span><span>RIR</span><span></span>'
+    + '</div>';
+
   function pesasLogRowHtml(row) {
     const setsHtml = row.sets.map(function (s, i) {
       return '<div class="tr-pesas-set-row" data-set-i="' + i + '">'
         + '<span class="tr-set-row-num">' + (i + 1) + '</span>'
-        + '<input type="number" class="tr-pesas-set-reps" value="' + s.reps + '" min="0" placeholder="reps" aria-label="Reps">'
-        + '<input type="number" class="tr-pesas-set-weight" value="' + s.weight + '" min="0" step="0.5" placeholder="kg" aria-label="Peso (kg)">'
+        + '<input type="number" class="tr-pesas-set-reps" value="' + s.reps + '" min="0" aria-label="Reps">'
+        + '<input type="number" class="tr-pesas-set-weight" value="' + s.weight + '" min="0" step="0.5" aria-label="Peso (kg)">'
         + rirSelectHtml(s.rir)
         + '<button type="button" class="po-mini-btn tr-pesas-set-remove" title="Quitar serie">×</button>'
         + '</div>';
@@ -529,7 +537,7 @@
       +   '<input type="text" class="tr-pesas-ex-name" list="trExerciseNameOptions" placeholder="Nombre del ejercicio" value="' + escapeHtml(row.name) + '">'
       +   '<button type="button" class="po-mini-btn tr-pesas-ex-remove" title="Quitar ejercicio">×</button>'
       + '</div>'
-      + '<div class="tr-pesas-sets">' + setsHtml + '</div>'
+      + '<div class="tr-pesas-sets">' + PESAS_SET_HEADER_HTML + setsHtml + '</div>'
       + '<button type="button" class="po-add-row-btn tr-pesas-add-set">+ Agregar serie</button>'
       + '</div>';
   }

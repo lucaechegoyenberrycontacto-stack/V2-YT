@@ -1507,10 +1507,19 @@ img, video, canvas, svg { max-width: 100%; }
 }
 .tr-pesas-ex-name:focus { outline: none; border-color: rgba(255,255,255,0.40); }
 .tr-pesas-sets { display: flex; flex-direction: column; gap: 6px; }
-.tr-pesas-set-row {
+.tr-pesas-set-row, .tr-pesas-set-labels {
   display: grid; grid-template-columns: 14px 52px 60px 1fr auto;
   align-items: center; gap: 6px;
 }
+/* Column header — inputs/select below have no visible label of their own
+   once filled with a default value, so this row (num/Reps/Kg/RIR/—) is
+   the only place that says which column is which. */
+.tr-pesas-set-labels {
+  padding: 0 0 2px;
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-4);
+}
+.tr-pesas-set-labels span:nth-child(2), .tr-pesas-set-labels span:nth-child(3) { text-align: center; }
 .tr-set-row-num { color: var(--text-4); font-size: 12px; }
 .tr-pesas-set-reps, .tr-pesas-set-weight, .tr-pesas-set-rir {
   background: rgba(0,0,0,0.28); border: 1px solid var(--border); border-radius: 8px;
