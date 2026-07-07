@@ -1,6 +1,7 @@
 // UI layer for the multi-discipline training module (gym.html). Loaded
 // after the page's main inline <script> closes, so window.WH (the bridge
-// into the existing workout_history pipeline) is already defined.
+// into the existing workout_history pipeline) and window.GymPesasStore
+// are already defined.
 (function () {
   function $(id) { return document.getElementById(id); }
   function escapeHtml(s) {
@@ -29,15 +30,7 @@
     toastTimer = setTimeout(function () { el.classList.remove('tr-toast-show'); }, opts.duration || 2600);
   }
 
-  // ---- One-tap button group (RIR/Fallo selector AND Boxeo/MuayThai
-  // difficulty scale share this single implementation/visual language). ----
-  const EFFORT_OPTIONS = [
-    { value: 'RIR4', label: 'RIR 4' },
-    { value: 'RIR3', label: 'RIR 3' },
-    { value: 'RIR2', label: 'RIR 2' },
-    { value: 'RIR1', label: 'RIR 1' },
-    { value: 'fallo', label: 'Fallo' },
-  ];
+  // ---- One-tap button group (Boxeo/MuayThai difficulty scale uses this) ----
   const DIFFICULTY_OPTIONS = [
     { value: 1, label: '1 · Suave' },
     { value: 2, label: '2' },
@@ -63,49 +56,18 @@
     });
   }
 
-  // ---- Numeric stepper (weight/reps input during a pesas session) ----
-  function renderNumericStepper(container, opts) {
-    if (!container) return;
-    opts = opts || {};
-    let value = Number(opts.value) || 0;
-    const step = Number(opts.step) || 1;
-    const min = opts.min != null ? Number(opts.min) : 0;
-    const suffix = opts.suffix || '';
-    const onChange = opts.onChange || function () {};
-
-    function paint() {
-      const valEl = container.querySelector('.tr-num-value');
-      if (valEl) valEl.textContent = value + (suffix ? ' ' + suffix : '');
-    }
-    container.innerHTML =
-      '<button type="button" class="tr-num-btn tr-num-minus" aria-label="Restar">–</button>'
-      + '<span class="tr-num-value"></span>'
-      + '<button type="button" class="tr-num-btn tr-num-plus" aria-label="Sumar">+</button>';
-    paint();
-    container.querySelector('.tr-num-minus').addEventListener('click', function () {
-      value = Math.max(min, value - step);
-      paint(); onChange(value);
-    });
-    container.querySelector('.tr-num-plus').addEventListener('click', function () {
-      value = value + step;
-      paint(); onChange(value);
-    });
-  }
-
   window.showToast = showToast;
   window.renderButtonGroup = renderButtonGroup;
-  window.EFFORT_OPTIONS = EFFORT_OPTIONS;
   window.DIFFICULTY_OPTIONS = DIFFICULTY_OPTIONS;
-  window.renderNumericStepper = renderNumericStepper;
 
   // ---- Reusable date picker (Hoy / Ayer / Elegir fecha) — same HTML
   // structure, CSS classes, and interaction model as the Steps module's
   // date picker (stepsDateSeg/stepsCalPopover in gym.html), reimplemented
   // here scoped-per-instance (not sharing Steps' single global popover
   // state, which is private to gym.html's inline script and not reachable
-  // from this file) so it can be mounted more than once (Pesas session +
-  // cardio form) without id collisions. Steps' own implementation is
-  // untouched — only its CSS classes are reused.
+  // from this file) so it can be mounted more than once (Pesas log,
+  // Movilidad log, cardio form) without id collisions. Steps' own
+  // implementation is untouched — only its CSS classes are reused.
   const DP_DOW_ES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
   const DP_MONTH_SHORT_ES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
   const DP_MONTH_FULL_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -238,8 +200,8 @@
     if (!wrap) return;
 
     const sessions = (window.WH && window.WH.getAllWorkouts) ? window.WH.getAllWorkouts() : [];
-    const config = (window.GymData && window.GymData.getMuscleFatigueConfig)
-      ? window.GymData.getMuscleFatigueConfig()
+    const config = (window.GymPesasStore && window.GymPesasStore.getMuscleFatigueConfig)
+      ? window.GymPesasStore.getMuscleFatigueConfig()
       : window.DEFAULT_MUSCLE_FATIGUE_CONFIG;
     const result = window.computeMuscleFatigue
       ? window.computeMuscleFatigue(sessions, config)
@@ -276,7 +238,7 @@
 
   function openMuscleDetailModal(muscle) {
     $('trMuscleDetailTitle').textContent = muscle;
-    const exercises = window.GymData.getExercisesByMuscle(muscle);
+    const exercises = window.GymPesasStore.getExercisesByMuscle(muscle);
     const wrap = $('trMuscleDetailList');
     wrap.innerHTML = exercises.length
       ? exercises.map(function (ex) {
@@ -284,14 +246,14 @@
           return '<div class="po-set-row"><span style="flex:1;font-size:13px;color:var(--text-1);">' + escapeHtml(ex.name)
             + ' <span style="color:var(--text-3);font-size:11px;">· ' + role + '</span></span></div>';
         }).join('')
-      : '<div class="po-empty">Ningún ejercicio de tu biblioteca trabaja este músculo todavía.</div>';
+      : '<div class="po-empty">Ningún ejercicio de tu historial trabaja este músculo todavía.</div>';
     $('trMuscleDetailModalBg').classList.add('show');
   }
 
   function openMuscleConfigModal() {
     const modal = $('trMuscleConfigModalBg');
     if (!modal) return;
-    const current = (window.GymData && window.GymData.getMuscleFatigueConfig) ? window.GymData.getMuscleFatigueConfig() : null;
+    const current = (window.GymPesasStore && window.GymPesasStore.getMuscleFatigueConfig) ? window.GymPesasStore.getMuscleFatigueConfig() : null;
     $('trMuscleConfigTextarea').value = current ? JSON.stringify(current, null, 2) : '';
     $('trMuscleConfigStatus').textContent = '';
     modal.classList.add('show');
@@ -315,7 +277,7 @@
         statusEl.textContent = 'El JSON debe tener al menos un campo "muscles".';
         return;
       }
-      window.GymData.setMuscleFatigueConfig(parsed);
+      window.GymPesasStore.setMuscleFatigueConfig(parsed);
       statusEl.textContent = '';
       closeMuscleConfigModal();
       renderMuscleMap();
@@ -323,38 +285,41 @@
   }
 
   // ============================================================
-  // EXERCISE LIBRARY
+  // EXERCISE LIBRARY — simplified: name + músculo primario/secundario +
+  // flag de movilidad. No hay rutinas ni versiones. Entries are keyed by
+  // exercise name (seed + user overrides, via GymPesasStore), not a
+  // synthetic id — an exercise's name is its identity across the app.
   // ============================================================
-  let editingExerciseId = null;
+  let editingExerciseName = null;
+
+  function toggleMuscleFieldsForMobility(isMobility) {
+    const fields = $('trExMuscleFields');
+    if (fields) fields.classList.toggle('hidden', isMobility);
+  }
 
   function renderExerciseLibraryList() {
     const wrap = $('trExerciseLibraryList');
     if (!wrap) return;
-    const exercises = window.GymData.getExercises();
-    if (!exercises.length) {
-      wrap.innerHTML = '<div class="po-empty">No hay ejercicios todavía. Creá el primero.</div>';
+    const names = window.GymPesasStore.getAllKnownNames();
+    if (!names.length) {
+      wrap.innerHTML = '<div class="po-empty">Todavía no hay ejercicios registrados.</div>';
       return;
     }
-    wrap.innerHTML = exercises.map(function (ex) {
-      return '<div class="po-set-row" data-id="' + ex.id + '">'
+    wrap.innerHTML = names.map(function (name) {
+      const info = window.GymPesasStore.getExerciseInfo(name);
+      let tag;
+      if (info.isMobility) tag = '<span style="color:var(--text-3);font-size:11px;">· Movilidad</span>';
+      else if (!info.isAssigned) tag = '<span style="color:var(--bad);font-size:11px;">· Sin músculo asignado</span>';
+      else tag = '<span style="color:var(--text-3);font-size:11px;">· ' + escapeHtml(info.primaryMuscle) + '</span>';
+      return '<div class="po-set-row" data-name="' + escapeHtml(name) + '">'
         + '<span style="flex:1;min-width:0;font-size:13px;color:var(--text-1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'
-        +   escapeHtml(ex.name) + ' <span style="color:var(--text-3);font-size:11px;">· ' + escapeHtml(ex.primaryMuscle || '—') + '</span>'
+        +   escapeHtml(name) + ' ' + tag
         + '</span>'
         + '<button type="button" class="po-mini-btn tr-ex-edit-btn" title="Editar">✎</button>'
-        + '<button type="button" class="po-mini-btn tr-ex-delete-btn" title="Eliminar">×</button>'
         + '</div>';
     }).join('');
     wrap.querySelectorAll('.tr-ex-edit-btn').forEach(function (btn) {
-      btn.addEventListener('click', function () { openExerciseEditModal(btn.closest('.po-set-row').dataset.id); });
-    });
-    wrap.querySelectorAll('.tr-ex-delete-btn').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        const id = btn.closest('.po-set-row').dataset.id;
-        const ex = window.GymData.getExercise(id);
-        if (ex && !confirm('¿Eliminar "' + ex.name + '"?')) return;
-        window.GymData.deleteExercise(id);
-        renderExerciseLibraryList();
-      });
+      btn.addEventListener('click', function () { openExerciseEditModal(btn.closest('.po-set-row').dataset.name); });
     });
   }
 
@@ -364,11 +329,13 @@
   }
   function closeExerciseLibraryModal() { $('trExerciseLibraryModalBg').classList.remove('show'); }
 
-  function openExerciseEditModal(existingId) {
-    editingExerciseId = existingId || null;
-    const ex = editingExerciseId ? window.GymData.getExercise(editingExerciseId) : null;
-    $('trExerciseEditTitle').textContent = ex ? 'Editar ejercicio' : 'Nuevo ejercicio';
-    $('trExName').value = ex ? ex.name : '';
+  function openExerciseEditModal(existingName) {
+    editingExerciseName = existingName || null;
+    const info = editingExerciseName ? window.GymPesasStore.getExerciseInfo(editingExerciseName) : null;
+    $('trExerciseEditTitle').textContent = editingExerciseName ? 'Editar ejercicio' : 'Nuevo ejercicio';
+    const nameInput = $('trExName');
+    nameInput.value = editingExerciseName || '';
+    nameInput.disabled = !!editingExerciseName; // renaming would orphan workout_history entries
     $('trExerciseEditStatus').textContent = '';
 
     const groups = window.MUSCLE_GROUPS || [];
@@ -376,10 +343,10 @@
     primarySel.innerHTML = groups.map(function (m) {
       return '<option value="' + escapeHtml(m) + '">' + escapeHtml(m) + '</option>';
     }).join('');
-    primarySel.value = (ex && ex.primaryMuscle) || groups[0] || '';
+    primarySel.value = (info && info.primaryMuscle) || groups[0] || '';
 
     const secWrap = $('trExSecondaryMuscles');
-    const currentSecondary = (ex && ex.secondaryMuscles) || [];
+    const currentSecondary = (info && info.secondaryMuscles) || [];
     secWrap.innerHTML = groups.map(function (m) {
       const active = currentSecondary.indexOf(m) !== -1;
       return '<button type="button" class="tr-effort-btn tr-chip' + (active ? ' active' : '') + '" data-muscle="' + escapeHtml(m) + '" style="min-height:36px;padding:6px 10px;">' + escapeHtml(m) + '</button>';
@@ -388,23 +355,29 @@
       chip.addEventListener('click', function () { chip.classList.toggle('active'); });
     });
 
+    const isMobilityBox = $('trExIsMobility');
+    isMobilityBox.checked = !!(info && info.isMobility);
+    toggleMuscleFieldsForMobility(isMobilityBox.checked);
+
     $('trExerciseEditModalBg').classList.add('show');
   }
   function closeExerciseEditModal() { $('trExerciseEditModalBg').classList.remove('show'); }
 
   function saveExerciseEdit() {
-    const name = $('trExName').value.trim();
-    if (!name) { $('trExerciseEditStatus').textContent = 'Poné un nombre.'; return; }
-    const primaryMuscle = $('trExPrimaryMuscle').value;
-    const secondaryMuscles = Array.prototype.slice.call($('trExSecondaryMuscles').querySelectorAll('.tr-chip.active'))
+    const isMobility = $('trExIsMobility').checked;
+    let name;
+    if (editingExerciseName) {
+      name = editingExerciseName;
+    } else {
+      name = $('trExName').value.trim();
+      if (!name) { $('trExerciseEditStatus').textContent = 'Poné un nombre.'; return; }
+    }
+    const primaryMuscle = isMobility ? null : $('trExPrimaryMuscle').value;
+    const secondaryMuscles = isMobility ? [] : Array.prototype.slice.call($('trExSecondaryMuscles').querySelectorAll('.tr-chip.active'))
       .map(function (chip) { return chip.dataset.muscle; })
       .filter(function (m) { return m !== primaryMuscle; });
 
-    if (editingExerciseId) {
-      window.GymData.updateExercise(editingExerciseId, { name: name, primaryMuscle: primaryMuscle, secondaryMuscles: secondaryMuscles });
-    } else {
-      window.GymData.createExercise({ name: name, primaryMuscle: primaryMuscle, secondaryMuscles: secondaryMuscles });
-    }
+    window.GymPesasStore.setExerciseOverride(name, { primaryMuscle: primaryMuscle, secondaryMuscles: secondaryMuscles, isMobility: isMobility });
     closeExerciseEditModal();
     renderExerciseLibraryList();
   }
@@ -415,198 +388,20 @@
     $('trExerciseLibraryAddBtn').addEventListener('click', function () { openExerciseEditModal(null); });
     $('trExerciseEditCancel').addEventListener('click', closeExerciseEditModal);
     $('trExerciseEditSave').addEventListener('click', saveExerciseEdit);
+    $('trExIsMobility').addEventListener('change', function (e) { toggleMuscleFieldsForMobility(e.target.checked); });
   }
 
-  // ============================================================
-  // ROUTINE LIBRARY
-  // ============================================================
-  let editingRoutineId = null;
-  // Which flow opened the routine editor, so save/cancel can return to the
-  // right place: 'library' (Settings, default), 'session-first' (no
-  // routines existed yet — tapping Pesas skipped straight here),
-  // 'session-add' ("+ Crear nueva rutina" from the session picker).
-  let routineEditContext = 'library';
-
-  function renderRoutineLibraryList() {
-    const wrap = $('trRoutineLibraryList');
-    if (!wrap) return;
-    const routines = window.GymData.getRoutines();
-    if (!routines.length) {
-      wrap.innerHTML = '<div class="po-empty">No hay rutinas todavía. Creá la primera.</div>';
-      return;
-    }
-    wrap.innerHTML = routines.map(function (rt) {
-      const vNum = rt.versions.length ? rt.versions[rt.versions.length - 1].version : 0;
-      return '<div class="po-set-row" data-id="' + rt.id + '">'
-        + '<span style="flex:1;min-width:0;font-size:13px;color:var(--text-1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'
-        +   escapeHtml(rt.name) + ' <span style="color:var(--text-3);font-size:11px;">· v' + vNum + '</span>'
-        + '</span>'
-        + '<button type="button" class="po-mini-btn tr-rt-edit-btn" title="Editar">✎</button>'
-        + '<button type="button" class="po-mini-btn tr-rt-delete-btn" title="Eliminar">×</button>'
-        + '</div>';
+  function refreshExerciseNameDatalist() {
+    const dl = $('trExerciseNameOptions');
+    if (!dl || !window.GymPesasStore) return;
+    dl.innerHTML = window.GymPesasStore.getAllKnownNames().map(function (n) {
+      return '<option value="' + escapeHtml(n) + '"></option>';
     }).join('');
-    wrap.querySelectorAll('.tr-rt-edit-btn').forEach(function (btn) {
-      btn.addEventListener('click', function () { openRoutineEditModal(btn.closest('.po-set-row').dataset.id); });
-    });
-    wrap.querySelectorAll('.tr-rt-delete-btn').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        const id = btn.closest('.po-set-row').dataset.id;
-        const rt = window.GymData.getRoutine(id);
-        if (rt && !confirm('¿Eliminar "' + rt.name + '"? Se pierde también su historial de versiones.')) return;
-        window.GymData.deleteRoutine(id);
-        renderRoutineLibraryList();
-      });
-    });
-  }
-
-  function openRoutineLibraryModal() {
-    renderRoutineLibraryList();
-    $('trRoutineLibraryModalBg').classList.add('show');
-  }
-  function closeRoutineLibraryModal() { $('trRoutineLibraryModalBg').classList.remove('show'); }
-
-  function routineExRowHtml(row) {
-    const exercises = window.GymData.getExercises();
-    const options = exercises.map(function (ex) {
-      const sel = ex.id === row.exerciseId ? ' selected' : '';
-      return '<option value="' + ex.id + '"' + sel + '>' + escapeHtml(ex.name) + '</option>';
-    }).join('');
-    return '<div class="po-set-row tr-routine-ex-row" data-row-id="' + row.rowId + '">'
-      + '<select class="tr-routine-ex-select">' + options + '</select>'
-      + '<input type="number" class="tr-routine-ex-repmin" placeholder="min" value="' + (row.targetRepMin != null ? row.targetRepMin : '') + '" aria-label="Reps mínimas">'
-      + '<input type="number" class="tr-routine-ex-repmax" placeholder="max" value="' + (row.targetRepMax != null ? row.targetRepMax : '') + '" aria-label="Reps máximas">'
-      + '<input type="number" class="tr-routine-ex-weight" placeholder="kg" value="' + (row.targetWeight != null ? row.targetWeight : '') + '" aria-label="Peso objetivo (opcional)">'
-      + '<button type="button" class="po-mini-btn tr-routine-ex-up" title="Subir">↑</button>'
-      + '<button type="button" class="po-mini-btn tr-routine-ex-down" title="Bajar">↓</button>'
-      + '<button type="button" class="po-mini-btn tr-routine-ex-remove" title="Quitar">×</button>'
-      + '</div>';
-  }
-
-  let routineEditRows = []; // [{rowId, exerciseId, targetRepMin, targetRepMax, targetWeight}]
-  let routineRowSeq = 0;
-
-  function renderRoutineExRows() {
-    const wrap = $('trRoutineExList');
-    if (!wrap) return;
-    if (!routineEditRows.length) {
-      wrap.innerHTML = '<div class="po-empty">Agregá al menos un ejercicio.</div>';
-      return;
-    }
-    wrap.innerHTML = routineEditRows.map(routineExRowHtml).join('');
-    wrap.querySelectorAll('.tr-routine-ex-row').forEach(function (rowEl) {
-      const rowId = rowEl.dataset.rowId;
-      const row = routineEditRows.find(function (r) { return String(r.rowId) === rowId; });
-      rowEl.querySelector('.tr-routine-ex-select').addEventListener('change', function (e) { row.exerciseId = e.target.value; });
-      rowEl.querySelector('.tr-routine-ex-repmin').addEventListener('input', function (e) { row.targetRepMin = e.target.value === '' ? null : Number(e.target.value); });
-      rowEl.querySelector('.tr-routine-ex-repmax').addEventListener('input', function (e) { row.targetRepMax = e.target.value === '' ? null : Number(e.target.value); });
-      rowEl.querySelector('.tr-routine-ex-weight').addEventListener('input', function (e) { row.targetWeight = e.target.value === '' ? null : Number(e.target.value); });
-      rowEl.querySelector('.tr-routine-ex-remove').addEventListener('click', function () {
-        routineEditRows = routineEditRows.filter(function (r) { return r.rowId !== row.rowId; });
-        renderRoutineExRows();
-      });
-      rowEl.querySelector('.tr-routine-ex-up').addEventListener('click', function () {
-        const i = routineEditRows.indexOf(row);
-        if (i > 0) { routineEditRows.splice(i, 1); routineEditRows.splice(i - 1, 0, row); renderRoutineExRows(); }
-      });
-      rowEl.querySelector('.tr-routine-ex-down').addEventListener('click', function () {
-        const i = routineEditRows.indexOf(row);
-        if (i !== -1 && i < routineEditRows.length - 1) { routineEditRows.splice(i, 1); routineEditRows.splice(i + 1, 0, row); renderRoutineExRows(); }
-      });
-    });
-  }
-
-  function openRoutineEditModal(existingId, context) {
-    editingRoutineId = existingId || null;
-    routineEditContext = context || 'library';
-    const rt = editingRoutineId ? window.GymData.getRoutine(editingRoutineId) : null;
-    const currentVersion = (rt && window.GymData.getRoutineCurrentVersion(rt.id)) || null;
-    $('trRoutineEditTitle').textContent = rt ? 'Editar rutina' : 'Nueva rutina';
-    $('trRoutineName').value = rt ? rt.name : '';
-    $('trRoutineEditStatus').textContent = '';
-
-    routineEditRows = ((currentVersion && currentVersion.exercises) || []).map(function (ve) {
-      return {
-        rowId: ++routineRowSeq,
-        exerciseId: ve.exerciseId,
-        targetRepMin: ve.targetRepMin,
-        targetRepMax: ve.targetRepMax,
-        targetWeight: ve.targetWeight,
-      };
-    });
-    renderRoutineExRows();
-    $('trRoutineEditModalBg').classList.add('show');
-  }
-  function closeRoutineEditModal() { $('trRoutineEditModalBg').classList.remove('show'); }
-
-  function saveRoutineEdit() {
-    const name = $('trRoutineName').value.trim();
-    if (!name) { $('trRoutineEditStatus').textContent = 'Poné un nombre.'; return; }
-    if (!routineEditRows.length) { $('trRoutineEditStatus').textContent = 'Agregá al menos un ejercicio.'; return; }
-    if (routineEditRows.some(function (r) { return !r.exerciseId; })) {
-      $('trRoutineEditStatus').textContent = 'Creá al menos un ejercicio en la biblioteca primero.';
-      return;
-    }
-    const exercisesPayload = routineEditRows.map(function (r) {
-      return { exerciseId: r.exerciseId, targetRepMin: r.targetRepMin, targetRepMax: r.targetRepMax, targetWeight: r.targetWeight };
-    });
-
-    let savedRoutine;
-    if (editingRoutineId) {
-      window.GymData.updateRoutineName(editingRoutineId, name);
-      // Any explicit save from this editor is an intentional template
-      // revision — always creates a new version (append-only history).
-      window.GymData.bumpRoutineVersion(editingRoutineId, exercisesPayload);
-      savedRoutine = window.GymData.getRoutine(editingRoutineId);
-    } else {
-      savedRoutine = window.GymData.createRoutine({ name: name, exercises: exercisesPayload });
-    }
-    closeRoutineEditModal();
-
-    // Return to wherever this editor was opened from.
-    if (routineEditContext === 'session-first') {
-      startSession(savedRoutine);
-    } else if (routineEditContext === 'session-add') {
-      openSessionPicker();
-    } else {
-      renderRoutineLibraryList();
-    }
-    routineEditContext = 'library';
-  }
-
-  function initRoutineLibraryModals() {
-    $('trOpenRoutineLibraryBtn').addEventListener('click', openRoutineLibraryModal);
-    $('trRoutineLibraryClose').addEventListener('click', closeRoutineLibraryModal);
-    $('trRoutineLibraryAddBtn').addEventListener('click', function () { openRoutineEditModal(null, 'library'); });
-    $('trRoutineEditCancel').addEventListener('click', function () {
-      closeRoutineEditModal();
-      // 'session-first' cancels straight back to the 4 discipline cards
-      // (nothing else to close/reopen). 'session-add' returns to the
-      // picker it was launched from instead of stranding the user.
-      if (routineEditContext === 'session-add') openSessionPicker();
-      routineEditContext = 'library';
-    });
-    $('trRoutineEditSave').addEventListener('click', saveRoutineEdit);
-    $('trRoutineAddExBtn').addEventListener('click', function () {
-      const exercises = window.GymData.getExercises();
-      if (!exercises.length) { $('trRoutineEditStatus').textContent = 'Creá al menos un ejercicio en la biblioteca primero.'; return; }
-      routineEditRows.push({ rowId: ++routineRowSeq, exerciseId: exercises[0].id, targetRepMin: null, targetRepMax: null, targetWeight: null });
-      renderRoutineExRows();
-    });
   }
 
   // ============================================================
-  // PESAS — active session flow
+  // HOME STRIP + 4 DISCIPLINE CARDS
   // ============================================================
-  let sessionExercises = [];   // [{rowId, exerciseId, name, primaryMuscle, secondaryMuscles, sets:[{reps,weight,rir}]}]
-  let sessionDraft = {};       // rowId -> {weight, reps, rir} — the in-progress "next set" per exercise
-  let sessionRoutineId = null;
-  let sessionRoutineVersion = null; // the routine version object used to start this session (or null)
-  let sessionRowSeq = 0;
-  let restTimerHandle = null;
-  let restTimerRemaining = 0;
-  const REST_TIMER_DEFAULT = 90;
-  let sessionDatePicker = null; // lazily created on first startSession(), reset to "Hoy" every time
-
   function daysAgoLabel(dateStr) {
     if (!dateStr) return null;
     const d = new Date(dateStr);
@@ -631,7 +426,7 @@
       function (w) { return (w.exercises || []).reduce(function (s, ex) { return s + (ex.sets || []).reduce(function (s2, set) { return s2 + (set.weight || 0) * (set.reps || 0); }, 0); }, 0); },
       function (w) { return (w.discipline || 'pesas') === 'pesas'; }
     );
-    const config = (window.GymData && window.GymData.getMuscleFatigueConfig) ? window.GymData.getMuscleFatigueConfig() : window.DEFAULT_MUSCLE_FATIGUE_CONFIG;
+    const config = (window.GymPesasStore && window.GymPesasStore.getMuscleFatigueConfig) ? window.GymPesasStore.getMuscleFatigueConfig() : window.DEFAULT_MUSCLE_FATIGUE_CONFIG;
     const fatigue = window.computeMuscleFatigue(sessions, config);
     const muscleTeaser = fatigue.isPlaceholder
       ? 'Sin config'
@@ -670,289 +465,190 @@
         + '<span class="tr-card-context">' + escapeHtml(cardContextFor(c.discipline, sessions)) + '</span>'
         + '</button>';
     }).join('');
-    $('trCardPesas').addEventListener('click', openSessionPicker);
+    $('trCardPesas').addEventListener('click', openPesasLogModal);
     $('trCardBoxeo').addEventListener('click', function () { openCardioModal('boxeo_muaythai'); });
     $('trCardBici').addEventListener('click', function () { openCardioModal('bici'); });
     $('trCardRunning').addEventListener('click', function () { openCardioModal('running'); });
   }
 
-  // ---- Routine/free-session picker ----
-  function openSessionPicker() {
-    const routines = window.GymData.getRoutines();
-    if (!routines.length) {
-      // No dead end — skip the empty picker entirely and go straight to
-      // creating the first routine. Saving it auto-starts the session;
-      // canceling returns cleanly to the 4 discipline cards.
-      openRoutineEditModal(null, 'session-first');
-      return;
-    }
-    const wrap = $('trSessionPickerRoutineList');
-    wrap.innerHTML = routines.map(function (rt) {
-      const v = window.GymData.getRoutineCurrentVersion(rt.id);
-      const n = v ? v.exercises.length : 0;
-      return '<div class="po-set-row" data-id="' + rt.id + '">'
-        + '<span style="flex:1;min-width:0;font-size:13px;color:var(--text-1);">' + escapeHtml(rt.name)
-        +   ' <span style="color:var(--text-3);font-size:11px;">· ' + n + ' ejercicio' + (n === 1 ? '' : 's') + '</span></span>'
-        + '<button type="button" class="po-btn-secondary" style="width:auto;padding:6px 12px;" data-action="start">Empezar</button>'
+  // ============================================================
+  // PESAS — manual log (replaces the old routine/session/RIR/rest-timer
+  // flow entirely). Just: date + exercises + sets (reps × peso). Every
+  // exercise is routed to workout_history (fuerza/sin asignar) or the
+  // mobility log purely by its classification in GymPesasStore — same
+  // partitionWorkoutExercises() the Lyfta import uses.
+  // ============================================================
+  let pesasLogRows = [];   // [{rowId, name, sets:[{reps,weight}]}]
+  let pesasLogRowSeq = 0;
+  let pesasLogDatePicker = null; // lazily created, reset to "Hoy" every time
+
+  function openPesasLogModal() {
+    pesasLogRows = [{ rowId: ++pesasLogRowSeq, name: '', sets: [{ reps: 8, weight: 20 }] }];
+    renderPesasLogRows();
+    $('trPesasLogStatus').textContent = '';
+    if (!pesasLogDatePicker) pesasLogDatePicker = createDatePicker($('trPesasLogDatePicker'));
+    pesasLogDatePicker.reset();
+    refreshExerciseNameDatalist();
+    $('trPesasLogModalBg').classList.add('show');
+  }
+  function closePesasLogModal() { $('trPesasLogModalBg').classList.remove('show'); }
+
+  function pesasLogRowHtml(row) {
+    const setsHtml = row.sets.map(function (s, i) {
+      return '<div class="tr-pesas-set-row" data-set-i="' + i + '">'
+        + '<span class="tr-set-row-num">' + (i + 1) + '</span>'
+        + '<input type="number" class="tr-pesas-set-reps" value="' + s.reps + '" min="0" placeholder="reps" aria-label="Reps">'
+        + '<input type="number" class="tr-pesas-set-weight" value="' + s.weight + '" min="0" step="0.5" placeholder="kg" aria-label="Peso (kg)">'
+        + '<button type="button" class="po-mini-btn tr-pesas-set-remove" title="Quitar serie">×</button>'
         + '</div>';
     }).join('');
-    wrap.querySelectorAll('[data-action="start"]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        const id = btn.closest('.po-set-row').dataset.id;
-        closeSessionPicker();
-        startSession(window.GymData.getRoutine(id));
-      });
-    });
-    $('trSessionPickerModalBg').classList.add('show');
-  }
-  function closeSessionPicker() { $('trSessionPickerModalBg').classList.remove('show'); }
-
-  // ---- Active session ----
-  function startSession(routine) {
-    sessionRoutineId = routine ? routine.id : null;
-    sessionRoutineVersion = routine ? window.GymData.getRoutineCurrentVersion(routine.id) : null;
-    sessionExercises = ((sessionRoutineVersion && sessionRoutineVersion.exercises) || []).map(function (ve) {
-      const libEx = window.GymData.getExercise(ve.exerciseId);
-      return {
-        rowId: ++sessionRowSeq,
-        exerciseId: ve.exerciseId,
-        name: libEx ? libEx.name : '(ejercicio eliminado)',
-        primaryMuscle: libEx ? libEx.primaryMuscle : null,
-        secondaryMuscles: libEx ? libEx.secondaryMuscles : [],
-        sets: [],
-      };
-    });
-    sessionDraft = {};
-    $('trSessionTitle').textContent = routine ? routine.name : 'Sesión libre';
-    stopRestTimer();
-    renderSessionExercises();
-    if (!sessionDatePicker) sessionDatePicker = createDatePicker($('trSessionDatePicker'));
-    sessionDatePicker.reset(); // always opens on "Hoy" — retroactive logging is an explicit choice
-    $('trSessionOverlay').classList.add('show');
-  }
-  function closeSession() {
-    $('trSessionOverlay').classList.remove('show');
-    stopRestTimer();
-  }
-
-  function sessionAddExercise() {
-    const exercises = window.GymData.getExercises();
-    if (!exercises.length) { alert('Creá al menos un ejercicio en Settings → Entrenamiento → Ejercicios primero.'); return; }
-    const name = prompt('Ejercicio a agregar:\n' + exercises.map(function (e, i) { return (i + 1) + '. ' + e.name; }).join('\n') + '\n\nEscribí el número:');
-    const idx = parseInt(name, 10) - 1;
-    if (isNaN(idx) || idx < 0 || idx >= exercises.length) return;
-    const ex = exercises[idx];
-    sessionExercises.push({
-      rowId: ++sessionRowSeq, exerciseId: ex.id, name: ex.name,
-      primaryMuscle: ex.primaryMuscle, secondaryMuscles: ex.secondaryMuscles, sets: [],
-    });
-    renderSessionExercises();
-  }
-
-  function sessionExRowHtml(row) {
-    const setsHtml = row.sets.length
-      ? row.sets.map(function (s, i) {
-          return '<div class="tr-set-row"><span class="tr-set-row-num">' + (i + 1) + '</span>'
-            + '<span>' + s.weight + 'kg × ' + s.reps + '</span>'
-            + '<span class="tr-set-row-rir">' + (s.rir || '—') + '</span></div>';
-        }).join('')
-      : '<div class="po-empty" style="padding:6px 0;">Sin series todavía.</div>';
     return '<div class="tr-session-ex-block" data-row-id="' + row.rowId + '">'
       + '<div class="tr-session-ex-head">'
-      +   '<span class="tr-session-ex-name">' + escapeHtml(row.name) + '</span>'
-      +   '<span class="tr-session-ex-actions">'
-      +     '<button type="button" class="po-mini-btn tr-sess-ex-up" title="Subir">↑</button>'
-      +     '<button type="button" class="po-mini-btn tr-sess-ex-down" title="Bajar">↓</button>'
-      +     '<button type="button" class="po-mini-btn tr-sess-ex-remove" title="Quitar">×</button>'
-      +   '</span>'
+      +   '<input type="text" class="tr-pesas-ex-name" list="trExerciseNameOptions" placeholder="Nombre del ejercicio" value="' + escapeHtml(row.name) + '">'
+      +   '<button type="button" class="po-mini-btn tr-pesas-ex-remove" title="Quitar ejercicio">×</button>'
       + '</div>'
-      + '<div class="tr-sess-sets">' + setsHtml + '</div>'
-      + '<div class="tr-set-log-row">'
-      +   '<div class="tr-num-input" data-role="weight"></div>'
-      +   '<div class="tr-num-input" data-role="reps"></div>'
-      +   '<div class="tr-set-log-effort" data-role="effort"></div>'
-      +   '<button type="button" class="po-btn-primary tr-sess-log-set" style="width:auto;padding:9px 16px;">+ Log set</button>'
-      + '</div>'
+      + '<div class="tr-pesas-sets">' + setsHtml + '</div>'
+      + '<button type="button" class="po-add-row-btn tr-pesas-add-set">+ Agregar serie</button>'
       + '</div>';
   }
 
-  function renderSessionExercises() {
-    const wrap = $('trSessionExList');
-    if (!sessionExercises.length) {
-      wrap.innerHTML = '<div class="po-empty">Agregá al menos un ejercicio para empezar.</div>';
-      return;
-    }
-    wrap.innerHTML = sessionExercises.map(sessionExRowHtml).join('');
+  function renderPesasLogRows() {
+    const wrap = $('trPesasLogExList');
+    if (!pesasLogRows.length) { wrap.innerHTML = '<div class="po-empty">Agregá al menos un ejercicio.</div>'; return; }
+    wrap.innerHTML = pesasLogRows.map(pesasLogRowHtml).join('');
     wrap.querySelectorAll('.tr-session-ex-block').forEach(function (blockEl) {
       const rowId = Number(blockEl.dataset.rowId);
-      const row = sessionExercises.find(function (r) { return r.rowId === rowId; });
-      if (!sessionDraft[rowId]) sessionDraft[rowId] = { weight: 20, reps: 8, rir: 'RIR2' };
-      const draft = sessionDraft[rowId];
-
-      window.renderNumericStepper(blockEl.querySelector('[data-role="weight"]'), {
-        value: draft.weight, step: 2.5, min: 0, suffix: 'kg',
-        onChange: function (v) { draft.weight = v; },
+      const row = pesasLogRows.find(function (r) { return r.rowId === rowId; });
+      blockEl.querySelector('.tr-pesas-ex-name').addEventListener('input', function (e) { row.name = e.target.value; });
+      blockEl.querySelector('.tr-pesas-ex-remove').addEventListener('click', function () {
+        pesasLogRows = pesasLogRows.filter(function (r) { return r.rowId !== rowId; });
+        renderPesasLogRows();
       });
-      window.renderNumericStepper(blockEl.querySelector('[data-role="reps"]'), {
-        value: draft.reps, step: 1, min: 0, suffix: 'reps',
-        onChange: function (v) { draft.reps = v; },
+      blockEl.querySelector('.tr-pesas-add-set').addEventListener('click', function () {
+        const lastWeight = row.sets.length ? row.sets[row.sets.length - 1].weight : 20;
+        row.sets.push({ reps: 8, weight: lastWeight });
+        renderPesasLogRows();
       });
-      window.renderButtonGroup(blockEl.querySelector('[data-role="effort"]'), window.EFFORT_OPTIONS, draft.rir, function (v) { draft.rir = v; });
-
-      blockEl.querySelector('.tr-sess-log-set').addEventListener('click', function () {
-        if (!draft.reps || draft.reps <= 0) { alert('Ingresá al menos 1 rep.'); return; }
-        row.sets.push({ reps: draft.reps, weight: draft.weight, rir: draft.rir });
-        renderSessionExercises();
-        startRestTimer(REST_TIMER_DEFAULT);
-        checkAndCelebrateWeightPR(row.name, draft.weight);
-      });
-      blockEl.querySelector('.tr-sess-ex-remove').addEventListener('click', function () {
-        sessionExercises = sessionExercises.filter(function (r) { return r.rowId !== rowId; });
-        renderSessionExercises();
-      });
-      blockEl.querySelector('.tr-sess-ex-up').addEventListener('click', function () {
-        const i = sessionExercises.indexOf(row);
-        if (i > 0) { sessionExercises.splice(i, 1); sessionExercises.splice(i - 1, 0, row); renderSessionExercises(); }
-      });
-      blockEl.querySelector('.tr-sess-ex-down').addEventListener('click', function () {
-        const i = sessionExercises.indexOf(row);
-        if (i !== -1 && i < sessionExercises.length - 1) { sessionExercises.splice(i, 1); sessionExercises.splice(i + 1, 0, row); renderSessionExercises(); }
+      blockEl.querySelectorAll('.tr-pesas-set-row').forEach(function (setEl) {
+        const i = Number(setEl.dataset.setI);
+        setEl.querySelector('.tr-pesas-set-reps').addEventListener('input', function (e) { row.sets[i].reps = Number(e.target.value) || 0; });
+        setEl.querySelector('.tr-pesas-set-weight').addEventListener('input', function (e) { row.sets[i].weight = Number(e.target.value) || 0; });
+        setEl.querySelector('.tr-pesas-set-remove').addEventListener('click', function () {
+          row.sets.splice(i, 1);
+          renderPesasLogRows();
+        });
       });
     });
   }
 
-  function checkAndCelebrateWeightPR(exerciseName, weight) {
-    if (!window.GymDomain || !window.WH) return;
-    const allWorkouts = window.WH.getAllWorkouts();
-    const result = window.GymDomain.checkWeightPR(exerciseName, weight, allWorkouts);
-    if (result.isPR && weight > 0) {
-      window.showToast('¡Nuevo PR de peso! ' + escapeHtml(exerciseName) + ' — ' + weight + 'kg', { celebrate: true });
-    }
+  function pesasLogAddExercise() {
+    pesasLogRows.push({ rowId: ++pesasLogRowSeq, name: '', sets: [{ reps: 8, weight: 20 }] });
+    renderPesasLogRows();
   }
 
-  // ---- Rest timer ----
-  function renderRestTimer() {
-    const el = $('trRestTimer');
-    if (restTimerRemaining <= 0) { el.classList.add('hidden'); return; }
-    el.classList.remove('hidden');
-    $('trRestTimerLabel').textContent = 'Descanso: ' + restTimerRemaining + 's';
-  }
-  function startRestTimer(seconds) {
-    stopRestTimer();
-    restTimerRemaining = seconds;
-    renderRestTimer();
-    restTimerHandle = setInterval(function () {
-      restTimerRemaining--;
-      if (restTimerRemaining <= 0) { stopRestTimer(); return; }
-      renderRestTimer();
-    }, 1000);
-  }
-  function stopRestTimer() {
-    if (restTimerHandle) clearInterval(restTimerHandle);
-    restTimerHandle = null;
-    restTimerRemaining = 0;
-    renderRestTimer();
-  }
-
-  // ---- Finish session: normalize, save, structural-diff check, PR toast ----
-  function finishSession() {
-    const usedExercises = sessionExercises.filter(function (r) { return r.sets.length > 0; });
-    if (!usedExercises.length) { alert('Registrá al menos una serie antes de finalizar.'); return; }
+  function savePesasLog() {
+    const date = pesasLogDatePicker ? pesasLogDatePicker.getSelectedDateKey() : new Date().toISOString().slice(0, 10);
+    const rawExercises = pesasLogRows
+      .map(function (r) { return { name: r.name.trim(), sets: r.sets.filter(function (s) { return s.reps > 0; }) }; })
+      .filter(function (r) { return r.name && r.sets.length; });
+    if (!rawExercises.length) { $('trPesasLogStatus').textContent = 'Agregá al menos un ejercicio con una serie válida.'; return; }
 
     const allWorkoutsBefore = window.WH.getAllWorkouts();
-    const exercisesPayload = usedExercises.map(function (r) {
-      return { name: r.name, primaryMuscle: r.primaryMuscle, secondaryMuscles: r.secondaryMuscles, sets: r.sets.slice() };
-    });
+    const partitioned = window.GymPesasStore.partitionWorkoutExercises(date, rawExercises);
 
-    const saveAndCelebrate = function (routineVersionUsed) {
+    if (partitioned.mobilityEntries.length) window.GymPesasStore.addMobilityLogEntries(partitioned.mobilityEntries);
+
+    if (partitioned.keptExercises.length) {
       const workout = window.WH.normalizeWorkout({
-        date: sessionDatePicker ? sessionDatePicker.getSelectedDateKey() : new Date().toISOString().slice(0, 10),
-        title: sessionRoutineId ? ($('trSessionTitle').textContent || 'Pesas') : 'Sesión libre',
-        source: 'manual',
-        discipline: 'pesas',
-        routineId: sessionRoutineId,
-        routineVersion: routineVersionUsed ? routineVersionUsed.version : (sessionRoutineVersion ? sessionRoutineVersion.version : null),
-        exercises: exercisesPayload,
+        date: date, title: 'Pesas', source: 'manual', discipline: 'pesas', exercises: partitioned.keptExercises,
       }, 'manual');
       window.WH.appendWorkout(workout);
       window.WH.commit();
 
-      // PR celebration — volume PR per exercise, checked against history
-      // BEFORE this session was saved.
-      usedExercises.forEach(function (r) {
-        const vol = r.sets.reduce(function (s, x) { return s + (x.weight || 0) * (x.reps || 0); }, 0);
-        const volResult = window.GymDomain.checkVolumePR(r.name, vol, allWorkoutsBefore);
-        if (volResult.isPR && vol > 0) {
-          window.showToast('¡Nuevo PR de volumen! ' + escapeHtml(r.name), { celebrate: true });
-        }
+      partitioned.keptExercises.forEach(function (ex) {
+        const vol = ex.sets.reduce(function (s, x) { return s + (x.weight || 0) * (x.reps || 0); }, 0);
+        const volResult = window.GymDomain.checkVolumePR(ex.name, vol, allWorkoutsBefore);
+        if (volResult.isPR && vol > 0) window.showToast('¡Nuevo PR de volumen! ' + escapeHtml(ex.name), { celebrate: true });
+        const maxWeight = Math.max.apply(null, ex.sets.map(function (s) { return s.weight || 0; }));
+        const weightResult = window.GymDomain.checkWeightPR(ex.name, maxWeight, allWorkoutsBefore);
+        if (weightResult.isPR && maxWeight > 0) window.showToast('¡Nuevo PR de peso! ' + escapeHtml(ex.name) + ' — ' + maxWeight + 'kg', { celebrate: true });
       });
-
-      closeSession();
-      renderTrCards();
-      renderTrHomeStats();
-      renderMuscleMap();
-      renderPeriodCharts();
-      renderExerciseProgression();
-    };
-
-    if (sessionRoutineId && sessionRoutineVersion) {
-      const diff = window.GymDomain.detectRoutineStructuralDiff(sessionRoutineVersion, usedExercises.map(function (r) { return r.exerciseId; }));
-      if (diff.changed) {
-        const parts = [];
-        if (diff.added.length) parts.push(diff.added.length + ' ejercicio(s) agregado(s)');
-        if (diff.removed.length) parts.push(diff.removed.length + ' ejercicio(s) quitado(s)');
-        if (diff.reordered) parts.push('orden cambiado');
-        $('trRoutineDiffSummary').textContent = parts.join(', ') + '.';
-        $('trRoutineDiffModalBg').classList.add('show');
-        $('trRoutineDiffYes').onclick = function () {
-          $('trRoutineDiffModalBg').classList.remove('show');
-          // Carry over existing targets for exercises that were already in
-          // the routine; new exercises get null targets (editable later).
-          const oldByExId = {};
-          (sessionRoutineVersion.exercises || []).forEach(function (ve) { oldByExId[ve.exerciseId] = ve; });
-          const newVersionExercises = usedExercises.map(function (r) {
-            const old = oldByExId[r.exerciseId];
-            return {
-              exerciseId: r.exerciseId,
-              targetRepMin: old ? old.targetRepMin : null,
-              targetRepMax: old ? old.targetRepMax : null,
-              targetWeight: old ? old.targetWeight : null,
-            };
-          });
-          const newVersion = window.GymData.bumpRoutineVersion(sessionRoutineId, newVersionExercises);
-          saveAndCelebrate(newVersion);
-        };
-        $('trRoutineDiffNo').onclick = function () {
-          $('trRoutineDiffModalBg').classList.remove('show');
-          saveAndCelebrate(null);
-        };
-        return;
-      }
     }
-    saveAndCelebrate(null);
+
+    closePesasLogModal();
+    renderTrCards();
+    renderTrHomeStats();
+    renderMuscleMap();
+    renderPeriodCharts();
+    renderExerciseProgression();
+    renderMobilityHistory();
   }
 
-  function initSessionFlow() {
-    $('trSessionPickerCancel').addEventListener('click', closeSessionPicker);
-    $('trSessionPickerFreeBtn').addEventListener('click', function () { closeSessionPicker(); startSession(null); });
-    $('trSessionPickerNewRoutineBtn').addEventListener('click', function () {
-      closeSessionPicker();
-      openRoutineEditModal(null, 'session-add');
-    });
-    $('trSessionAddExBtn').addEventListener('click', sessionAddExercise);
-    $('trSessionCancel').addEventListener('click', function () {
-      if (!confirm('¿Salir sin guardar esta sesión?')) return;
-      closeSession();
-    });
-    $('trSessionFinish').addEventListener('click', finishSession);
-    $('trRestTimerMinus').addEventListener('click', function () { restTimerRemaining = Math.max(0, restTimerRemaining - 30); renderRestTimer(); });
-    $('trRestTimerPlus').addEventListener('click', function () { restTimerRemaining += 30; renderRestTimer(); });
-    $('trRestTimerSkip').addEventListener('click', stopRestTimer);
+  function initPesasLogModal() {
+    $('trPesasLogAddExBtn').addEventListener('click', pesasLogAddExercise);
+    $('trPesasLogCancel').addEventListener('click', closePesasLogModal);
+    $('trPesasLogSave').addEventListener('click', savePesasLog);
+  }
+
+  // ============================================================
+  // MOVILIDAD — sub-sección dentro de Pesas (no una 5ta disciplina). Log
+  // rápido (fecha + nombre + reps opcional) + historial. Un ejercicio
+  // logueado acá siempre se marca isMobility:true en el store, para que
+  // cualquier futura carga con ese mismo nombre (import o manual) se siga
+  // clasificando como movilidad.
+  // ============================================================
+  let mobilityDatePicker = null;
+
+  function openMobilityLogModal() {
+    $('trMobilityName').value = '';
+    $('trMobilityReps').value = '';
+    $('trMobilityStatus').textContent = '';
+    if (!mobilityDatePicker) mobilityDatePicker = createDatePicker($('trMobilityDatePicker'));
+    mobilityDatePicker.reset();
+    refreshExerciseNameDatalist();
+    $('trMobilityLogModalBg').classList.add('show');
+  }
+  function closeMobilityLogModal() { $('trMobilityLogModalBg').classList.remove('show'); }
+
+  function saveMobilityLog() {
+    const name = $('trMobilityName').value.trim();
+    if (!name) { $('trMobilityStatus').textContent = 'Poné un nombre.'; return; }
+    if (window.GymPesasStore.isDiscarded(name)) { $('trMobilityStatus').textContent = 'Ese nombre está excluido del sistema.'; return; }
+    const date = mobilityDatePicker ? mobilityDatePicker.getSelectedDateKey() : new Date().toISOString().slice(0, 10);
+    const repsVal = $('trMobilityReps').value;
+    const reps = repsVal === '' ? null : Number(repsVal);
+
+    window.GymPesasStore.ensureExercise(name);
+    window.GymPesasStore.setExerciseOverride(name, { isMobility: true });
+    window.GymPesasStore.addMobilityLogEntry({ date: date, name: name, reps: reps });
+
+    closeMobilityLogModal();
+    renderMobilityHistory();
+  }
+
+  function renderMobilityHistory() {
+    const wrap = $('trMobilityHistoryList');
+    if (!wrap) return;
+    const log = window.GymPesasStore ? window.GymPesasStore.getMobilityLog() : [];
+    if (!log.length) { wrap.innerHTML = '<div class="po-empty">Sin sesiones de movilidad todavía.</div>'; return; }
+    wrap.innerHTML = log.slice(0, 20).map(function (e) {
+      return '<div class="wh-session">'
+        + '<div class="wh-session-head"><span class="wh-session-date">' + escapeHtml(e.date || '') + '</span></div>'
+        + '<div class="wh-session-title">' + escapeHtml(e.name) + (e.reps != null ? ' · ' + e.reps + ' reps' : '') + '</div>'
+        + '</div>';
+    }).join('');
+  }
+
+  function initMobilityLogModal() {
+    $('trMobilityOpenBtn').addEventListener('click', openMobilityLogModal);
+    $('trMobilityCancel').addEventListener('click', closeMobilityLogModal);
+    $('trMobilitySave').addEventListener('click', saveMobilityLog);
   }
 
   // ============================================================
   // BOXEO/MUAY THAI + RUNNING/BICI — one shared form, fields toggled by
   // discipline. Duration is the only required field for every mode.
+  // Untouched by the Pesas rework.
   // ============================================================
   let cardioDiscipline = null; // 'boxeo_muaythai' | 'bici' | 'running'
   let cardioSubtype = 'boxeo'; // only meaningful for boxeo_muaythai
@@ -1040,7 +736,7 @@
 
   // ============================================================
   // ANALYTICS — period-comparison charts (one component, 3 instances) +
-  // per-exercise PR progression.
+  // per-exercise PR progression. Untouched by the Pesas rework.
   // ============================================================
   function renderPeriodCharts() {
     const sessions = (window.WH && window.WH.getAllWorkouts) ? window.WH.getAllWorkouts() : [];
@@ -1132,17 +828,19 @@
     renderMuscleMap();
     initMuscleConfigModal();
     initExerciseLibraryModals();
-    initRoutineLibraryModals();
-    initSessionFlow();
+    initPesasLogModal();
+    initMobilityLogModal();
     initCardioModal();
     initMuscleDetailModal();
     renderTrCards();
     renderTrHomeStats();
     renderPeriodCharts();
     renderExerciseProgression();
-    // Any remote gym_training_config pull/realtime update should refresh
-    // the muscle map (it may flip isPlaceholder to false).
-    window.gtOnChange = function () { renderMuscleMap(); renderTrHomeStats(); };
+    renderMobilityHistory();
+    // Any remote gym_pesas_store pull/realtime update should refresh
+    // anything derived from it (fatigue config may flip isPlaceholder,
+    // mobility log may have new entries from another device).
+    window.gpsOnChange = function () { renderMuscleMap(); renderTrHomeStats(); renderMobilityHistory(); };
   }
 
   if (document.readyState === 'loading') {

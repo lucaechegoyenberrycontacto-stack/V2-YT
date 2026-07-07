@@ -1440,27 +1440,6 @@ img, video, canvas, svg { max-width: 100%; }
   color: #0a0a0b; border-color: transparent;
 }
 
-/* Numeric stepper (weight/reps input during a pesas session). */
-.tr-num-input {
-  display: grid; grid-template-columns: auto 1fr auto;
-  gap: 6px; align-items: stretch;
-}
-.tr-num-btn {
-  padding: 0 16px; min-width: 48px; min-height: 44px;
-  border: 1px solid var(--border);
-  background: rgba(255,255,255,0.04); color: var(--text-1);
-  border-radius: 12px; font-family: inherit;
-  font-size: 20px; font-weight: 700; cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.tr-num-btn:hover { background: rgba(255,255,255,0.10); }
-.tr-num-btn:active { transform: scale(0.94); }
-.tr-num-value {
-  display: flex; align-items: center; justify-content: center;
-  font-size: 20px; font-weight: 700; color: var(--text-1);
-  font-variant-numeric: tabular-nums;
-}
-
 /* Celebration / status toast — fixed, non-blocking, auto-dismiss. */
 .tr-toast {
   position: fixed; left: 50%; bottom: calc(84px + env(safe-area-inset-bottom));
@@ -1479,27 +1458,6 @@ img, video, canvas, svg { max-width: 100%; }
   box-shadow: 0 12px 32px rgba(0,0,0,0.45), 0 0 0 1px rgba(110,231,183,0.25);
 }
 
-/* Routine editor — exercise-in-routine row (select + 3 number targets +
-   reorder/remove). Reuses .po-set-row for its .po-mini-btn styling but
-   needs its own wrap/sizing since it holds more than one input. */
-.tr-routine-ex-row { flex-wrap: wrap; }
-.tr-routine-ex-row select {
-  flex: 1 1 100%; min-width: 100px;
-  background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text-1); font-family: inherit; font-size: 13px; padding: 6px 8px;
-}
-.tr-routine-ex-row input[type="number"] {
-  flex: 1 1 0; min-width: 48px; max-width: 72px;
-  background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text-1); font-family: inherit; font-size: 13px; padding: 6px 4px;
-  text-align: center;
-  -moz-appearance: textfield;
-}
-.tr-routine-ex-row input[type="number"]::-webkit-outer-spin-button,
-.tr-routine-ex-row input[type="number"]::-webkit-inner-spin-button {
-  -webkit-appearance: none; margin: 0;
-}
-
 /* Interim muscle-fatigue list — shown once a real config exists but before
    the interactive SVG map (later phase) is built. Real numbers, no
    invented colors. */
@@ -1514,7 +1472,7 @@ img, video, canvas, svg { max-width: 100%; }
 }
 .tr-muscle-row:hover, .tr-muscle-row:focus-visible { background: rgba(255,255,255,0.06); color: var(--text-1); }
 
-/* Active Pesas session overlay — same .po-modal recipe, just taller so a
+/* Active Pesas log modal — same .po-modal recipe, just taller so a
    multi-exercise session doesn't feel cramped. */
 .tr-session-modal { max-width: 560px; max-height: 92vh; }
 .tr-session-ex-block {
@@ -1522,35 +1480,31 @@ img, video, canvas, svg { max-width: 100%; }
   border-radius: 12px; padding: 14px; margin-bottom: 12px;
 }
 .tr-session-ex-head {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 8px; margin-bottom: 10px;
+  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
 }
-.tr-session-ex-name { font-size: 14px; font-weight: 700; color: var(--text-1); }
-.tr-session-ex-actions { display: flex; gap: 4px; flex-shrink: 0; }
-.tr-set-row {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--border);
-  font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums;
+.tr-pesas-ex-name {
+  flex: 1 1 auto; min-width: 0;
+  background: rgba(0,0,0,0.28); border: 1px solid var(--border); border-radius: 10px;
+  color: var(--text-1); font-family: inherit; font-size: 14px; font-weight: 600;
+  padding: 10px 12px;
 }
-.tr-set-row:last-of-type { border-bottom: none; }
-.tr-set-row-num { color: var(--text-4); min-width: 18px; }
-.tr-set-row-rir { color: var(--text-3); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
-.tr-set-log-row {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
-  margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border);
+.tr-pesas-ex-name:focus { outline: none; border-color: rgba(255,255,255,0.40); }
+.tr-pesas-sets { display: flex; flex-direction: column; gap: 6px; }
+.tr-pesas-set-row {
+  display: grid; grid-template-columns: 18px 1fr 1fr auto;
+  align-items: center; gap: 8px;
 }
-.tr-set-log-row .tr-num-input { flex: 0 0 auto; width: 130px; }
-.tr-set-log-effort { flex: 1 1 100%; display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
-.tr-set-log-effort .tr-effort-btn { min-height: 44px; padding: 8px 4px; font-size: 11px; }
-
-/* Rest timer — fixed banner above the modal actions while active. */
-.tr-rest-timer {
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-  background: rgba(110,231,183,0.08); border: 1px solid rgba(110,231,183,0.25);
-  border-radius: 10px; padding: 10px 12px; margin: 12px 0;
-  font-size: 13px; font-weight: 700; color: var(--good);
+.tr-set-row-num { color: var(--text-4); font-size: 13px; }
+.tr-pesas-set-reps, .tr-pesas-set-weight {
+  background: rgba(0,0,0,0.28); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text-1); font-family: inherit; font-size: 13px; padding: 8px 6px;
+  text-align: center; min-width: 0;
+  -moz-appearance: textfield;
 }
-.tr-rest-timer.hidden { display: none; }
+.tr-pesas-set-reps::-webkit-outer-spin-button, .tr-pesas-set-reps::-webkit-inner-spin-button,
+.tr-pesas-set-weight::-webkit-outer-spin-button, .tr-pesas-set-weight::-webkit-inner-spin-button {
+  -webkit-appearance: none; margin: 0;
+}
 
 /* Home strip (streak / weekly volume / muscle teaser) + 4 discipline cards. */
 .tr-home-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
@@ -1577,6 +1531,8 @@ img, video, canvas, svg { max-width: 100%; }
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="gymMuscleEnum.js"></script>
 <script src="gymMuscleFatigue.js"></script>
+<script src="gymExerciseMuscleSeed.js"></script>
+<script src="gymPesasStore.js"></script>
 <script src="gymCharts.js"></script>
 <script src="gymDomain.js"></script>
 </head>
@@ -1943,6 +1899,16 @@ img, video, canvas, svg { max-width: 100%; }
         <div id="trMuscleMapWrap"></div>
       </div>
 
+      <!-- Movilidad — sub-sección de Pesas: ejercicios marcados isMobility
+           quedan afuera de PRs/volumen/mapa muscular y viven acá. -->
+      <div class="wh-block">
+        <div class="wh-actions" style="margin-bottom:10px;">
+          <div class="wh-block-title" style="margin-bottom:0;">Movilidad</div>
+          <button class="po-btn-secondary" id="trMobilityOpenBtn" type="button">+ Registrar movilidad</button>
+        </div>
+        <div id="trMobilityHistoryList"></div>
+      </div>
+
       <!-- Per-exercise PR progression -->
       <div class="wh-block">
         <div class="wh-block-title">Progresión por ejercicio</div>
@@ -1971,7 +1937,6 @@ img, video, canvas, svg { max-width: 100%; }
       <h4>Entrenamiento</h4>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="po-btn-secondary" id="trOpenExerciseLibraryBtn" type="button">Ejercicios</button>
-        <button class="po-btn-secondary" id="trOpenRoutineLibraryBtn" type="button">Rutinas</button>
       </div>
     </div>
 
@@ -2033,7 +1998,10 @@ img, video, canvas, svg { max-width: 100%; }
   </div>
 </div>
 
-<!-- Training module — Exercise create/edit -->
+<!-- Training module — Exercise create/edit. Name is locked once an entry
+     exists (editing an existing exercise never renames it — that would
+     orphan its already-logged workout_history entries); only músculo/
+     movilidad are editable after creation. -->
 <div class="po-modal-bg" id="trExerciseEditModalBg">
   <div class="po-modal" style="max-width: 480px;">
     <h3 id="trExerciseEditTitle">Nuevo ejercicio</h3>
@@ -2041,13 +2009,19 @@ img, video, canvas, svg { max-width: 100%; }
       <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Nombre</label>
       <input type="text" id="trExName" placeholder="e.g. Press banca">
     </div>
-    <div class="po-field">
-      <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Músculo primario</label>
-      <select id="trExPrimaryMuscle"></select>
-    </div>
-    <div class="po-field">
-      <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Músculos secundarios (opcional)</label>
-      <div id="trExSecondaryMuscles" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+    <label class="po-bw-toggle">
+      <input type="checkbox" id="trExIsMobility">
+      Es ejercicio de movilidad (no suma a volumen/PRs ni al mapa muscular)
+    </label>
+    <div id="trExMuscleFields">
+      <div class="po-field">
+        <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Músculo primario</label>
+        <select id="trExPrimaryMuscle"></select>
+      </div>
+      <div class="po-field">
+        <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Músculos secundarios (opcional)</label>
+        <div id="trExSecondaryMuscles" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+      </div>
     </div>
     <div id="trExerciseEditStatus" style="text-align:center;font-size:12px;color:var(--bad);min-height:16px;"></div>
     <div class="po-modal-actions">
@@ -2057,41 +2031,9 @@ img, video, canvas, svg { max-width: 100%; }
   </div>
 </div>
 
-<!-- Training module — Routine library (list) -->
-<div class="po-modal-bg" id="trRoutineLibraryModalBg">
-  <div class="po-modal" style="max-width: 480px;">
-    <h3>Rutinas</h3>
-    <div class="po-set-list" id="trRoutineLibraryList"></div>
-    <button class="po-add-row-btn" id="trRoutineLibraryAddBtn" type="button">+ Nueva rutina</button>
-    <div class="po-modal-actions">
-      <button class="po-btn-primary" id="trRoutineLibraryClose" type="button">Cerrar</button>
-    </div>
-  </div>
-</div>
-
-<!-- Training module — Routine create/edit. Saving a new exercise list
-     for an existing routine always creates a NEW version (append-only —
-     see GymData.bumpRoutineVersion); renaming alone does not, since the
-     name lives on the routine, not inside a version snapshot. -->
-<div class="po-modal-bg" id="trRoutineEditModalBg">
-  <div class="po-modal" style="max-width: 520px;">
-    <h3 id="trRoutineEditTitle">Nueva rutina</h3>
-    <div class="po-field">
-      <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Nombre</label>
-      <input type="text" id="trRoutineName" placeholder="e.g. Push A">
-    </div>
-    <div class="po-set-section">
-      <h4>Ejercicios</h4>
-      <div class="po-set-list" id="trRoutineExList"></div>
-      <button class="po-add-row-btn" id="trRoutineAddExBtn" type="button">+ Agregar ejercicio</button>
-    </div>
-    <div id="trRoutineEditStatus" style="text-align:center;font-size:12px;color:var(--bad);min-height:16px;"></div>
-    <div class="po-modal-actions">
-      <button class="po-btn-secondary" id="trRoutineEditCancel" type="button">Cancelar</button>
-      <button class="po-btn-primary" id="trRoutineEditSave" type="button">Guardar</button>
-    </div>
-  </div>
-</div>
+<!-- Shared exercise-name autocomplete — known names (seed + user
+     overrides), reused by the Pesas log and Movilidad log forms. -->
+<datalist id="trExerciseNameOptions"></datalist>
 
 <!-- Training module — Muscle fatigue config loader (paste-JSON, same
      pattern as the existing Import JSON flows elsewhere on this page). -->
@@ -2111,54 +2053,47 @@ img, video, canvas, svg { max-width: 100%; }
   </div>
 </div>
 
-<!-- Pesas — pick a saved routine or start a free session -->
-<div class="po-modal-bg" id="trSessionPickerModalBg">
-  <div class="po-modal" style="max-width: 480px;">
-    <h3>Pesas</h3>
-    <div class="po-set-list" id="trSessionPickerRoutineList"></div>
-    <button class="po-add-row-btn" id="trSessionPickerNewRoutineBtn" type="button">+ Crear nueva rutina</button>
-    <button class="po-btn-primary" id="trSessionPickerFreeBtn" type="button" style="margin-top:10px;">Sesión libre (sin rutina)</button>
-    <div class="po-modal-actions">
-      <button class="po-btn-secondary" id="trSessionPickerCancel" type="button">Cancelar</button>
-    </div>
-  </div>
-</div>
-
-<!-- Pesas — active session (full-screen-style overlay, reuses the modal
-     recipe with a taller max-width/max-height for the denser content). -->
-<div class="po-modal-bg" id="trSessionOverlay">
+<!-- Pesas — manual log. Just date + exercises + sets (reps × peso); no
+     rutina que elegir. Cada ejercicio se enruta solo (fuerza/sin asignar
+     vs. movilidad) según su clasificación en GymPesasStore al guardar. -->
+<div class="po-modal-bg" id="trPesasLogModalBg">
   <div class="po-modal tr-session-modal">
-    <h3 id="trSessionTitle">Sesión libre</h3>
+    <h3>Registrar Pesas</h3>
 
-    <div id="trSessionDatePicker"></div>
+    <div id="trPesasLogDatePicker"></div>
 
-    <div id="trSessionExList"></div>
-    <button class="po-add-row-btn" id="trSessionAddExBtn" type="button">+ Agregar ejercicio</button>
+    <div id="trPesasLogExList"></div>
+    <button class="po-add-row-btn" id="trPesasLogAddExBtn" type="button">+ Agregar ejercicio</button>
 
-    <div class="tr-rest-timer hidden" id="trRestTimer">
-      <span id="trRestTimerLabel">Descanso: 90s</span>
-      <button type="button" class="po-mini-btn" id="trRestTimerMinus">−30s</button>
-      <button type="button" class="po-mini-btn" id="trRestTimerPlus">+30s</button>
-      <button type="button" class="po-btn-secondary" id="trRestTimerSkip" style="width:auto;padding:6px 12px;">Saltar</button>
-    </div>
-
+    <div id="trPesasLogStatus" style="text-align:center;font-size:12px;color:var(--bad);min-height:16px;margin-top:6px;"></div>
     <div class="po-modal-actions">
-      <button class="po-btn-secondary" id="trSessionCancel" type="button">Cancelar</button>
-      <button class="po-btn-primary" id="trSessionFinish" type="button">Finalizar sesión</button>
+      <button class="po-btn-secondary" id="trPesasLogCancel" type="button">Cancelar</button>
+      <button class="po-btn-primary" id="trPesasLogSave" type="button">Guardar sesión</button>
     </div>
   </div>
 </div>
 
-<!-- Routine structural-diff confirm — only shown when exercises were
-     added/removed/reordered vs. the routine version used to start the
-     session. Weight/rep/set differences never trigger this. -->
-<div class="po-modal-bg" id="trRoutineDiffModalBg">
-  <div class="po-modal" style="max-width: 420px;">
-    <h3>¿Actualizar la rutina con estos cambios?</h3>
-    <div id="trRoutineDiffSummary" style="font-size:13px;color:var(--text-2);line-height:1.5;"></div>
+<!-- Movilidad — sub-sección de Pesas, no una 5ta disciplina. Alta rápida:
+     fecha + nombre + reps opcional. -->
+<div class="po-modal-bg" id="trMobilityLogModalBg">
+  <div class="po-modal" style="max-width: 480px;">
+    <h3>Registrar Movilidad</h3>
+
+    <div id="trMobilityDatePicker"></div>
+
+    <div class="po-field">
+      <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Ejercicio</label>
+      <input type="text" id="trMobilityName" list="trExerciseNameOptions" placeholder="e.g. Kneeling Hip Flexor Stretch">
+    </div>
+    <div class="po-field">
+      <label style="font-size:11px;color:var(--text-3);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Reps (opcional)</label>
+      <input type="number" id="trMobilityReps" min="0" placeholder="e.g. 10">
+    </div>
+
+    <div id="trMobilityStatus" style="text-align:center;font-size:12px;color:var(--bad);min-height:16px;"></div>
     <div class="po-modal-actions">
-      <button class="po-btn-secondary" id="trRoutineDiffNo" type="button">No, solo esta vez</button>
-      <button class="po-btn-primary" id="trRoutineDiffYes" type="button">Sí, actualizar</button>
+      <button class="po-btn-secondary" id="trMobilityCancel" type="button">Cancelar</button>
+      <button class="po-btn-primary" id="trMobilitySave" type="button">Guardar</button>
     </div>
   </div>
 </div>
@@ -2570,6 +2505,14 @@ img, video, canvas, svg { max-width: 100%; }
   };
 
   // ---- Lyfta import: bulk-replaces only the 'lyfta'-sourced entries ----
+  // Before normalizing, every workout's exercises are run through
+  // GymPesasStore.partitionWorkoutExercises: discarded names (Run,
+  // Stationary Bike Run) are dropped entirely, isMobility:true exercises
+  // are extracted into the separate mobility log, and the rest keep only
+  // their resolved primaryMuscle/secondaryMuscles. A workout left with no
+  // exercises after that (i.e. it was ONLY the discarded exercise) is
+  // dropped — it never enters workout_history and doesn't count for the
+  // training streak.
   $('whImportBtn').addEventListener('click', () => $('whImportFile').click());
   $('whImportFile').addEventListener('change', (e) => {
     const file = e.target.files[0];
@@ -2582,7 +2525,14 @@ img, video, canvas, svg { max-width: 100%; }
           alert('Invalid file — expected a Lyfta export with a "workouts" array.');
           return;
         }
-        whMergeBySource(whNormalizeWorkouts(parsed.workouts, 'lyfta'), 'lyfta');
+        const allMobilityEntries = [];
+        const filteredWorkouts = parsed.workouts.map((w) => {
+          const partitioned = window.GymPesasStore.partitionWorkoutExercises(w && w.date, (w && w.exercises) || []);
+          if (partitioned.mobilityEntries.length) allMobilityEntries.push(...partitioned.mobilityEntries);
+          return Object.assign({}, w, { exercises: partitioned.keptExercises });
+        }).filter((w) => w.exercises.length > 0);
+        if (allMobilityEntries.length) window.GymPesasStore.addMobilityLogEntries(allMobilityEntries);
+        whMergeBySource(whNormalizeWorkouts(filteredWorkouts, 'lyfta'), 'lyfta');
         whCommit();
       } catch (err) { alert('Could not parse that file as JSON.'); }
     };
@@ -2666,11 +2616,12 @@ img, video, canvas, svg { max-width: 100%; }
   });
 
   // Export / Import / Reset — scoped to what Settings manages now (units +
-  // exercise library/routines/fatigue config, via GymData). Workout history
-  // (Lyfta import / manual entries) has its own dedicated import flow
-  // above ("Import Lyfta JSON") and is intentionally untouched here.
+  // exercise/muscle overrides, mobility log, fatigue config, via
+  // GymPesasStore). Workout history (Lyfta import / manual entries) has
+  // its own dedicated import flow above ("Import Lyfta JSON") and is
+  // intentionally untouched here.
   $('setExport').addEventListener('click', () => {
-    const snapshot = { units: state.units, training: window.GymData.exportSnapshot() };
+    const snapshot = { units: state.units, training: window.GymPesasStore.exportSnapshot() };
     const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -2686,7 +2637,7 @@ img, video, canvas, svg { max-width: 100%; }
         const parsed = JSON.parse(reader.result);
         if (!confirm('Replace ALL current training data with the imported file? This cannot be undone.')) return;
         if (parsed.units) { state.units = parsed.units; saveState(); }
-        if (parsed.training) window.GymData.importSnapshot(parsed.training);
+        if (parsed.training) window.GymPesasStore.importSnapshot(parsed.training);
         renderSettings();
         if (typeof wtRender === 'function') wtRender();
       } catch (err) { alert('Import failed: ' + err.message); }
@@ -2694,8 +2645,8 @@ img, video, canvas, svg { max-width: 100%; }
     reader.readAsText(file);
   });
   $('setReset').addEventListener('click', () => {
-    if (!confirm('Delete all exercises, routines, and fatigue config? This cannot be undone. (Workout history and weight/photos are not affected.)')) return;
-    window.GymData.resetAll();
+    if (!confirm('Delete all exercise/muscle overrides, the mobility log, and the fatigue config? This cannot be undone. (Workout history and weight/photos are not affected.)')) return;
+    window.GymPesasStore.resetAll();
     $('setModalBg').classList.remove('show');
   });
 
@@ -4122,7 +4073,6 @@ img, video, canvas, svg { max-width: 100%; }
   });
 })();
 </script>
-<script src="gymData.js"></script>
 <script src="gymUI.js"></script>
 
 <!-- ===== Nova gym coach (top-right avatar, bring-your-own Anthropic key) ===== -->

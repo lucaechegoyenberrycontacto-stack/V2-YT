@@ -5,7 +5,7 @@
   // PLACEHOLDER — replace with the user's real training documentation.
   // Every numeric value below is an illustrative example, not a verified
   // physiological fact. This object only ever ships as the seed value for
-  // a brand-new gym_training_config row; the user's real config replaces
+  // a brand-new gym_pesas_store row; the user's real config replaces
   // it wholesale (see `isPlaceholder`) once loaded.
   const DEFAULT_MUSCLE_FATIGUE_CONFIG = {
     isPlaceholder: true,

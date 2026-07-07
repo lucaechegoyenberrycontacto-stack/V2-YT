@@ -73,24 +73,28 @@ create policy "anon manage progress-photos"
   with check (bucket_id = 'progress-photos');
 ```
 
-### SQL #4 — `gym_training_config` (Training module: exercise library, routines, muscle fatigue config)
+### SQL #4 — `gym_pesas_store` (Training module: exercise/muscle overrides, mobility log, fatigue config)
 Only needed if you use the multi-discipline training module on the Fitness page (Pesas/Boxeo-
-MuayThai/Bici/Running). Holds reference data — exercise library, routine templates and their
-full version history, and the muscle-fatigue config — separate from `workout_history`, which
-only holds the per-session log.
+MuayThai/Bici/Running). Holds reference data for the Pesas section — user overrides on top of
+the built-in exercise→muscle seed, the mobility log, and the muscle-fatigue config — separate
+from `workout_history`, which only holds the per-session log.
+
+> If you previously ran the old SQL #4 for `gym_training_config` (routines/versioned exercise
+> library), that table is no longer used by the app and can be left in place or dropped — it's
+> replaced by this simpler one, not migrated.
 ```sql
-create table if not exists public.gym_training_config (
+create table if not exists public.gym_pesas_store (
   key        text primary key,
   data       jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
 
-alter table public.gym_training_config enable row level security;
-create policy "anon full access gym_training_config"
-  on public.gym_training_config for all
+alter table public.gym_pesas_store enable row level security;
+create policy "anon full access gym_pesas_store"
+  on public.gym_pesas_store for all
   to anon using (true) with check (true);
 
-alter publication supabase_realtime add table public.gym_training_config;
+alter publication supabase_realtime add table public.gym_pesas_store;
 ```
 
 ### Connect YOUR Supabase — pick ONE way

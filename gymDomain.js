@@ -1,33 +1,7 @@
 // Pure domain logic for the training module (gym.html) — no DOM, no
-// localStorage, no fetch. Structural-diff detection, PR checks, and (in a
-// later phase) period-comparison/streak math all live here so they can be
-// reasoned about and tested independently of the UI.
+// localStorage, no fetch. PR checks and period-comparison/streak math live
+// here so they can be reasoned about and tested independently of the UI.
 (function () {
-  // Compares the routine version used to START a session against the
-  // exercises actually logged, by exercise ID + ORDER only. Weight/reps/
-  // set-count differences are irrelevant here — that's normal progression,
-  // never a structural change. Never trips on anything but exercises
-  // added, removed, or reordered.
-  //
-  // @param {{exercises:[{exerciseId}]}} routineVersion  the version used to start the session (or null for a free session)
-  // @param {string[]} sessionExerciseIds  exercise IDs in the order actually performed
-  // @returns {{changed:boolean, added:string[], removed:string[], reordered:boolean}}
-  function detectRoutineStructuralDiff(routineVersion, sessionExerciseIds) {
-    const routineIds = ((routineVersion && routineVersion.exercises) || []).map(function (e) { return e.exerciseId; });
-    const added = sessionExerciseIds.filter(function (id) { return routineIds.indexOf(id) === -1; });
-    const removed = routineIds.filter(function (id) { return sessionExerciseIds.indexOf(id) === -1; });
-    let reordered = false;
-    if (!added.length && !removed.length) {
-      reordered = routineIds.some(function (id, i) { return id !== sessionExerciseIds[i]; });
-    }
-    return {
-      changed: added.length > 0 || removed.length > 0 || reordered,
-      added: added,
-      removed: removed,
-      reordered: reordered,
-    };
-  }
-
   // Highest single-set weight ever logged for this exercise name, across
   // all prior workouts (before the set currently being checked).
   function checkWeightPR(exerciseName, weight, allWorkouts) {
@@ -117,7 +91,6 @@
   }
 
   window.GymDomain = {
-    detectRoutineStructuralDiff: detectRoutineStructuralDiff,
     checkWeightPR: checkWeightPR,
     checkVolumePR: checkVolumePR,
     computeWeekOverWeek: computeWeekOverWeek,
