@@ -9,7 +9,7 @@
 <title>Nutrition · Dashboard</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="sync.js" defer></script>
+<script src="dataLayer.js" defer></script>
 <script src="topbar.js" defer></script>
 
 <style>
@@ -445,10 +445,14 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
   const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
   const uid = (p) => p+Date.now()+Math.floor(Math.random()*1000);
 
-  /* ============ Storage ============ */
-  const FOODS_KEY='nut:foods', COMBOS_KEY='nut:combos', LOG_KEY='nut:log', GOALS_KEY='nut:goals', PROFILE_KEY='nut:profile';
-  function loadJSON(k,f){ try { const v=JSON.parse(localStorage.getItem(k)); return v==null?f:v; } catch(e){ return f; } }
-  function saveJSON(k,v){ localStorage.setItem(k, JSON.stringify(v)); }
+  /* ============ Storage ============
+     DataLayer collections back this page now (records table, one row per
+     item). The nut:* localStorage keys below are kept only as legacy
+     mirrors — index.html and gymEcosystem.js still read them directly and
+     haven't been migrated yet (see DATA_AUDIT.md section 5). ============ */
+  const FOODS_COL='nutrition_foods', COMBOS_COL='nutrition_combos', LOG_COL='nutrition_log', GOALS_COL='nutrition_goals', PROFILE_COL='nutrition_profile';
+  const FOODS_KEY='nut:foods', COMBOS_KEY='nut:combos', LOG_KEY='nut:log', GOALS_KEY='nut:goals';
+  function stripId(obj){ const clone=Object.assign({}, obj); delete clone.id; return clone; }
 
   /* ============ Seed data (small generic starter set) ============ */
   const SEED_FOODS = [
@@ -472,13 +476,13 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
   ];
   const DEFAULT_GOALS = {kcal:2200, protein:140, carbs:250, fat:70};
 
-  let foods = loadJSON(FOODS_KEY, null);
-  if (!foods) { foods = SEED_FOODS.slice(); saveJSON(FOODS_KEY, foods); }
-  let combos = loadJSON(COMBOS_KEY, null);
-  if (!combos) { combos = SEED_COMBOS.slice(); saveJSON(COMBOS_KEY, combos); }
-  let log = loadJSON(LOG_KEY, []);
-  let goals = loadJSON(GOALS_KEY, null);
-  if (!goals) { goals = Object.assign({}, DEFAULT_GOALS); saveJSON(GOALS_KEY, goals); }
+  // Populated by boot() once DataLayer.init() resolves — empty until then,
+  // same as the brief blank state the old sync.js version had before its
+  // first pull completed.
+  let foods = [];
+  let combos = [];
+  let log = [];
+  let goals = Object.assign({}, DEFAULT_GOALS);
 
   function foodById(id){ return foods.find(f=>f.id===id); }
   function comboById(id){ return combos.find(c=>c.id===id); }
@@ -581,22 +585,32 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
       li.innerHTML = '<span class="log-emoji">'+(entry.e||'🍽️')+'</span><div class="log-main"><div class="log-name">'+escapeHtml(entry.name)+'<b>'+Math.round(m.kcal)+' kcal</b></div>'
         +'<div class="log-meta">P '+Math.round(m.protein)+'g<span class="sep">•</span>C '+Math.round(m.carbs)+'g<span class="sep">•</span>F '+Math.round(m.fat)+'g</div></div>'
         +'<span class="log-time">'+fmtTime(entry.ts)+'</span><button class="log-del" type="button" aria-label="Delete">×</button>';
-      li.querySelector('.log-del').addEventListener('click', ()=>{ log = log.filter(x=>x.id!==entry.id); saveJSON(LOG_KEY, log); renderAll(); });
+      li.querySelector('.log-del').addEventListener('click', ()=>{
+        log = log.filter(x=>x.id!==entry.id);
+        renderAll();
+        DataLayer.remove(LOG_COL, entry.id);
+      });
       list.appendChild(li);
     });
   }
 
   /* ============ Calorie Balance (consumed - burned vs goal) ============
-     Reads 'burned:YYYY-MM-DD' from localStorage — written by the "Calories
-     Burned" card in health.html (same key format, no cutoff hour, plain
-     local calendar day). Shown neutral/gray if nothing's logged yet for
-     the viewed day, rather than silently treating missing data as 0 burned.
+     Reads 'caloriesBurnedEntries' from localStorage — health.html migrated
+     "Calories Burned" to this array-of-entries shape a while back, but this
+     page (and index.html) kept reading the dead 'burned:YYYY-MM-DD' key,
+     so burned calories logged in Health silently never reached this
+     balance (DATA_AUDIT.md finding 1). Shown neutral/gray if nothing's
+     logged yet for the viewed day, rather than silently treating missing
+     data as 0 burned.
+     TODO Fase 2: leer de records cuando health migre.
   ============================================================ */
   function getBurnedFor(dateKey){
-    const v = localStorage.getItem('burned:'+dateKey);
-    if (v==null || v==='') return null;
-    const n = parseFloat(v);
-    return isNaN(n) ? null : n;
+    let entries = [];
+    try { entries = JSON.parse(localStorage.getItem('caloriesBurnedEntries')) || []; } catch(e) { entries = []; }
+    if (!Array.isArray(entries) || entries.length===0) return null;
+    const dayEntries = entries.filter(en=>en && en.date===dateKey);
+    if (dayEntries.length===0) return null;
+    return dayEntries.reduce((sum,en)=>sum+(Number(en.kcal)||0), 0);
   }
   function renderBalance(){
     const consumed = Math.round(dailyTotals().kcal);
@@ -628,7 +642,7 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
     const overBy = net - target;
     $('balanceStatus').textContent = overBy > 0 ? ('⚠️ '+Math.round(overBy)+' kcal over your target') : '✅ On track for your goal';
   }
-  window.addEventListener('storage', (e)=>{ if (!e.key || e.key.indexOf('burned:')===0) renderBalance(); });
+  window.addEventListener('storage', (e)=>{ if (!e.key || e.key==='caloriesBurnedEntries') renderBalance(); });
 
   function renderAll(){ renderRing(); renderTiles(); renderGoalsNote(); renderLog(); renderBalance(); }
 
@@ -673,10 +687,11 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
     const kcal=parseFloat($('foodKcal').value)||0, protein=parseFloat($('foodProtein').value)||0,
           carbs=parseFloat($('foodCarbs').value)||0, fat=parseFloat($('foodFat').value)||0;
     if (!name) return;
-    foods.push({id:uid('f_'), name, unit, kcal, protein, carbs, fat, e:'🥘'});
-    saveJSON(FOODS_KEY, foods);
+    const food = {id:uid('f_'), name, unit, kcal, protein, carbs, fat, e:'🥘'};
+    foods.push(food);
     closeModal('modalFood');
     renderResults($('search').value);
+    DataLayer.put(FOODS_COL, food.id, stripId(food));
   });
 
   /* ============ New Combo ============ */
@@ -710,10 +725,11 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
       if (foodId && qty > 0) items.push({foodId, qty});
     });
     if (items.length===0) return;
-    combos.push({id:uid('c_'), name, e:'🍽️', items});
-    saveJSON(COMBOS_KEY, combos);
+    const combo = {id:uid('c_'), name, e:'🍽️', items};
+    combos.push(combo);
     closeModal('modalCombo');
     renderResults($('search').value);
+    DataLayer.put(COMBOS_COL, combo.id, stripId(combo));
   });
 
   /* ============ Log combo (adjustable quantities) ============ */
@@ -760,11 +776,12 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
     if (!pendingLog) return;
     const items = pendingLog.workingItems.filter(it=>it.qty>0).map(it=>({foodId:it.foodId, qty:it.qty}));
     if (items.length===0){ closeModal('modalLogCombo'); return; }
-    log.push({ id: uid('l_'), ts: tsForViewDate(), name: pendingLog.name, e: pendingLog.e, comboId: pendingLog.comboId, items });
-    saveJSON(LOG_KEY, log);
+    const entry = { id: uid('l_'), ts: tsForViewDate(), name: pendingLog.name, e: pendingLog.e, comboId: pendingLog.comboId, items };
+    log.push(entry);
     closeModal('modalLogCombo');
     pendingLog = null;
     renderAll();
+    DataLayer.put(LOG_COL, entry.id, stripId(entry));
   });
 
   /* ============ Goals ============ */
@@ -779,9 +796,9 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
       carbs: parseFloat($('goalCarbs').value)||DEFAULT_GOALS.carbs,
       fat: parseFloat($('goalFat').value)||DEFAULT_GOALS.fat,
     };
-    saveJSON(GOALS_KEY, goals);
     closeModal('modalGoals');
     renderAll();
+    DataLayer.putSingleton(GOALS_COL, goals);
   });
 
   /* ============ Goal calculator ============
@@ -809,10 +826,11 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
       return (last && last.weight>0) ? last.weight : null;
     } catch(e){ return null; }
   }
-  function getCalcProfile(){
-    const saved = loadJSON(PROFILE_KEY, null);
-    if (saved) return saved;
-    const water = loadJSON('po_water_v1', null);
+  async function getCalcProfile(){
+    const saved = await DataLayer.getSingleton(PROFILE_COL);
+    if (saved && Object.keys(saved).length) return saved;
+    let water = null;
+    try { water = JSON.parse(localStorage.getItem('po_water_v1')); } catch(e) { water = null; }
     const p = (water && water.profile) || {};
     return {
       weightKg: latestBodyWeightKg() || p.weightKg || null,
@@ -852,8 +870,8 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
   $('calcSexSeg').querySelectorAll('button').forEach(b=>b.addEventListener('click', ()=>setCalcSex(b.dataset.s)));
   $('calcGoalSeg').querySelectorAll('button').forEach(b=>b.addEventListener('click', ()=>setCalcGoal(b.dataset.g)));
 
-  $('btnCalcGoals').addEventListener('click', ()=>{
-    const p = getCalcProfile();
+  $('btnCalcGoals').addEventListener('click', async ()=>{
+    const p = await getCalcProfile();
     $('calcWeight').value = p.weightKg || '';
     $('calcHeight').value = p.heightCm || '';
     $('calcAge').value = p.age || '';
@@ -890,10 +908,10 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
   $('btnApplyCalc').addEventListener('click', ()=>{
     if (!lastCalcResult) return;
     goals = { kcal: lastCalcResult.r.kcal, protein: lastCalcResult.r.protein, carbs: lastCalcResult.r.carbs, fat: lastCalcResult.r.fat };
-    saveJSON(GOALS_KEY, goals);
-    saveJSON(PROFILE_KEY, lastCalcResult.profile);
     closeModal('modalCalc');
     renderAll();
+    DataLayer.putSingleton(GOALS_COL, goals);
+    DataLayer.putSingleton(PROFILE_COL, lastCalcResult.profile);
   });
 
   /* ============ Ring tap = scroll to macro detail (simple "interactive" affordance) ============ */
@@ -934,32 +952,58 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
     setViewDate(dateKeyFrom(dt));
   });
   $('dayTodayBtn').addEventListener('click', ()=>setViewDate(todayDateKey()));
-  updateDaySwitchUI();
 
-  renderResults('');
-  renderAll();
+  /* ============ Cloud data (DataLayer) ============
+     dataLayer.js is loaded with `defer`, but this main IIFE isn't —
+     without this wrapper, window.DataLayer would still be undefined at
+     the moment this line runs. DOMContentLoaded fires only after all
+     deferred scripts have run, guaranteeing DataLayer exists (same
+     pattern the old sync.js version used). No session → DataLayer.init
+     redirects to login.html and boot() never continues past that await.
+  ============================================================ */
+  async function boot(){
+    const session = await DataLayer.init({requireAuth:true});
+    if (!session) return; // redirected to login.html
 
-  /* ============ Cloud sync ============ */
-  // sync.js is loaded with `defer`, but this main IIFE isn't — without this
-  // wrapper, window.initCloudSync is still undefined at the moment this
-  // line runs, so the `if` below silently never fires and this page never
-  // syncs. DOMContentLoaded fires only after all deferred scripts have
-  // run, guaranteeing initCloudSync exists (same pattern as habits.html).
-  document.addEventListener('DOMContentLoaded', function () {
-    if (typeof initCloudSync !== 'function') return;
-    initCloudSync({
-      appKey: 'nutrition',
-      syncedKeys: [FOODS_KEY, COMBOS_KEY, LOG_KEY, GOALS_KEY, PROFILE_KEY],
-      onApplied: function () {
-        foods = loadJSON(FOODS_KEY, foods);
-        combos = loadJSON(COMBOS_KEY, combos);
-        log = loadJSON(LOG_KEY, log);
-        goals = loadJSON(GOALS_KEY, goals);
-        renderResults($('search').value);
-        renderAll();
-      }
+    foods = await DataLayer.list(FOODS_COL);
+    if (foods.length===0){
+      foods = SEED_FOODS.slice();
+      await Promise.all(foods.map(f=>DataLayer.put(FOODS_COL, f.id, stripId(f))));
+    }
+    combos = await DataLayer.list(COMBOS_COL);
+    if (combos.length===0){
+      combos = SEED_COMBOS.slice();
+      await Promise.all(combos.map(c=>DataLayer.put(COMBOS_COL, c.id, stripId(c))));
+    }
+    log = await DataLayer.list(LOG_COL);
+    goals = await DataLayer.getSingleton(GOALS_COL);
+    if (!goals || Object.keys(goals).length===0){
+      goals = Object.assign({}, DEFAULT_GOALS);
+      await DataLayer.putSingleton(GOALS_COL, goals);
+    }
+
+    DataLayer.setLegacyMirror(FOODS_COL, FOODS_KEY, rows=>rows.slice());
+    DataLayer.setLegacyMirror(LOG_COL, LOG_KEY, rows=>rows.slice());
+    DataLayer.setLegacyMirror(GOALS_COL, GOALS_KEY, rows=>{
+      const row = rows.find(r=>r.id==='main');
+      return row ? stripId(row) : Object.assign({}, DEFAULT_GOALS);
     });
-  });
+
+    DataLayer.subscribe(FOODS_COL, async ()=>{ foods = await DataLayer.list(FOODS_COL); renderResults($('search').value); renderAll(); });
+    DataLayer.subscribe(COMBOS_COL, async ()=>{ combos = await DataLayer.list(COMBOS_COL); renderResults($('search').value); });
+    DataLayer.subscribe(LOG_COL, async ()=>{ log = await DataLayer.list(LOG_COL); renderAll(); });
+    DataLayer.subscribe(GOALS_COL, async ()=>{
+      goals = await DataLayer.getSingleton(GOALS_COL);
+      if (!goals || Object.keys(goals).length===0) goals = Object.assign({}, DEFAULT_GOALS);
+      renderAll();
+    });
+    DataLayer.subscribe(PROFILE_COL, ()=>{}); // no page-level state to refresh; getCalcProfile() re-fetches on demand
+
+    updateDaySwitchUI();
+    renderResults('');
+    renderAll();
+  }
+  document.addEventListener('DOMContentLoaded', boot);
 })();
 </script>
 </body>
