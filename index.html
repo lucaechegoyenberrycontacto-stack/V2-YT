@@ -277,6 +277,22 @@ body::after {
     </div>
   </div>
 
+  <div class="section">
+    <div class="section-title">Finanzas</div>
+    <div class="stat-grid">
+      <a class="stat" id="statNetWorth" href="finance.html">
+        <div class="stat-num" id="statNetWorthNum">—</div>
+        <div class="stat-label">Patrimonio</div>
+        <div class="stat-sub" id="statNetWorthSub"></div>
+      </a>
+      <a class="stat" id="statExpenses" href="finance.html">
+        <div class="stat-num" id="statExpensesNum">—</div>
+        <div class="stat-label">Gastos (mes)</div>
+        <div class="stat-sub" id="statExpensesSub"></div>
+      </a>
+    </div>
+  </div>
+
 </div><!-- /.page -->
 
 <script>
@@ -867,6 +883,109 @@ body::after {
   }
 
   /* ============================================================
+     FINANZAS — Patrimonio (nw:history) + Gastos del mes (expenses).
+     Same localStorage keys/shape as finance.html (appKey 'finance'):
+     amounts are stored in CHF, nw_currency picks the display currency.
+     Rates come from the same keyless open.er-api.com endpoint finance.html
+     uses (fetched once per load, no polling — exchange rates don't move
+     fast enough to justify it here).
+     ============================================================ */
+  let financeRates = { CHF: 1, USD: 1, EUR: 1, GBP: 1, ARS: 1 };
+  function getFinanceCurrency() {
+    let c = null;
+    try { c = JSON.parse(localStorage.getItem('nw_currency')); } catch (e) {}
+    return (typeof c === 'string' && financeRates[c] !== undefined) ? c : 'CHF';
+  }
+  function fmtFinanceMoney(amountCHF) {
+    const symbol = getFinanceCurrency();
+    const rate = financeRates[symbol] || 1;
+    const num = (Number(amountCHF) || 0) * rate;
+    return symbol + ' ' + num.toLocaleString('en-US', { minimumFractionDigits: num % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 });
+  }
+  async function loadFinanceRates() {
+    try {
+      const res = await fetch('https://open.er-api.com/v6/latest/CHF');
+      const json = await res.json();
+      if (json && json.rates) {
+        financeRates.USD = json.rates.USD || 1;
+        financeRates.EUR = json.rates.EUR || 1;
+        financeRates.GBP = json.rates.GBP || 1;
+      }
+    } catch (e) {}
+    if (getFinanceCurrency() === 'ARS') {
+      try {
+        const res = await fetch('https://dolarapi.com/v1/dolares/oficial');
+        const json = await res.json();
+        if (json && json.venta) financeRates.ARS = json.venta;
+      } catch (e) {}
+    }
+    renderFinanceStats();
+  }
+
+  function renderNetWorthStat() {
+    let hist = [];
+    try { const v = JSON.parse(localStorage.getItem('nw:history')); if (Array.isArray(v)) hist = v; } catch (e) {}
+    if (!hist.length) { setStat('statNetWorth', '—', null, ''); return; }
+    hist = hist.slice().sort((a, b) => a.t - b.t);
+    const latest = hist[hist.length - 1].v;
+    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    let baseline = hist[0].v;
+    for (const p of hist) { if (p.t <= cutoff) baseline = p.v; else break; }
+    const change = latest - baseline;
+    const status = Math.abs(change) < 0.005 ? null : (change > 0 ? 'good' : 'bad');
+    let sub = '';
+    if (Math.abs(change) >= 0.005) {
+      const sign = change > 0 ? '+' : '−';
+      sub = Math.abs(baseline) < 0.5
+        ? sign + fmtFinanceMoney(Math.abs(change)) + ' (30d)'
+        : sign + Math.abs((change / Math.abs(baseline)) * 100).toFixed(1) + '% (30d)';
+    }
+    setStat('statNetWorth', fmtFinanceMoney(latest), status, sub);
+  }
+
+  // Sums expenses whose date (a plain YYYY-MM-DD, same as finance.html's
+  // expenseInRange) falls in the given calendar year/month.
+  function expenseMonthTotal(items, year, month, maxDay) {
+    return items.reduce((s, it) => {
+      if (!it.date) return s;
+      const d = new Date(it.date + 'T00:00');
+      if (isNaN(d) || d.getFullYear() !== year || d.getMonth() !== month) return s;
+      if (maxDay != null && d.getDate() > maxDay) return s;
+      return s + (Number(it.amount) || 0);
+    }, 0);
+  }
+  function renderExpensesStat() {
+    let items = [];
+    try { const v = JSON.parse(localStorage.getItem('expenses')); if (Array.isArray(v)) items = v; } catch (e) {}
+    if (!items.length) { setStat('statExpenses', '—', null, ''); return; }
+
+    const now = new Date();
+    const thisMonthTotal = expenseMonthTotal(items, now.getFullYear(), now.getMonth());
+    // Compare month-to-date against the SAME day range last month (not
+    // last month's full total) — the current month isn't over yet, so a
+    // full-month comparison would always look artificially low.
+    const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevMonthPace = expenseMonthTotal(items, prevMonthDate.getFullYear(), prevMonthDate.getMonth(), now.getDate());
+
+    let status = null, sub = '';
+    if (prevMonthPace > 0) {
+      const ratio = thisMonthTotal / prevMonthPace;
+      status = ratio <= 1.0 ? 'good' : ratio <= 1.25 ? 'warn' : 'bad';
+      const pct = (ratio - 1) * 100;
+      sub = (pct >= 0 ? '+' : '−') + Math.abs(pct).toFixed(0) + '% vs mes pasado';
+    } else if (thisMonthTotal > 0) {
+      sub = 'sin datos del mes pasado';
+    }
+    setStat('statExpenses', fmtFinanceMoney(thisMonthTotal), status, sub);
+  }
+
+  function renderFinanceStats() {
+    renderNetWorthStat();
+    renderExpensesStat();
+  }
+  loadFinanceRates();
+
+  /* ============================================================
      CROSS-DEVICE WARM-UP — read-only pull for stats whose owning page
      (health.html/nutrition.html/gym.html) may never have been opened on
      THIS device. Those pages' own initCloudSync does the localStorage
@@ -900,15 +1019,18 @@ body::after {
     if (!warmupSupa) return;
     lastWarmUpAt = Date.now();
     try {
-      const [healthRes, nutritionRes, coachRes] = await Promise.allSettled([
+      const [healthRes, nutritionRes, coachRes, financeRes] = await Promise.allSettled([
         warmupSupa.from('app_state').select('data').eq('key', 'health').maybeSingle(),
         warmupSupa.from('app_state').select('data').eq('key', 'nutrition').maybeSingle(),
         warmupSupa.from('app_state').select('data').eq('key', 'po-coach').maybeSingle(),
+        warmupSupa.from('app_state').select('data').eq('key', 'finance').maybeSingle(),
       ]);
       const health = warmUpRowData(healthRes);
       const nutrition = warmUpRowData(nutritionRes);
       const coach = warmUpRowData(coachRes);
+      const finance = warmUpRowData(financeRes);
       let changed = false;
+      let currencyChanged = false;
       if (health) {
         changed = applyIfDifferent('sleepEntries', health.sleepEntries) || changed;
         changed = applyIfDifferent('po_water_v1', health.po_water_v1) || changed;
@@ -924,7 +1046,15 @@ body::after {
         changed = applyIfDifferent('gym:stepsGoal', coach['gym:stepsGoal']) || changed;
         changed = applyIfDifferent('po_coach_v1', coach['po_coach_v1']) || changed;
       }
-      if (changed) renderAllStats();
+      if (finance) {
+        changed = applyIfDifferent('nw:history', finance['nw:history']) || changed;
+        changed = applyIfDifferent('expenses', finance.expenses) || changed;
+        currencyChanged = applyIfDifferent('nw_currency', finance.nw_currency) || currencyChanged;
+      }
+      if (changed || currencyChanged) renderAllStats();
+      // A currency change (e.g. picked ARS on another device) needs a rate
+      // re-fetch, not just a re-render with the old (or default) rates.
+      if (currencyChanged) loadFinanceRates();
     } catch (e) {}
   }
 
@@ -938,6 +1068,7 @@ body::after {
     renderCaloriesStat();
     renderGymStat();
     renderStepsStat();
+    renderFinanceStats();
   }
   renderAllStats();
   warmUpFromCloud();
