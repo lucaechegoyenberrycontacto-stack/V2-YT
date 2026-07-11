@@ -1949,6 +1949,61 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   </div>
 </div>
 
+<!-- ===== EXPENSES ===== -->
+<div class="section" data-section="expenses">
+  <div class="section-title">
+    <span class="section-title-text">EXPENSES</span>
+  </div>
+
+  <!-- Add card -->
+  <div class="card ord-add-card">
+    <div class="ord-add-eyebrow">+ AÑADIR GASTO</div>
+    <div class="ord-add-grid">
+      <input type="text"   id="expName"   placeholder="Compré una banana" class="ord-input ord-input-name">
+      <input type="number" id="expAmount" placeholder="Monto" step="0.01" class="ord-input ord-input-cost">
+      <select id="expCurrency" class="ord-input ord-input-ccy">
+        <option value="CHF">CHF</option>
+        <option value="USD">USD</option>
+        <option value="EUR">EUR</option>
+        <option value="GBP">GBP</option>
+        <option value="ARS">ARS</option>
+      </select>
+      <select id="expMethod" class="ord-input ord-input-from" title="Método de pago / cuenta">
+        <option value="">Loading…</option>
+      </select>
+      <input type="text" id="expMethodNew" placeholder="New method name" class="ord-input" style="display:none;grid-column:1 / -1">
+      <label class="date-field ord-input-date" title="Fecha"><span class="date-emoji" aria-hidden="true">📅</span><input type="date" id="expDate" /></label>
+      <button class="ord-add-btn" id="expAddBtn" onclick="window.__addExpense && window.__addExpense()">+ Añadir gasto</button>
+    </div>
+  </div>
+
+  <!-- Total + range filter -->
+  <div class="nw-chart-wrap has-data" id="expTotalWrap" style="padding:14px 16px 12px">
+    <div class="nw-chart-head">
+      <span class="nw-chart-label">Total spent</span>
+      <div class="nw-chart-range" id="expRangeButtons">
+        <button type="button" class="nw-range-btn" data-range="today">Today</button>
+        <button type="button" class="nw-range-btn" data-range="week">Week</button>
+        <button type="button" class="nw-range-btn" data-range="month">Month</button>
+        <button type="button" class="nw-range-btn active" data-range="all">All</button>
+      </div>
+    </div>
+    <div id="expTotal" style="font-size:28px;font-weight:700;color:var(--text-primary);line-height:1.1;margin-top:6px">CHF 0</div>
+  </div>
+
+  <!-- Items list -->
+  <div class="ord-section-h">
+    <span class="ord-section-label">EXPENSES</span>
+    <span class="ord-section-count" id="expCount">0 expenses</span>
+  </div>
+  <div id="expList"></div>
+  <div class="ord-empty-card" id="expEmpty">
+    <div class="ord-empty-icon">💸</div>
+    <div class="ord-empty-title">No expenses logged</div>
+    <div class="ord-empty-sub">Log a purchase above. If the payment method matches an account in Net Worth, its balance updates automatically.</div>
+  </div>
+</div>
+
 </div>
 
 <!-- ===== BOTTOM TAB BAR ===== -->
@@ -1968,6 +2023,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   <button class="bot-tab" data-tab="wish">
     <span class="bot-tab-icon">🎯</span>
     <span class="bot-tab-label">Wishlist</span>
+  </button>
+  <button class="bot-tab" data-tab="expenses">
+    <span class="bot-tab-icon">💸</span>
+    <span class="bot-tab-label">Expenses</span>
   </button>
 </nav>
 
@@ -2001,6 +2060,26 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   };
 
   // ============================================================
+  // EXPENSE_METHOD_REGISTRY_KEY — same TDZ hazard as ORD_FROM_META
+  // above: populateExpMethodSelect() runs as part of the very first
+  // renderAllNetWorth() call (via renderExpenses), so this const must
+  // already be initialized by then. Hoisted to the top for that reason.
+  // ============================================================
+  const EXPENSE_METHOD_REGISTRY_KEY = 'expense_methods_registry';
+  function getExpenseMethodRegistry() {
+    const reg = storeGet(EXPENSE_METHOD_REGISTRY_KEY);
+    return Array.isArray(reg) ? reg : [];
+  }
+  function addToExpenseMethodRegistry(name) {
+    const reg = getExpenseMethodRegistry();
+    if (!reg.some(n => n.toLowerCase() === name.toLowerCase())) {
+      reg.push(name);
+      storeSet(EXPENSE_METHOD_REGISTRY_KEY, reg);
+    }
+    return reg;
+  }
+
+  // ============================================================
   // BOTTOM TABS — switch between Net Worth / Subs / Orders.
   // Active tab persisted in localStorage.
   // ============================================================
@@ -2018,7 +2097,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   }
   tabs.forEach(b => b.addEventListener('click', () => setActiveTab(b.dataset.tab)));
   const savedTab = storeGet(TAB_KEY);
-  setActiveTab(savedTab && ['net','subs','incoming','wish'].includes(savedTab) ? savedTab : 'net');
+  setActiveTab(savedTab && ['net','subs','incoming','wish','expenses'].includes(savedTab) ? savedTab : 'net');
 
   // ============================================================
   // NET WORTH (copied from the main dashboard, verbatim logic)
@@ -2051,6 +2130,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
         });
         renderAllNetWorth();
         if (typeof renderSubs === 'function') renderSubs();
+        if (typeof renderExpenses === 'function') renderExpenses();
       }
     } catch (e) {}
   }
@@ -2272,6 +2352,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     if (typeof renderWishlist === 'function') renderWishlist();
     if (typeof renderOrders   === 'function') renderOrders();
     if (typeof updateOrdPreview === 'function') updateOrdPreview();
+    if (typeof renderExpenses === 'function') renderExpenses();
   }
 
   // ============================================================
@@ -2338,11 +2419,12 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   // Each NW category gets a fixed color; subs get red because outflow.
   // ============================================================
   const NW_SLICE_META = {
-    bank:   { name: 'Bank',     color: '#7DD3FC' },
-    stocks: { name: 'Stocks',   color: '#6EE7B7' },
-    crypto: { name: 'Crypto',   color: '#FBBF24' },
-    other:  { name: 'Other',    color: '#B794F4' },
-    subs:   { name: 'Subs/yr',  color: '#FF8A8A' }
+    bank:     { name: 'Bank',        color: '#7DD3FC' },
+    stocks:   { name: 'Stocks',      color: '#6EE7B7' },
+    crypto:   { name: 'Crypto',      color: '#FBBF24' },
+    other:    { name: 'Other',       color: '#B794F4' },
+    subs:     { name: 'Subs/yr',     color: '#FF8A8A' },
+    expenses: { name: 'Expenses/mo', color: '#FB923C' }
   };
   // Per-account color overrides for the donut — takes precedence over the
   // parent category's color when an account name matches (case-insensitive).
@@ -2402,6 +2484,17 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     if (annualSubsCHF > 0) {
       const meta = NW_SLICE_META.subs;
       slices.push({ key: 'subs', name: meta.name, color: meta.color, value: annualSubsCHF });
+    }
+    // Expenses this month — one aggregate slice, a visual reference for
+    // recent outflow alongside the subs burn. expenseInRange is declared
+    // further down but is a hoisted function declaration, safe to call here.
+    const expItems = storeGet('expenses') || [];
+    const monthExpensesCHF = expItems
+      .filter(it => (typeof expenseInRange === 'function') && expenseInRange(it, 'month'))
+      .reduce((s, it) => s + (Number(it.amount) || 0), 0);
+    if (monthExpensesCHF > 0) {
+      const meta = NW_SLICE_META.expenses;
+      slices.push({ key: 'expenses', name: meta.name, color: meta.color, value: monthExpensesCHF });
     }
 
     const sliceTotal = slices.reduce((s, x) => s + x.value, 0);
@@ -2735,6 +2828,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
       storeSet(CURRENCY_KEY, currencyEl.value);
       renderAllNetWorth();
       renderSubs();
+      if (typeof renderExpenses === 'function') renderExpenses();
     });
   }
   renderAllNetWorth();
@@ -3569,6 +3663,224 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   updateOrdPreview();
 
   // ============================================================
+  // EXPENSES — one-off purchases. { id, name, amount, entered_amount,
+  // entered_currency, method, date, ts, deductedFrom }. Stored under
+  // 'expenses'. Reuses the exact same "From account" mechanism as
+  // orders/subs (parseFromValue + listAllNwAccounts): if the chosen
+  // method resolves to an existing Net Worth account, its balance is
+  // deducted immediately on add and restored on delete. Methods with
+  // no matching account (loose cash, a custom label) are recorded for
+  // tracking only — no balance impact.
+  // ============================================================
+  function expenseInRange(item, range) {
+    if (range === 'all') return true;
+    if (!item.date) return false;
+    const d = new Date(item.date + 'T00:00');
+    if (isNaN(d)) return false;
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (range === 'today') return d.getTime() === todayStart.getTime();
+    if (range === 'week') {
+      const cutoff = todayStart.getTime() - 6 * 86400000;
+      return d.getTime() >= cutoff && d.getTime() <= todayStart.getTime();
+    }
+    if (range === 'month') return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    return true;
+  }
+  // Day-granularity label for the date pill. Not fmtActivityDate — that
+  // shows a time-of-day for "today" (built for ts-based events), which
+  // would misleadingly print "12:00 AM" for every date-only expense.
+  function fmtExpenseDate(iso) {
+    if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return '—';
+    const d = new Date(iso + 'T00:00');
+    if (isNaN(d)) return '—';
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    if (d.getTime() === todayStart) return 'today';
+    if (d.getTime() === todayStart - 86400000) return 'yest';
+    const mons = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return mons[d.getMonth()] + ' ' + d.getDate();
+  }
+  // Populate the method select with every real NW account (same source
+  // of truth as ordFromCat/subFromCat), plus a synthetic "Efectivo" cash
+  // option if no account is already named that, plus any custom methods
+  // the user has typed in before via the "New method" input.
+  function populateExpMethodSelect() {
+    const sel = document.getElementById('expMethod');
+    if (!sel) return;
+    const prev = sel.value;
+    const accounts = listAllNwAccounts();
+    const ICONS = { bank: '🏦', stocks: '📈', crypto: '🪙', other: '💼' };
+    let html = accounts.map(a => {
+      const value = a.catKey + '::' + a.itemName;
+      return '<option value="' + value + '">' + ICONS[a.catKey] + ' ' + escapeHtml(a.itemName) + '</option>';
+    }).join('');
+    const hasEfectivo = accounts.some(a => a.itemName.toLowerCase() === 'efectivo');
+    if (!hasEfectivo) html += '<option value="cash::Efectivo">💵 Efectivo</option>';
+    getExpenseMethodRegistry().forEach(name => {
+      if (accounts.some(a => a.itemName.toLowerCase() === name.toLowerCase())) return;
+      if (name.toLowerCase() === 'efectivo') return;
+      html += '<option value="custom::' + escapeHtml(name) + '">' + escapeHtml(name) + '</option>';
+    });
+    html += '<option value="__new__">➕ New method…</option>';
+    sel.innerHTML = html;
+    if (prev && prev !== '__new__' && [...sel.options].some(o => o.value === prev)) sel.value = prev;
+  }
+  function renderExpenses() {
+    const list = document.getElementById('expList');
+    const empty = document.getElementById('expEmpty');
+    const totalEl = document.getElementById('expTotal');
+    const countEl = document.getElementById('expCount');
+    if (!list) return;
+    populateExpMethodSelect();
+    const activeRangeBtn = document.querySelector('#expRangeButtons .nw-range-btn.active');
+    const range = activeRangeBtn ? activeRangeBtn.dataset.range : 'all';
+    const items = (storeGet('expenses') || []).slice().sort((a, b) => b.ts - a.ts);
+    const filtered = items.filter(it => expenseInRange(it, range));
+    const total = filtered.reduce((s, it) => s + (Number(it.amount) || 0), 0);
+    if (totalEl) totalEl.textContent = fmtMoney(total);
+    if (countEl) countEl.textContent = filtered.length + (filtered.length === 1 ? ' expense' : ' expenses');
+    list.innerHTML = '';
+    if (!filtered.length) {
+      if (empty) empty.classList.remove('hidden');
+      return;
+    }
+    if (empty) empty.classList.add('hidden');
+    filtered.forEach(it => {
+      const cost = Number(it.amount) || 0;
+      const accCat = it.deductedFrom ? it.deductedFrom.cat : null;
+      const color = (accCat && NW_SLICE_META[accCat]) ? NW_SLICE_META[accCat].color : NW_SLICE_META.expenses.color;
+      const dateLabel = fmtExpenseDate(it.date);
+      const row = document.createElement('div');
+      row.className = 'ord-card';
+      row.style.borderLeftColor = color;
+      row.innerHTML =
+          '<div class="ord-card-h">'
+        +   '<div class="ord-card-name">' + escapeHtml(it.name || '(unnamed)') + '</div>'
+        +   '<div class="ord-card-amt">-' + fmtMoney(cost) + '</div>'
+        +   '<button class="ord-card-x" data-id="' + escapeHtml(it.id) + '" aria-label="Delete">×</button>'
+        + '</div>'
+        + '<div class="ord-card-meta">'
+        +   '<span class="ord-meta-pill from">' + (accCat ? '💳 ' : '💵 ') + escapeHtml(it.method || 'Efectivo') + '</span>'
+        +   '<span class="ord-meta-pill date">' + dateLabel + '</span>'
+        + '</div>';
+      list.appendChild(row);
+    });
+    list.querySelectorAll('.ord-card-x').forEach(b => {
+      b.addEventListener('click', () => deleteExpense(b.dataset.id));
+    });
+  }
+  function doExpenseAdd() {
+    try {
+      const nEl = document.getElementById('expName');
+      const aEl = document.getElementById('expAmount');
+      const cEl = document.getElementById('expCurrency');
+      const mEl = document.getElementById('expMethod');
+      const mNewEl = document.getElementById('expMethodNew');
+      const dEl = document.getElementById('expDate');
+      if (!nEl || !aEl) return;
+      const n = (nEl.value || '').trim();
+      const aRaw = parseFloat(aEl.value);
+      if (!n || isNaN(aRaw)) { nEl.focus(); return; }
+      const ccy = cEl ? cEl.value : 'CHF';
+      const rate = exchangeRates[ccy] || 1;
+      const amountCHF = aRaw / rate;
+
+      let parsed;
+      if (mEl && mEl.value === '__new__') {
+        const methodName = (mNewEl && mNewEl.value.trim()) || '';
+        if (!methodName) { if (mNewEl) mNewEl.focus(); return; }
+        addToExpenseMethodRegistry(methodName);
+        parsed = { cat: 'custom', name: methodName };
+      } else {
+        parsed = parseFromValue(mEl ? mEl.value : '');
+      }
+      const methodName = parsed.name || 'Efectivo';
+
+      // Only deduct if the method resolves to a real NW category AND an
+      // account by that name still exists there (it may have been renamed
+      // or deleted since the select was populated).
+      let deductedFrom = null;
+      if (NW_CATS.some(c => c.key === parsed.cat)) {
+        const items = storeGet('nw:' + parsed.cat) || [];
+        const idx = items.findIndex(it => String(it.name).toLowerCase() === String(parsed.name).toLowerCase());
+        if (idx >= 0) {
+          items[idx].amount = (Number(items[idx].amount) || 0) - amountCHF;
+          storeSet('nw:' + parsed.cat, items);
+          deductedFrom = { cat: parsed.cat, name: items[idx].name };
+        }
+      }
+
+      const arr = storeGet('expenses') || [];
+      arr.push({
+        id: 'e_' + Date.now() + '_' + Math.floor(Math.random() * 9999),
+        name: n,
+        amount: amountCHF,
+        entered_amount: aRaw,
+        entered_currency: ccy,
+        method: methodName,
+        date: dEl && dEl.value ? dEl.value : new Date().toISOString().slice(0, 10),
+        ts: Date.now(),
+        deductedFrom: deductedFrom
+      });
+      storeSet('expenses', arr);
+      logActivity('expenses', n, -amountCHF, 'add');
+
+      nEl.value = ''; aEl.value = '';
+      if (mNewEl) { mNewEl.value = ''; mNewEl.style.display = 'none'; }
+      if (mEl) mEl.selectedIndex = 0;
+      if (dEl) dEl.value = new Date().toISOString().slice(0, 10);
+      renderAllNetWorth();
+    } catch (e) { console.error('expenseAdd failed', e); }
+  }
+  function deleteExpense(id) {
+    const arr = storeGet('expenses') || [];
+    const idx = arr.findIndex(x => x.id === id);
+    if (idx < 0) return;
+    const removed = arr[idx];
+    arr.splice(idx, 1);
+    storeSet('expenses', arr);
+    if (removed.deductedFrom) {
+      const items = storeGet('nw:' + removed.deductedFrom.cat) || [];
+      const itemIdx = items.findIndex(it => String(it.name) === String(removed.deductedFrom.name));
+      if (itemIdx >= 0) {
+        items[itemIdx].amount = (Number(items[itemIdx].amount) || 0) + (Number(removed.amount) || 0);
+        storeSet('nw:' + removed.deductedFrom.cat, items);
+      }
+    }
+    logActivity('expenses', removed.name, Number(removed.amount) || 0, 'delete');
+    renderAllNetWorth();
+  }
+  window.__addExpense = doExpenseAdd;
+  const expMethodSel = document.getElementById('expMethod');
+  const expMethodNewInput = document.getElementById('expMethodNew');
+  if (expMethodSel && expMethodNewInput) {
+    expMethodSel.addEventListener('change', () => {
+      if (expMethodSel.value === '__new__') {
+        expMethodNewInput.style.display = '';
+        expMethodNewInput.focus();
+      } else {
+        expMethodNewInput.style.display = 'none';
+        expMethodNewInput.value = '';
+      }
+    });
+  }
+  ['expName', 'expAmount'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') doExpenseAdd(); });
+  });
+  document.querySelectorAll('#expRangeButtons .nw-range-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#expRangeButtons .nw-range-btn').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      renderExpenses();
+    });
+  });
+  const expDateEl = document.getElementById('expDate');
+  if (expDateEl && !expDateEl.value) expDateEl.value = new Date().toISOString().slice(0, 10);
+  renderExpenses();
+
+  // ============================================================
   // FINANCE TICKER — rotates through upcoming subscription renewals
   // every 5 seconds. Flashes red whenever the currently displayed sub
   // renews in 5 days or fewer. Hides itself if there are no renewals.
@@ -3703,7 +4015,7 @@ document.addEventListener('DOMContentLoaded', function () {
   if (typeof initCloudSync !== 'function') return;
   initCloudSync({
     appKey: 'finance',
-    syncedKeys: ['subs', 'wishlist', 'incoming_orders', 'nw_currency', 'nw:activity', 'nw:history'],
+    syncedKeys: ['subs', 'wishlist', 'incoming_orders', 'nw_currency', 'nw:activity', 'nw:history', 'expenses', 'expense_methods_registry'],
     syncedPrefixes: ['nw:'],
     onApplied: function () {
       window.dispatchEvent(new Event('storage'));
