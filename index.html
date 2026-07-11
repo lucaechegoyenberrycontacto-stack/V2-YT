@@ -198,6 +198,28 @@ body::after {
 .home-weather-chart-dot { fill: #6B8E23; opacity: 0.7; }
 .home-weather-chart-dot.now { opacity: 1; }
 
+/* Gastos por mes — same hand-drawn SVG sparkline pattern as the weather
+   chart above, colored to match finance.html's own "Expenses/mo" donut
+   slice (#FB923C) so the entity reads as the same color on both pages. */
+.home-expense-card { margin-top: 14px; }
+.home-expense-card-title {
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-tertiary); margin-bottom: 8px;
+}
+.home-expense-chart-svg { width: 100%; height: 94px; display: block; overflow: visible; }
+.home-expense-chart-svg.hidden { display: none; }
+.home-expense-chart-month { font-size: 9px; font-family: var(--font-mono); fill: var(--text-tertiary); text-transform: uppercase; }
+.home-expense-chart-month.now { fill: var(--text-secondary); }
+.home-expense-chart-value { font-size: 11px; font-weight: 700; font-family: var(--font-mono); fill: var(--text-primary); }
+.home-expense-chart-value.now { fill: var(--text-tertiary); }
+.home-expense-chart-line { fill: none; stroke: #FB923C; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; opacity: 0.8; }
+.home-expense-chart-dot { fill: #FB923C; opacity: 0.9; }
+.home-expense-chart-dot.now { fill: none; stroke: #FB923C; stroke-width: 1.5; opacity: 0.9; }
+.home-expense-chart-empty { font-size: 11px; color: var(--text-tertiary); text-align: center; padding: 24px 0; }
+.home-expense-chart-empty.hidden { display: none; }
+.home-expense-chart-note { margin-top: 2px; font-size: 9.5px; color: var(--text-tertiary); text-align: right; }
+.home-expense-chart-note.hidden { display: none; }
+
 @media (max-width: 560px) {
   .home-clock { font-size: 34px; }
   .home-quote-block { border-left: none; border-top: 1px solid rgba(255,255,255,0.08); padding-left: 0; padding-top: 16px; }
@@ -291,6 +313,12 @@ body::after {
         <div class="stat-sub" id="statExpensesSub"></div>
       </a>
     </div>
+    <a class="gm-card home-expense-card" href="finance.html" style="display:block; text-decoration:none; color:inherit">
+      <div class="home-expense-card-title">Gastos por mes</div>
+      <svg class="home-expense-chart-svg hidden" id="expenseChartSvg" viewBox="0 0 300 94" preserveAspectRatio="none"></svg>
+      <div class="home-expense-chart-empty" id="expenseChartEmpty">Aún no hay gastos registrados</div>
+      <div class="home-expense-chart-note hidden" id="expenseChartNote">* mes en curso</div>
+    </a>
   </div>
 
 </div><!-- /.page -->
@@ -979,9 +1007,79 @@ body::after {
     setStat('statExpenses', fmtFinanceMoney(thisMonthTotal), status, sub);
   }
 
+  // Compact number for the chart's per-point labels — no currency symbol
+  // (every point is the same currency, so it'd just repeat 6 times) and
+  // rounded to "k" above 1000, otherwise a chart with real amounts gets
+  // cramped/unreadable at 6 points across ~300px.
+  function fmtCompactMoney(amountCHF) {
+    const rate = financeRates[getFinanceCurrency()] || 1;
+    const num = (Number(amountCHF) || 0) * rate;
+    if (Math.abs(num) >= 1000) return (Math.round(num / 100) / 10) + 'k';
+    return Math.round(num).toString();
+  }
+
+  /* ============================================================
+     GASTOS POR MES — line+dot trend of the last 6 months' expense
+     totals, grouped from the same 'expenses' array as the stat tile
+     above. Same hand-drawn SVG approach as the weather sparkline
+     (no chart library). The current, still-open month is drawn as a
+     hollow dot since its total is partial, not final.
+     ============================================================ */
+  const EXPENSE_CHART_MONTHS = 6;
+  function renderExpenseChart() {
+    const svg = $('expenseChartSvg');
+    const empty = $('expenseChartEmpty');
+    const note = $('expenseChartNote');
+    if (!svg) return;
+    let items = [];
+    try { const v = JSON.parse(localStorage.getItem('expenses')); if (Array.isArray(v)) items = v; } catch (e) {}
+
+    const now = new Date();
+    const months = [];
+    for (let i = EXPENSE_CHART_MONTHS - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({ y: d.getFullYear(), m: d.getMonth(), label: d.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '') });
+    }
+    const totals = months.map(mo => expenseMonthTotal(items, mo.y, mo.m));
+
+    if (!items.length || !totals.some(v => v > 0)) {
+      svg.classList.add('hidden');
+      if (empty) empty.classList.remove('hidden');
+      if (note) note.classList.add('hidden');
+      return;
+    }
+    svg.classList.remove('hidden');
+    if (empty) empty.classList.add('hidden');
+    if (note) note.classList.remove('hidden');
+
+    const W = svg.getBoundingClientRect().width || 300, H = 94;
+    svg.setAttribute('viewBox', '0 0 ' + W.toFixed(1) + ' ' + H);
+    const labelY = 9, valueY = 24, curveTop = 30, curveBottom = 74;
+    const n = totals.length;
+    const min = Math.min(0, Math.min.apply(null, totals));
+    const max = Math.max.apply(null, totals);
+    const range = (max - min) || 1;
+    const xAt = (i) => n === 1 ? W / 2 : (W * i) / (n - 1);
+    const yAt = (v) => curveTop + (curveBottom - curveTop) * (1 - (v - min) / range);
+
+    let d = '';
+    totals.forEach((v, i) => { d += (i === 0 ? 'M ' : ' L ') + xAt(i).toFixed(1) + ' ' + yAt(v).toFixed(1); });
+    let html = '<path class="home-expense-chart-line" d="' + d + '"></path>';
+
+    totals.forEach((v, i) => {
+      const x = xAt(i).toFixed(1);
+      const isCurrent = i === n - 1;
+      html += '<text class="home-expense-chart-month' + (isCurrent ? ' now' : '') + '" x="' + x + '" y="' + labelY + '" text-anchor="middle">' + months[i].label + (isCurrent ? '*' : '') + '</text>';
+      html += '<text class="home-expense-chart-value' + (isCurrent ? ' now' : '') + '" x="' + x + '" y="' + valueY + '" text-anchor="middle">' + fmtCompactMoney(v) + '</text>';
+      html += '<circle class="home-expense-chart-dot' + (isCurrent ? ' now' : '') + '" cx="' + x + '" cy="' + yAt(v).toFixed(1) + '" r="' + (isCurrent ? 3.2 : 2.4) + '"></circle>';
+    });
+    svg.innerHTML = html;
+  }
+
   function renderFinanceStats() {
     renderNetWorthStat();
     renderExpensesStat();
+    renderExpenseChart();
   }
   loadFinanceRates();
 
