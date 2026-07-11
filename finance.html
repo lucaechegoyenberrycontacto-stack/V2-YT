@@ -491,6 +491,11 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   pointer-events: none;
 }
 .nw-chart-wrap.has-data .nw-chart-empty { display: none; }
+.nw-chart-dot { fill: currentColor; stroke: #0A0A0B; stroke-width: 1.5; transition: r 0.15s ease; }
+.nw-chart-dot:hover { r: 6; }
+/* Expenses chart — fixed orange (outflow), matching the "Expenses/mo"
+   donut slice color elsewhere on this page, no up/down color-swap. */
+.exp-chart-svg { color: #FB923C; height: 160px; margin-top: 10px; }
 
 /* Stats overlay sitting at the bottom of the chart card */
 .nw-chart-stats {
@@ -1977,8 +1982,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     </div>
   </div>
 
-  <!-- Total + range filter -->
-  <div class="nw-chart-wrap has-data" id="expTotalWrap" style="padding:14px 16px 12px">
+  <!-- Total + range filter + cumulative spend chart -->
+  <div class="nw-chart-wrap" id="expChartWrap">
     <div class="nw-chart-head">
       <span class="nw-chart-label">Total spent</span>
       <div class="nw-chart-range" id="expRangeButtons">
@@ -1989,6 +1994,24 @@ input[type="date"]::-webkit-calendar-picker-indicator {
       </div>
     </div>
     <div id="expTotal" style="font-size:28px;font-weight:700;color:var(--text-primary);line-height:1.1;margin-top:6px">CHF 0</div>
+    <svg class="nw-chart-svg exp-chart-svg" id="expChartSvg" viewBox="0 0 600 200" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="expChartGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stop-color="currentColor" stop-opacity="0.5"/>
+          <stop offset="60%"  stop-color="currentColor" stop-opacity="0.16"/>
+          <stop offset="100%" stop-color="currentColor" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <line class="nw-chart-grid" x1="0" x2="600" y1="40"  y2="40"/>
+      <line class="nw-chart-grid" x1="0" x2="600" y1="100" y2="100"/>
+      <line class="nw-chart-grid" x1="0" x2="600" y1="160" y2="160"/>
+      <path id="expChartArea" fill="url(#expChartGrad)" d=""/>
+      <path id="expChartLine" fill="none" stroke="currentColor" stroke-width="2.2"
+            stroke-linejoin="round" stroke-linecap="round"
+            style="filter: drop-shadow(0 0 5px currentColor)" d=""/>
+      <g id="expChartDots"></g>
+    </svg>
+    <div class="nw-chart-empty" id="expChartEmpty">Log a purchase to start tracking your spending.</div>
   </div>
 
   <!-- Items list -->
@@ -3726,6 +3749,58 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     sel.innerHTML = html;
     if (prev && prev !== '__new__' && [...sel.options].some(o => o.value === prev)) sel.value = prev;
   }
+  // Cumulative running-total chart for whichever range is currently
+  // selected — a step-like line (not smoothed: smoothing would visually
+  // imply spending happened gradually between purchases, which it didn't)
+  // rising from 0, with a dot per purchase. Reuses the exact nw-chart-*
+  // scaffolding the Net Worth tab's history chart already uses.
+  function renderExpenseChart(filtered) {
+    const wrap = document.getElementById('expChartWrap');
+    const svg = document.getElementById('expChartSvg');
+    const linePath = document.getElementById('expChartLine');
+    const areaPath = document.getElementById('expChartArea');
+    const dotsG = document.getElementById('expChartDots');
+    if (!wrap || !svg || !linePath || !areaPath) return;
+
+    // Oldest first, so the running total climbs left to right — `filtered`
+    // arrives sorted newest-first (that's what the list below wants).
+    const chrono = filtered.slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
+    if (!chrono.length) {
+      wrap.classList.remove('has-data');
+      linePath.setAttribute('d', '');
+      areaPath.setAttribute('d', '');
+      if (dotsG) dotsG.innerHTML = '';
+      return;
+    }
+    wrap.classList.add('has-data');
+
+    let running = 0;
+    const series = chrono.map(it => {
+      running += Number(it.amount) || 0;
+      return { v: running, name: it.name, amount: Number(it.amount) || 0 };
+    });
+
+    const W = 600, H = 200, pad = 12;
+    const n = series.length;
+    const maxV = series[n - 1].v || 1;
+    const xAt = (i) => n <= 1 ? W : (W * i) / (n - 1);
+    const yAt = (v) => H - pad - (v / maxV) * (H - pad * 2);
+
+    const pts = series.map((p, i) => ({ x: xAt(i), y: yAt(p.v) }));
+    let d = 'M 0,' + H;
+    pts.forEach(p => { d += ' L ' + p.x.toFixed(1) + ',' + p.y.toFixed(1); });
+    linePath.setAttribute('d', d);
+    areaPath.setAttribute('d', d + ' L ' + pts[pts.length - 1].x.toFixed(1) + ',' + H + ' Z');
+
+    if (dotsG) {
+      dotsG.innerHTML = pts.map((p, i) => {
+        const isLast = i === n - 1;
+        return '<circle class="nw-chart-dot" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="' + (isLast ? 4 : 2.5) + '">'
+          + '<title>' + escapeHtml(series[i].name || '(unnamed)') + ' — ' + fmtMoney(series[i].amount) + '</title>'
+          + '</circle>';
+      }).join('');
+    }
+  }
   function renderExpenses() {
     const list = document.getElementById('expList');
     const empty = document.getElementById('expEmpty');
@@ -3740,6 +3815,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     const total = filtered.reduce((s, it) => s + (Number(it.amount) || 0), 0);
     if (totalEl) totalEl.textContent = fmtMoney(total);
     if (countEl) countEl.textContent = filtered.length + (filtered.length === 1 ? ' expense' : ' expenses');
+    renderExpenseChart(filtered);
     list.innerHTML = '';
     if (!filtered.length) {
       if (empty) empty.classList.remove('hidden');
