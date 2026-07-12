@@ -59,17 +59,29 @@ const CONFIG = {
 
 <style>
 :root {
-  --bg: #0a0a0b;
+  /* --bg matches health.html's exact value — this page is iframed inside
+     it, and UI_AUDIT.md flagged a visible seam at the iframe boundary
+     (see the body background rules below). */
+  --bg: #050506;
   --bg-card: #111113;
-  --text-1: #ffffff;
-  --text-2: rgba(255,255,255,0.6);
-  --text-3: rgba(255,255,255,0.4);
-  --text-4: rgba(255,255,255,0.25);
+  /* Dashboard-wide design tokens (see BUILD_DASHBOARD.md / template.html) —
+     this page used to declare its own --text-1/2/3/4 and --good/warn/bad
+     with different names/values; migrated to the shared ones so
+     po-water.html matches the rest of the dashboard (UI_AUDIT.md
+     visual-consistency finding). --bg-card/--border/--border-strong stay
+     local: still used by .modal/.search-results, deliberately left
+     solid/opaque (same as every other modal in the dashboard, e.g.
+     nutrition.html's .modal), not migrated to the glass card look. */
+  --text-primary: #FAFAFA;
+  --text-secondary: #B8B6B0;
+  --text-tertiary: #76746E;
   --border: rgba(255,255,255,0.06);
   --border-strong: rgba(255,255,255,0.14);
-  --good: #6ee7b7;
-  --warn: #fbbf24;
-  --bad: #ff8a8a;
+  --success: #6BE3A4;
+  --warning: #F2C063;
+  --danger: #FF6B6B;
+  /* Intentional additional accent for the water theme, not a duplicate
+     of an official token (same treatment as gym.html's --steps-accent). */
   --info: #7DD3FC;
   --font: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
   --font-mono: ui-monospace, SF Mono, Menlo, Consolas, monospace;
@@ -77,13 +89,35 @@ const CONFIG = {
 * { box-sizing: border-box; }
 html, body {
   margin: 0; padding: 0;
-  background: radial-gradient(ellipse 80% 60% at 50% 0%, #14141a 0%, #0a0a0b 60%);
-  color: var(--text-1);
+  background: var(--bg);
+  color: var(--text-primary);
   font-family: var(--font);
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
 }
-.shell { max-width: 720px; margin: 0 auto; padding: 24px 16px 80px; }
+/* UI_AUDIT.md — page background used to be a single flat gradient with
+   no grain/animation, a visible seam when this page renders inside
+   health.html's iframe. Now the exact same recipe as health.html's own
+   body::before/::after + @keyframes drift, so the two backgrounds
+   line up at the iframe boundary. */
+body { position: relative; overflow-x: hidden; }
+body::before {
+  content: ''; position: fixed; inset: 0;
+  background:
+    radial-gradient(60% 50% at 82% 14%, rgba(224, 118, 88, 0.16) 0%, transparent 60%),
+    radial-gradient(50% 40% at 18% 90%, rgba(180, 180, 200, 0.06) 0%, transparent 60%);
+  filter: blur(40px);
+  pointer-events: none; z-index: 0;
+  animation: drift 36s ease-in-out infinite alternate;
+}
+body::after {
+  content: ''; position: fixed; inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
+  background-size: 3px 3px;
+  pointer-events: none; z-index: 1;
+}
+@keyframes drift { 0% { transform: translate(0, 0); } 100% { transform: translate(-2%, 2%); } }
+.shell { position: relative; z-index: 2; max-width: 720px; margin: 0 auto; padding: 24px 16px 80px; }
 
 /* ----- Top day pill + header ----- */
 .day-pill {
@@ -92,13 +126,13 @@ html, body {
   background: rgba(255,255,255,0.04);
   border: 1px solid var(--border);
   border-radius: 999px;
-  color: var(--text-2);
+  color: var(--text-secondary);
   font-family: var(--font-mono);
   font-size: 11px; font-weight: 700; letter-spacing: 0.10em;
   text-transform: uppercase; margin-bottom: 10px;
   -webkit-tap-highlight-color: transparent;
 }
-.day-pill .day-sep { color: var(--text-4); }
+.day-pill .day-sep { color: var(--text-tertiary); }
 
 .header {
   display: flex; align-items: center; justify-content: space-between;
@@ -110,11 +144,11 @@ html, body {
   display: flex; align-items: center; justify-content: center;
   background: rgba(255,255,255,0.04);
   border: 1px solid var(--border);
-  border-radius: 10px; color: var(--text-2); cursor: pointer;
+  border-radius: 10px; color: var(--text-secondary); cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: background 0.18s, color 0.18s;
 }
-.icon-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-1); }
+.icon-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
 
 /* UI_AUDIT.md CRÍTICO #5 — saveState() used to swallow a failed
    localStorage.setItem silently and every caller kept rendering as if
@@ -124,7 +158,7 @@ html, body {
   display: none;
   margin-bottom: 14px; padding: 8px 12px; border-radius: 10px;
   background: rgba(255,138,138,0.10); border: 1px solid rgba(255,138,138,0.28);
-  color: var(--bad); font-size: 12px; line-height: 1.4;
+  color: var(--danger); font-size: 12px; line-height: 1.4;
 }
 .save-fail-banner.show { display: block; }
 
@@ -142,9 +176,15 @@ html, body {
 
 /* ----- Card ----- */
 .card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 18px;
+  /* Glass card chassis — matches template.html's .gm-card exactly
+     (UI_AUDIT.md visual-consistency finding): no border, translucent
+     background, blur + drop shadow instead of the old opaque fill;
+     radius 18px→16px to match the documented spec. */
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+  border-radius: 16px;
   padding: 22px 20px 18px;
   margin-bottom: 14px;
 }
@@ -152,7 +192,7 @@ html, body {
 /* ----- Water hero ----- */
 .water-label {
   font-size: 10px; letter-spacing: 0.20em; font-weight: 700;
-  color: var(--text-3); margin-bottom: 8px; text-transform: uppercase;
+  color: var(--text-tertiary); margin-bottom: 8px; text-transform: uppercase;
 }
 .water-row {
   display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px;
@@ -162,7 +202,7 @@ html, body {
   line-height: 1; font-variant-numeric: tabular-nums;
 }
 .water-target {
-  font-size: 18px; color: var(--text-3); font-weight: 500;
+  font-size: 18px; color: var(--text-tertiary); font-weight: 500;
 }
 
 /* Progress bar */
@@ -175,12 +215,12 @@ html, body {
 .water-bar-fill {
   position: absolute; top: 0; bottom: 0; left: 0;
   border-radius: 14px;
-  background: linear-gradient(90deg, var(--info), var(--good));
+  background: linear-gradient(90deg, var(--info), var(--success));
   transition: width 0.4s ease;
   box-shadow: 0 0 18px rgba(110,231,183,0.18);
 }
 .water-bar-fill.over {
-  background: linear-gradient(90deg, var(--good), var(--warn));
+  background: linear-gradient(90deg, var(--success), var(--warning));
 }
 .water-bar-zone {
   position: absolute; top: 0; bottom: 0;
@@ -189,11 +229,11 @@ html, body {
 .water-bar-labels {
   display: flex; justify-content: space-between;
   margin-top: 6px;
-  font-size: 10px; color: var(--text-3);
+  font-size: 10px; color: var(--text-tertiary);
   font-family: var(--font-mono);
 }
 .water-bar-labels .water-zone-name {
-  color: var(--good); font-weight: 700; letter-spacing: 0.10em;
+  color: var(--success); font-weight: 700; letter-spacing: 0.10em;
   text-transform: lowercase;
 }
 
@@ -204,7 +244,7 @@ html, body {
 .water-minus-btn {
   background: rgba(255,255,255,0.06);
   border: none; border-radius: 16px;
-  color: var(--text-1);
+  color: var(--text-primary);
   font-size: 22px; font-weight: 700;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -225,22 +265,22 @@ html, body {
 
 .water-helper {
   text-align: center; font-size: 12px;
-  color: var(--text-3); margin-top: 12px;
+  color: var(--text-tertiary); margin-top: 12px;
   font-style: italic;
 }
-.water-helper.good { color: var(--good); font-style: normal; }
+.water-helper.good { color: var(--success); font-style: normal; }
 
 /* ----- Why this target? collapsible ----- */
 .why-toggle {
   width: 100%; display: flex; align-items: center; justify-content: space-between;
   background: transparent; border: 1px solid var(--border);
-  color: var(--text-2); border-radius: 10px;
+  color: var(--text-secondary); border-radius: 10px;
   padding: 11px 14px; cursor: pointer; margin-top: 14px;
   font-family: inherit; font-size: 12px; font-weight: 600;
   letter-spacing: 0.04em;
   -webkit-tap-highlight-color: transparent;
 }
-.why-toggle:hover { background: rgba(255,255,255,0.04); color: var(--text-1); }
+.why-toggle:hover { background: rgba(255,255,255,0.04); color: var(--text-primary); }
 .why-arrow { transition: transform 0.2s; font-size: 14px; }
 .why-toggle[aria-expanded="true"] .why-arrow { transform: rotate(180deg); }
 .why-body {
@@ -257,14 +297,14 @@ html, body {
   font-size: 13px; padding: 4px 0;
   font-variant-numeric: tabular-nums;
 }
-.why-row .why-label { color: var(--text-2); }
-.why-row .why-val   { color: var(--text-1); font-weight: 600; font-family: var(--font-mono); }
+.why-row .why-label { color: var(--text-secondary); }
+.why-row .why-val   { color: var(--text-primary); font-weight: 600; font-family: var(--font-mono); }
 .why-row.total {
   border-top: 1px solid var(--border);
   margin-top: 8px; padding-top: 10px;
 }
-.why-row.total .why-label { color: var(--good); font-weight: 700; }
-.why-row.total .why-val   { color: var(--good); }
+.why-row.total .why-label { color: var(--success); font-weight: 700; }
+.why-row.total .why-val   { color: var(--success); }
 
 /* ----- History ----- */
 .hist-row {
@@ -274,24 +314,24 @@ html, body {
   font-size: 13px;
 }
 .hist-row:last-child { border-bottom: none; }
-.hist-date { font-size: 11px; color: var(--text-3); font-family: var(--font-mono); }
+.hist-date { font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono); }
 .hist-bar-wrap {
   height: 8px; background: rgba(255,255,255,0.04); border-radius: 4px; overflow: hidden;
 }
 .hist-bar-fill {
-  height: 100%; background: linear-gradient(90deg, var(--info), var(--good));
+  height: 100%; background: linear-gradient(90deg, var(--info), var(--success));
   border-radius: 4px;
 }
 .hist-bar-fill.miss { background: rgba(255,138,138,0.4); }
 .hist-count {
   font-family: var(--font-mono); font-size: 12px;
-  color: var(--text-2); font-variant-numeric: tabular-nums;
+  color: var(--text-secondary); font-variant-numeric: tabular-nums;
 }
 
 /* ----- Mini chart for last 14 days ----- */
 .spark-wrap { padding: 6px 0; }
 .spark-svg { width: 100%; height: 70px; display: block; }
-.spark-bar { fill: var(--good); }
+.spark-bar { fill: var(--success); }
 .spark-bar.miss { fill: rgba(255,138,138,0.5); }
 .spark-target {
   stroke: rgba(255,255,255,0.20);
@@ -319,19 +359,19 @@ html, body {
 .set-section { margin-bottom: 22px; }
 .set-section h4 {
   margin: 0 0 8px; font-size: 11px; font-weight: 800; letter-spacing: 0.14em;
-  text-transform: uppercase; color: var(--text-3);
+  text-transform: uppercase; color: var(--text-tertiary);
 }
 
 /* ----- Form fields ----- */
 .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
 .field label {
-  font-size: 11px; color: var(--text-3); font-weight: 700;
+  font-size: 11px; color: var(--text-tertiary); font-weight: 700;
   letter-spacing: 0.06em; text-transform: uppercase;
 }
 .field input[type="number"], .field input[type="text"], .field select {
   background: rgba(0,0,0,0.28);
   border: 1px solid var(--border);
-  color: var(--text-1);
+  color: var(--text-primary);
   font-family: inherit; font-size: 14px;
   padding: 10px 12px; border-radius: 10px; outline: none;
   -moz-appearance: textfield;
@@ -351,7 +391,7 @@ html, body {
 }
 .seg button {
   flex: 1; padding: 9px; border: none; background: transparent;
-  color: var(--text-3); border-radius: 7px;
+  color: var(--text-tertiary); border-radius: 7px;
   font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
@@ -365,7 +405,7 @@ html, body {
 .search-input {
   width: 100%; background: rgba(0,0,0,0.28);
   border: 1px solid var(--border);
-  color: var(--text-1); font-family: inherit; font-size: 14px;
+  color: var(--text-primary); font-family: inherit; font-size: 14px;
   padding: 11px 14px; border-radius: 10px; outline: none;
 }
 .search-input:focus { border-color: rgba(110,231,183,0.40); }
@@ -386,12 +426,12 @@ html, body {
   -webkit-tap-highlight-color: transparent;
 }
 .search-result:hover { background: rgba(255,255,255,0.05); }
-.search-result-name { color: var(--text-1); font-weight: 600; }
+.search-result-name { color: var(--text-primary); font-weight: 600; }
 .search-result-meta {
-  font-size: 10.5px; color: var(--text-3);
+  font-size: 10.5px; color: var(--text-tertiary);
   font-family: var(--font-mono);
 }
-.search-result-add { color: var(--good); }
+.search-result-add { color: var(--success); }
 
 .subs-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
 .sub-row {
@@ -403,9 +443,9 @@ html, body {
   flex-wrap: wrap;
 }
 .sub-row-info { flex: 1; min-width: 140px; }
-.sub-row-name { font-size: 13px; font-weight: 600; color: var(--text-1); }
+.sub-row-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
 .sub-row-meta {
-  font-size: 11px; color: var(--text-3);
+  font-size: 11px; color: var(--text-tertiary);
   font-variant-numeric: tabular-nums; font-family: var(--font-mono);
   margin-top: 2px;
 }
@@ -418,7 +458,7 @@ html, body {
 }
 .sub-row-dose .sub-dose-input {
   width: 56px; background: transparent; border: none; outline: none;
-  color: var(--text-1); font-family: inherit; font-size: 13px;
+  color: var(--text-primary); font-family: inherit; font-size: 13px;
   font-weight: 600; text-align: center;
   font-variant-numeric: tabular-nums;
   -moz-appearance: textfield;
@@ -426,16 +466,16 @@ html, body {
 .sub-row-dose .sub-dose-input::-webkit-outer-spin-button,
 .sub-row-dose .sub-dose-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .sub-row-dose .sub-dose-unit {
-  font-size: 11px; color: var(--text-3);
+  font-size: 11px; color: var(--text-tertiary);
   font-family: var(--font-mono);
   white-space: nowrap;
 }
 .sub-row-del {
-  background: transparent; border: none; color: var(--text-4);
+  background: transparent; border: none; color: var(--text-tertiary);
   font-size: 16px; cursor: pointer; padding: 4px 8px;
   -webkit-tap-highlight-color: transparent;
 }
-.sub-row-del:hover { color: var(--bad); }
+.sub-row-del:hover { color: var(--danger); }
 
 /* ----- Buttons ----- */
 .btn-primary {
@@ -452,7 +492,7 @@ html, body {
   padding: 11px 16px;
   border: 1px solid var(--border);
   background: rgba(255,255,255,0.04);
-  color: var(--text-1); border-radius: 10px;
+  color: var(--text-primary); border-radius: 10px;
   font-family: inherit; font-size: 13px; font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -604,7 +644,7 @@ html, body {
           <input type="text" class="search-input" id="subSearch" placeholder="Type a name (Adderall, Concerta, Lithium…)" autocomplete="off">
           <div class="search-results" id="subResults"></div>
         </div>
-        <div style="font-size:11px;color:var(--text-3);margin-top:4px;line-height:1.4">
+        <div style="font-size:11px;color:var(--text-tertiary);margin-top:4px;line-height:1.4">
           Each substance bumps your daily water target. Includes ADHD stims,
           diuretics, decongestants, nicotine, alcohol, and a few others.
         </div>
@@ -617,7 +657,7 @@ html, body {
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn-secondary" id="setExport">Export JSON</button>
         <button class="btn-secondary" id="setImport">Import JSON</button>
-        <button class="btn-secondary" id="setReset" style="color:var(--bad);border-color:rgba(255,138,138,0.3)">Reset all</button>
+        <button class="btn-secondary" id="setReset" style="color:var(--danger);border-color:rgba(255,138,138,0.3)">Reset all</button>
       </div>
       <input type="file" id="setImportFile" accept=".json" style="display:none">
     </div>
@@ -874,7 +914,7 @@ html, body {
         + '<div class="hist-bar-wrap"><div class="hist-bar-fill ' + cls + '" style="width:' + pct + '%"></div></div>'
         + '<span class="hist-count">' + count + '/' + target + '</span>'
         + '</div>';
-    }).join('') || '<div style="text-align:center;font-size:12px;color:var(--text-3);padding:12px 0">No logs yet.</div>';
+    }).join('') || '<div style="text-align:center;font-size:12px;color:var(--text-tertiary);padding:12px 0">No logs yet.</div>';
   }
 
   function renderSparkline(target) {
@@ -980,7 +1020,7 @@ html, body {
   function renderSubsList() {
     const list = $('subsList');
     if (!state.substances || !state.substances.length) {
-      list.innerHTML = '<div style="font-size:12px;color:var(--text-3);text-align:center;padding:14px 0;font-style:italic;">No substances added.</div>';
+      list.innerHTML = '<div style="font-size:12px;color:var(--text-tertiary);text-align:center;padding:14px 0;font-style:italic;">No substances added.</div>';
       return;
     }
     list.innerHTML = state.substances.map((s, i) =>
