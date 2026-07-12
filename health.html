@@ -2109,7 +2109,20 @@ main {
     // writes straight to localStorage, so the in-memory cbEntries copy
     // needs reloading) and re-render.
     window.addEventListener('storage', (e) => {
-      if (!e.key || e.key === CB_KEY) { cbEntries = cbLoadEntries(); render(); }
+      if (!e.key || e.key === CB_KEY) {
+        cbEntries = cbLoadEntries();
+        // UI_AUDIT.md CRÍTICO #6: this used to always call render(),
+        // which unconditionally overwrites burnedInput's value and
+        // clears cbDirty — silently discarding whatever the user was
+        // mid-typing when a background/cross-tab sync landed. Same
+        // criterion the Sleep widget above already gets right
+        // (renderSleep() never touches the wizard's form fields): while
+        // an edit is in progress, only refresh the chart; the input and
+        // status line catch up the next time render() runs on its own
+        // (date change, or right after a successful save).
+        if (cbDirty) { renderBurnedChart(); return; }
+        render();
+      }
     });
 
     // ============================================================
