@@ -1059,7 +1059,13 @@ html, body {
     r.readAsText(f);
   });
   $('setReset').addEventListener('click', () => {
-    if (!confirm('Wipe ALL water logs and settings? This cannot be undone.')) return;
+    // UI_AUDIT.md CRÍTICO #4: the old copy said "This cannot be undone",
+    // which was false — sync.js only ever merges additive changes onto
+    // the last-known remote row, it never deletes a key just because
+    // it's now absent locally, so a synced copy of this data can come
+    // back on the next pull. Text corrected to say so instead of
+    // changing sync.js's merge-never-delete behavior for the whole app.
+    if (!confirm('Wipe ALL water logs and settings on this device? This only clears local data — if it was already synced to the cloud, it can come back here (or reappear on another device) the next time a sync happens.')) return;
     localStorage.removeItem(LS_KEY);
     state = loadState();
     $('setModalBg').classList.remove('show');
