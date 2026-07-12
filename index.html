@@ -800,13 +800,31 @@ body::after {
      CALORÍAS — replicates nutrition.html's todaysLog()/macrosFor()
      (entries store {foodId, qty} items, not a raw kcal field, so
      kcal has to be looked up per-food same as nutrition.html does)
-     plus health.html's burned:YYYY-MM-DD offset.
+     plus health.html's caloriesBurnedEntries.
+     UI_AUDIT.md CRÍTICO #1: this used to read the dead 'burned:YYYY-MM-DD'
+     key, which health.html stopped writing after migrating to
+     'caloriesBurnedEntries' — burned was silently always 0, and this
+     stat never fell back to '—' like every sibling stat does when data
+     is missing. Now reads the real key, mirroring nutrition.html's
+     getBurnedFor() (nutrition.html:607-614): no burned entry logged
+     for today → treat the whole balance as unknown and show '—',
+     same as nutrition.html's Calorie Balance ring does, instead of
+     silently assuming 0 burned.
      ============================================================ */
   function kcalForItem(foods, foodId, qty) {
     const f = foods.find(x => x.id === foodId);
     if (!f) return 0;
     const scale = f.unit === 'unit' ? qty : qty / 100;
     return (f.kcal || 0) * scale;
+  }
+  function getBurnedForToday() {
+    let entries = [];
+    try { entries = JSON.parse(localStorage.getItem('caloriesBurnedEntries')) || []; } catch (e) {}
+    if (!Array.isArray(entries) || !entries.length) return null;
+    const todayKey = calendarDateKey();
+    const dayEntries = entries.filter(en => en && en.date === todayKey);
+    if (!dayEntries.length) return null;
+    return dayEntries.reduce((sum, en) => sum + (Number(en.kcal) || 0), 0);
   }
   function renderCaloriesStat() {
     let log = [], foods = [], goals = null;
@@ -815,16 +833,15 @@ body::after {
     try { goals = JSON.parse(localStorage.getItem('nut:goals')); } catch (e) {}
     const goalKcal = (goals && goals.kcal) || 2200; // same fallback as nutrition.html's DEFAULT_GOALS.kcal
 
+    const burned = getBurnedForToday();
+    if (burned == null) { setStat('statCalories', '—', null); return; }
+
     const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
     const todaysEntries = log.filter(l => l.ts >= midnight.getTime());
     let consumed = 0;
     todaysEntries.forEach(entry => {
       (entry.items || []).forEach(it => { consumed += kcalForItem(foods, it.foodId, it.qty); });
     });
-
-    let burned = 0;
-    const bv = localStorage.getItem('burned:' + calendarDateKey());
-    if (bv != null && bv !== '') { const n = parseFloat(bv); if (!isNaN(n)) burned = n; }
 
     const net = Math.round(consumed - burned);
     const ratio = goalKcal > 0 ? net / goalKcal : 0;
