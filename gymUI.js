@@ -219,6 +219,7 @@
         + '<button class="po-btn-secondary" type="button" id="trMuscleMapConfigBtn" style="margin-top:10px;">Cargar configuración</button>';
       const btn = $('trMuscleMapConfigBtn');
       if (btn) btn.addEventListener('click', openMuscleConfigModal);
+      appendSyncNoteIfError(wrap);
       return;
     }
 
@@ -249,8 +250,20 @@
     if (ecoNote) {
       wrap.insertAdjacentHTML('beforeend', '<div class="tr-eco-note">' + escapeHtml(ecoNote) + '</div>');
     }
+    appendSyncNoteIfError(wrap);
   }
   window.renderMuscleMap = renderMuscleMap;
+
+  // UI_AUDIT.md CRÍTICO #2 — GymPesasStore's sync (exercise overrides,
+  // fatigue config, mobility log) used to fail silently with zero visible
+  // signal. Same discreet-note pattern already used for the ecosystem
+  // modifier note just above: only shown when there's actually something
+  // wrong, nothing rendered when sync is fine.
+  function appendSyncNoteIfError(wrap) {
+    const sync = (window.GymPesasStore && window.GymPesasStore.getSyncStatus) ? window.GymPesasStore.getSyncStatus() : null;
+    if (!sync || sync.status !== 'error') return;
+    wrap.insertAdjacentHTML('beforeend', '<div class="tr-sync-note">⚠ ' + escapeHtml(sync.detail || 'No se pudo sincronizar con la nube.') + '</div>');
+  }
 
   // First render after page load waits for the cross-device ecosystem
   // warm-up (brief "Cargando…" state) instead of rendering with whatever
@@ -902,6 +915,10 @@
     // anything derived from it (fatigue config may flip isPlaceholder,
     // mobility log may have new entries from another device).
     window.gpsOnChange = function () { renderMuscleMap(); renderTrHomeStats(); renderMobilityHistory(); };
+    // Surfaces GymPesasStore's sync outcome (ok/pending/error) via the
+    // discreet note appended inside renderMuscleMap() — see
+    // appendSyncNoteIfError() above.
+    window.gpsOnSyncStatusChange = function () { renderMuscleMap(); };
   }
 
   if (document.readyState === 'loading') {

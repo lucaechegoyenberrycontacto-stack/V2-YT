@@ -92,17 +92,39 @@
   let gpPushTimer = null;
   let gpLastSyncedJson = null;
 
+  // ---- Sync status — UI_AUDIT.md CRÍTICO #2: every failure here used to
+  // be swallowed by an empty catch, with no way for gymUI.js/gym.html to
+  // ever find out a save never reached the cloud. gpSetSyncStatus() is the
+  // one place that changes gpSyncStatus and notifies whoever's listening
+  // (gymUI.js renders a small discreet note, same tone as the existing
+  // "ecosystem modifier" note in the muscle map — see gpsOnSyncStatusChange).
+  let gpSyncStatus = 'ok'; // 'ok' | 'pending' | 'error'
+  let gpSyncDetail = null;
+  function gpSetSyncStatus(status, detail) {
+    gpSyncStatus = status;
+    gpSyncDetail = detail || null;
+    if (typeof window.gpsOnSyncStatusChange === 'function') {
+      try { window.gpsOnSyncStatusChange(status, gpSyncDetail); } catch (e) {}
+    }
+  }
+
   async function gpPushNow() {
-    if (!gpSupa) return;
+    if (!gpSupa) return; // Supabase not configured at all — intentional local-only mode, not an error
     const json = JSON.stringify(gpData);
     if (json === gpLastSyncedJson) return;
+    gpSetSyncStatus('pending');
     try {
       const { error } = await gpSupa.from(GP_TABLE).upsert(
         { key: GP_KEY, data: gpData, updated_at: new Date().toISOString() },
         { onConflict: 'key' }
       );
-      if (!error) gpLastSyncedJson = json;
-    } catch (e) {}
+      if (error) throw error;
+      gpLastSyncedJson = json;
+      gpSetSyncStatus('ok');
+    } catch (e) {
+      console.warn('[GymPesasStore] push failed — change saved locally only', e);
+      gpSetSyncStatus('error', 'No se pudo sincronizar con la nube — los cambios de músculo, fatiga y movilidad se guardaron solo en este dispositivo.');
+    }
   }
   function gpSchedulePush() {
     clearTimeout(gpPushTimer);
@@ -122,9 +144,12 @@
         },
         body: JSON.stringify({ key: GP_KEY, data: gpData, updated_at: new Date().toISOString() }),
         keepalive: true,
-      }).catch(function () {});
+      }).catch(function (e) { console.warn('[GymPesasStore] unload flush request failed', e); });
+      // Optimistic — same as sync.js's own flushOnUnload elsewhere in this
+      // project, there's no time left to await a round-trip before the
+      // page actually closes. Logged above instead of swallowed.
       gpLastSyncedJson = json;
-    } catch (e) {}
+    } catch (e) { console.warn('[GymPesasStore] unload flush threw', e); }
   }
 
   function gpCommit() {
@@ -139,15 +164,20 @@
     gpSupa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     try {
       const { data, error } = await gpSupa.from(GP_TABLE).select('data').eq('key', GP_KEY).maybeSingle();
-      if (!error && data && data.data && typeof data.data === 'object') {
+      if (error) throw error;
+      if (data && data.data && typeof data.data === 'object') {
         gpData = gpNormalize(data.data);
         gpLastSyncedJson = JSON.stringify(gpData);
         gpSaveLocal();
+        gpSetSyncStatus('ok');
         if (typeof window.gpsOnChange === 'function') { try { window.gpsOnChange(gpData); } catch (e) {} }
       } else if (Object.keys(gpData.exerciseOverrides).length || gpData.mobilityLog.length) {
         gpPushNow();
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn('[GymPesasStore] initial cloud read failed — using local data only', e);
+      gpSetSyncStatus('error', 'No se pudo conectar con la nube al abrir — mostrando solo los datos de este dispositivo.');
+    }
     try {
       gpSupa.channel('gym_pesas_store_' + GP_KEY)
         .on('postgres_changes', {
@@ -160,10 +190,13 @@
           gpLastSyncedJson = incoming;
           gpData = normalized;
           gpSaveLocal();
+          gpSetSyncStatus('ok');
           if (typeof window.gpsOnChange === 'function') { try { window.gpsOnChange(gpData); } catch (e) {} }
         })
         .subscribe();
-    } catch (e) {}
+    } catch (e) {
+      console.warn('[GymPesasStore] realtime channel subscribe failed', e);
+    }
   })();
   window.addEventListener('beforeunload', gpFlushOnUnload);
   window.addEventListener('pagehide', gpFlushOnUnload);
@@ -295,6 +328,7 @@
   }
 
   window.GymPesasStore = {
+    getSyncStatus: function () { return { status: gpSyncStatus, detail: gpSyncDetail }; },
     getExerciseInfo: getExerciseInfo,
     isDiscarded: isDiscarded,
     ensureExercise: ensureExercise,
