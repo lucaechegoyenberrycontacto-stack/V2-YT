@@ -2275,7 +2275,15 @@ input[type="date"]::-webkit-calendar-picker-indicator {
       amt.title = 'Tap to edit · type +500 to add, -200 to subtract, or a new total';
       amt.addEventListener('click', () => beginNwAmountEdit(amt, items, idx, cat.key));
       const del = document.createElement('button'); del.className = 'nw-del'; del.textContent = '×';
+      del.title = 'Delete';
+      del.setAttribute('aria-label', 'Delete ' + it.name);
       del.addEventListener('click', () => {
+        // UI_AUDIT.md CRÍTICO #7: this was the only delete on the page
+        // with zero confirmation, despite being the one that can remove
+        // real money records. Reuses the exact confirm() wording/pattern
+        // already used for deleting a Subscription (see the "Delete "..."
+        // confirm a few hundred lines below, in renderSubs).
+        if (!confirm('Delete "' + it.name + '"?')) return;
         const removed = items[idx];
         items.splice(idx, 1); storeSet('nw:' + cat.key, items);
         if (removed) logActivity(cat.key, removed.name, -(Number(removed.amount) || 0), 'delete');
