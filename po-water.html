@@ -116,6 +116,18 @@ html, body {
 }
 .icon-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-1); }
 
+/* UI_AUDIT.md CRÍTICO #5 — saveState() used to swallow a failed
+   localStorage.setItem silently and every caller kept rendering as if
+   it had worked. Shown only while the most recent save attempt failed;
+   hides itself again the moment a save succeeds. */
+.save-fail-banner {
+  display: none;
+  margin-bottom: 14px; padding: 8px 12px; border-radius: 10px;
+  background: rgba(255,138,138,0.10); border: 1px solid rgba(255,138,138,0.28);
+  color: var(--bad); font-size: 12px; line-height: 1.4;
+}
+.save-fail-banner.show { display: block; }
+
 /* ----- Eyebrow divider ----- */
 .divider {
   display: flex; align-items: center; gap: 16px; margin-bottom: 14px;
@@ -472,6 +484,8 @@ html, body {
     </button>
   </div>
 
+  <div class="save-fail-banner" id="saveFailBanner">⚠ Could not save — your device storage may be full. The last change may not have been kept.</div>
+
   <div class="divider"><span>WATER</span></div>
 
   <div class="card">
@@ -691,8 +705,24 @@ html, body {
     s.logs = (s.logs && typeof s.logs === 'object') ? s.logs : {};  // {YYYY-MM-DD: number_of_servings}
     return s;
   }
+  // UI_AUDIT.md CRÍTICO #5: used to swallow a failed write silently, and
+  // every one of its ~15 call sites (water +/-, settings fields,
+  // substances, Import, Reset) just kept re-rendering as if it had
+  // worked. Fixed once here instead of at every call site: on failure,
+  // console.warn + show a small persistent banner; it clears itself the
+  // next time a save actually succeeds.
   function saveState() {
-    try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {}
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify(state));
+      const banner = $('saveFailBanner');
+      if (banner) banner.classList.remove('show');
+      return true;
+    } catch (e) {
+      console.warn('[Water Coach] localStorage.setItem failed', e);
+      const banner = $('saveFailBanner');
+      if (banner) banner.classList.add('show');
+      return false;
+    }
   }
   let state = loadState();
   $('appTitle').textContent = CONFIG.appTitle || 'Water Coach';

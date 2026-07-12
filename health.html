@@ -676,7 +676,10 @@ main {
       try { const v = JSON.parse(localStorage.getItem(SLEEP_KEY)); return Array.isArray(v) ? v : []; }
       catch { return []; }
     }
-    function saveEntries(list) { try { localStorage.setItem(SLEEP_KEY, JSON.stringify(list)); } catch {} }
+    function saveEntries(list) {
+      try { localStorage.setItem(SLEEP_KEY, JSON.stringify(list)); return true; }
+      catch (e) { console.warn('[Sleep] localStorage.setItem failed', e); return false; }
+    }
 
     function pad2(n) { return String(n).padStart(2, '0'); }
     function dateKey(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
@@ -995,7 +998,15 @@ main {
       const entries = loadEntries();
       const idx = entries.findIndex(e => e.date === date);
       if (idx >= 0) entries[idx] = entry; else entries.push(entry);
-      saveEntries(entries);
+      // UI_AUDIT.md CRÍTICO #5: used to show "Saved ✓" unconditionally,
+      // even if the localStorage write actually threw (quota exceeded,
+      // private-browsing lockdown, etc). Now the confirmation — and the
+      // form reset — only happen once the write is confirmed to have
+      // gone through.
+      if (!saveEntries(entries)) {
+        status.textContent = 'Could not save — your device storage may be full.';
+        return;
+      }
 
       showSavedConfirmation();
       renderSleep();
@@ -1888,7 +1899,10 @@ main {
       try { const v = JSON.parse(localStorage.getItem(CB_KEY)); return Array.isArray(v) ? v : []; }
       catch { return []; }
     }
-    function cbSaveEntries(list) { try { localStorage.setItem(CB_KEY, JSON.stringify(list)); } catch {} }
+    function cbSaveEntries(list) {
+      try { localStorage.setItem(CB_KEY, JSON.stringify(list)); return true; }
+      catch (e) { console.warn('[Calories burned] localStorage.setItem failed', e); return false; }
+    }
 
     // One-time migration from the old 'burned:YYYY-MM-DD' keys. Runs only
     // if caloriesBurnedEntries doesn't exist yet (so it never re-runs and
@@ -2077,8 +2091,17 @@ main {
       const date = selectedDateKey();
       const idx = cbEntries.findIndex(e => e.date === date);
       const entry = { date, kcal: Math.round(v), loggedAt: new Date().toISOString() };
-      if (idx >= 0) cbEntries[idx] = entry; else cbEntries.push(entry);
-      cbSaveEntries(cbEntries);
+      const nextEntries = cbEntries.slice();
+      if (idx >= 0) nextEntries[idx] = entry; else nextEntries.push(entry);
+      // UI_AUDIT.md CRÍTICO #5: build the next array separately and only
+      // adopt it (and re-render as "logged") once the write is confirmed
+      // to have succeeded — previously cbEntries was mutated and render()
+      // always ran, so the UI could claim a save that never persisted.
+      if (!cbSaveEntries(nextEntries)) {
+        $('burnedStatus').textContent = 'Could not save — your device storage may be full.';
+        return;
+      }
+      cbEntries = nextEntries;
       render();
     });
 
