@@ -1304,6 +1304,20 @@ img, video, canvas, svg { max-width: 100%; }
 }
 .wt-photo-date { color: var(--good); }
 .wt-photo-weight { color: var(--text-1); }
+/* UI_AUDIT.md CRÍTICO #3 — shown only when a photo's background upload
+   to Supabase Storage failed, so it doesn't look identical to a synced
+   one. Retry is explicit (button), never automatic/looping. */
+.wt-photo-cell { position: relative; }
+.wt-photo-fail-badge {
+  margin-top: 6px; font-size: 11px; color: var(--bad); line-height: 1.35;
+}
+.wt-photo-retry-btn {
+  margin-top: 4px; width: 100%; padding: 6px 8px;
+  background: rgba(255,138,138,0.08); border: 1px solid rgba(255,138,138,0.24);
+  border-radius: 8px; color: var(--bad); font-size: 11px; font-weight: 600;
+  font-family: inherit; cursor: pointer;
+}
+.wt-photo-retry-btn:disabled { opacity: 0.6; cursor: default; }
 
 /* Camera modal */
 .wt-cam {
@@ -3539,17 +3553,28 @@ img, video, canvas, svg { max-width: 100%; }
       grid.innerHTML = '<div class="wt-photo-empty">No photos yet · tap Take Photo to start</div>';
     } else {
       grid.innerHTML = photos.map(p =>
-        '<button class="wt-photo-card" data-id="' + p.id + '" type="button">' +
-          '<img src="' + (p.url || p.dataUrl) + '" alt="">' +
-          '<div class="wt-photo-overlay"></div>' +
-          '<div class="wt-photo-meta">' +
-            '<span class="wt-photo-date">' + photoFmtDate(p.dateKey) + '</span>' +
-            '<span class="wt-photo-weight">' + (p.weight || '—') + '</span>' +
-          '</div>' +
-        '</button>'
+        '<div class="wt-photo-cell">' +
+          '<button class="wt-photo-card" data-id="' + p.id + '" type="button">' +
+            '<img src="' + (p.url || p.dataUrl) + '" alt="">' +
+            '<div class="wt-photo-overlay"></div>' +
+            '<div class="wt-photo-meta">' +
+              '<span class="wt-photo-date">' + photoFmtDate(p.dateKey) + '</span>' +
+              '<span class="wt-photo-weight">' + (p.weight || '—') + '</span>' +
+            '</div>' +
+          '</button>' +
+          (p.uploadFailed ?
+            '<div class="wt-photo-fail-badge">⚠ No se subió a la nube — solo está en este dispositivo</div>' +
+            '<button class="wt-photo-retry-btn" data-retry-id="' + p.id + '" type="button" ' + (p.uploadRetrying ? 'disabled' : '') + '>' +
+              (p.uploadRetrying ? 'Reintentando…' : '↻ Reintentar subida') +
+            '</button>'
+            : '') +
+        '</div>'
       ).join('');
       grid.querySelectorAll('.wt-photo-card').forEach(card => {
         card.addEventListener('click', () => openPhoto(card.dataset.id));
+      });
+      grid.querySelectorAll('.wt-photo-retry-btn').forEach(btn => {
+        btn.addEventListener('click', () => retryPhotoUpload(btn.dataset.retryId));
       });
     }
     // Update count on the link
@@ -3569,10 +3594,10 @@ img, video, canvas, svg { max-width: 100%; }
       const { error } = await pcSupa.storage
         .from('progress-photos')
         .upload(filename, blob, { contentType: 'image/jpeg', upsert: false });
-      if (error) return null;
+      if (error) { console.warn('[Progress photos] upload failed', error); return null; }
       const { data } = pcSupa.storage.from('progress-photos').getPublicUrl(filename);
       return data ? data.publicUrl : null;
-    } catch (e) { return null; }
+    } catch (e) { console.warn('[Progress photos] upload threw', e); return null; }
   }
 
   async function photosAdd(dataUrl) {
@@ -3603,14 +3628,49 @@ img, video, canvas, svg { max-width: 100%; }
     // normal sync path — only the URL ends up in the row, so the payload
     // stays tiny.
     uploadPhotoToStorage(entry.dataUrl).then((url) => {
-      if (!url) return;
       const e = photos.find(p => p.id === id);
       if (!e) return;
+      if (!url) {
+        // UI_AUDIT.md CRÍTICO #3: used to silently do nothing here — the
+        // photo looked identical to a successfully-synced one on this
+        // device, but was invisible to every other device forever. Now
+        // flagged so photosRender() can show a badge + explicit retry
+        // button instead of a fake "it worked" state.
+        e.uploadFailed = true;
+        photosSave();
+        photosRender();
+        return;
+      }
       e.url = url;
+      e.uploadFailed = false;
       delete e.dataUrl;
       photosSave();
       photosRender();
     });
+  }
+
+  // Explicit, user-triggered retry for a photo whose upload previously
+  // failed — never retried automatically/in a loop. The local dataUrl is
+  // kept until a retry actually succeeds, so the photo stays viewable on
+  // this device the whole time.
+  async function retryPhotoUpload(id) {
+    const e = photos.find(p => p.id === id);
+    if (!e || !e.dataUrl || e.uploadRetrying) return;
+    e.uploadRetrying = true;
+    photosRender();
+    const url = await uploadPhotoToStorage(e.dataUrl);
+    e.uploadRetrying = false;
+    if (!url) {
+      e.uploadFailed = true;
+      photosSave();
+      photosRender();
+      return;
+    }
+    e.url = url;
+    e.uploadFailed = false;
+    delete e.dataUrl;
+    photosSave();
+    photosRender();
   }
   function fileToPhoto(file) {
     const r = new FileReader();
