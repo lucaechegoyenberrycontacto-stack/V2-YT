@@ -121,9 +121,11 @@
       if (error) throw error;
       gpLastSyncedJson = json;
       gpSetSyncStatus('ok');
+      try { window.DashSyncStatus && window.DashSyncStatus.report('gym_pesas_store', true); } catch (e) {}
     } catch (e) {
       console.warn('[GymPesasStore] push failed — change saved locally only', e);
       gpSetSyncStatus('error', 'No se pudo sincronizar con la nube — los cambios de músculo, fatiga y movilidad se guardaron solo en este dispositivo.');
+      try { window.DashSyncStatus && window.DashSyncStatus.report('gym_pesas_store', false); } catch (e2) {}
     }
   }
   function gpSchedulePush() {

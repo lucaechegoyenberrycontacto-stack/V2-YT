@@ -79,6 +79,17 @@
 .topbar-water-add.flash {
   background: linear-gradient(180deg, rgba(125, 211, 252, 0.7), rgba(110, 231, 183, 0.7));
 }
+.topbar-sync-dot {
+  display: none;
+  align-self: center;
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  margin-left: 8px;
+  background: #ff8a8a;
+  animation: topbar-miss-pulse 1.6s ease-in-out infinite;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.topbar-sync-dot.show { display: inline-block; }
 .topbar-finance-btn {
   display: inline-flex; align-items: center; justify-content: center;
   width: 44px; height: 42px;
@@ -203,6 +214,7 @@ body.topbar-modal-open {
       <span class="topbar-pill-count" id="topbarWaterCount">0/0</span>
     </a>
     <button class="topbar-water-add" id="topbarWaterAdd" aria-label="Log one drink" type="button">+</button>
+    <span class="topbar-sync-dot" id="topbarSyncDot" role="button" tabindex="0" aria-label="Cloud sync error" title="Cloud sync error"></span>
   </div>
   <a href="finance.html" class="topbar-finance-btn" id="topbarFinance" aria-label="Finance">
     <span class="topbar-finance-icon">📊</span>
@@ -360,6 +372,53 @@ body.topbar-modal-open {
     if (status === 'warn' || status === 'miss') pillEl.classList.add(status);
   }
 
+  // -------- Cross-channel cloud sync status dot --------
+  // Fed by window.DashSyncStatus (syncStatus.js), which sync.js,
+  // gymPesasStore.js, and gym.html's pcPushNow report to after every
+  // push attempt. Absence of the dot IS the "all good" signal — it
+  // only appears once a channel has failed persistently.
+  function formatSyncSince(ts) {
+    if (!ts) return 'nunca';
+    const secs = Math.max(0, Math.round((Date.now() - ts) / 1000));
+    if (secs < 60) return secs + 's';
+    return Math.round(secs / 60) + 'm';
+  }
+
+  function describeSyncFailures(state) {
+    const lines = [];
+    Object.keys(state.channels || {}).forEach((name) => {
+      const ch = state.channels[name];
+      if (ch.status !== 'error') return;
+      lines.push('• ' + name + ': sin sincronizar hace ' + formatSyncSince(ch.lastSuccessAt) +
+        ' (' + ch.consecutiveFailures + ' intentos fallidos)');
+    });
+    return lines.length ? lines.join('\n') : 'Sin canales en error.';
+  }
+
+  function renderSyncDot(state) {
+    const dot = document.getElementById('topbarSyncDot');
+    if (!dot) return;
+    dot.classList.toggle('show', !!state && state.status === 'error');
+  }
+
+  function initSyncDot() {
+    const dot = document.getElementById('topbarSyncDot');
+    if (!dot) return;
+    function onClick(e) {
+      e.preventDefault();
+      const state = window.DashSyncStatus ? window.DashSyncStatus.getState() : { status: 'ok', channels: {} };
+      alert('Fallo de sincronización con la nube:\n\n' + describeSyncFailures(state));
+    }
+    dot.addEventListener('click', onClick);
+    dot.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') onClick(e);
+    });
+    if (window.DashSyncStatus) {
+      renderSyncDot(window.DashSyncStatus.getState());
+      window.DashSyncStatus.subscribe(renderSyncDot);
+    }
+  }
+
   function render() {
     const waterEl = document.getElementById('topbarWater');
     if (!waterEl) return; // not injected yet
@@ -476,6 +535,7 @@ body.topbar-modal-open {
     const btn = document.getElementById('topbarWaterAdd');
     if (btn) btn.addEventListener('click', (e) => { e.preventDefault(); addWater(); });
     render();
+    initSyncDot();
     lockGestures();
     startModalLock();
 

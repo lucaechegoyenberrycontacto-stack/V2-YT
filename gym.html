@@ -1619,10 +1619,12 @@ img, video, canvas, svg { max-width: 100%; }
 .tr-card-context { font-size: 11px; color: var(--text-tertiary); margin-top: 6px; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="dataLayer.js" defer></script>
 <script src="gymMuscleEnum.js"></script>
 <script src="gymEcosystem.js"></script>
 <script src="gymMuscleFatigue.js"></script>
 <script src="gymExerciseMuscleSeed.js"></script>
+<script src="syncStatus.js"></script>
 <script src="gymPesasStore.js"></script>
 <script src="gymCharts.js"></script>
 <script src="gymDomain.js"></script>
@@ -2311,11 +2313,6 @@ img, video, canvas, svg { max-width: 100%; }
   // below) so a large import never bloats the main app_state payload.
   // ============================================================
   const WH_LS_KEY = 'po_coach_lyfta_v1';
-  const WH_TABLE = 'workout_history';
-  // Row key kept as 'lyfta_data' for backward compatibility with data
-  // already synced under it — it now holds workouts from every source,
-  // not just Lyfta.
-  const WH_KEY = 'lyfta_data';
 
   function whDefault() { return { workouts: [] }; }
 
@@ -2394,11 +2391,19 @@ img, video, canvas, svg { max-width: 100%; }
   function whAppendWorkout(workout) {
     whData = { workouts: (whData.workouts || []).concat([workout]) };
   }
-  // One save path for every source: local cache, re-render, cloud push.
-  function whCommit() {
+  // One local-save path for every source; the actual DataLayer push is
+  // caller-specific (see `change`) because a Lyfta re-import
+  // (whMergeBySource) needs a full upsert+prune of that source's
+  // records, while a manual add (whAppendWorkout) only ever needs a
+  // single new put — see the gym_workouts sync functions further down.
+  function whCommit(change) {
     whSaveLocal(whData);
     renderWorkoutHistory();
-    whPushToSupabase(whData);
+    if (!change) return;
+    const sync = change.type === 'append' ? whPushSingleWorkout(change.workout)
+      : change.type === 'merge' ? whSyncSourceToDataLayer(change.source)
+      : Promise.resolve();
+    sync.catch((e) => console.warn('[WorkoutHistory] gym_workouts sync failed', e));
   }
 
   function whSortedWorkouts() {
@@ -2628,7 +2633,7 @@ img, video, canvas, svg { max-width: 100%; }
         }).filter((w) => w.exercises.length > 0);
         if (allMobilityEntries.length) window.GymPesasStore.addMobilityLogEntries(allMobilityEntries);
         whMergeBySource(whNormalizeWorkouts(filteredWorkouts, 'lyfta'), 'lyfta');
-        whCommit();
+        whCommit({ type: 'merge', source: 'lyfta' });
       } catch (err) { alert('Could not parse that file as JSON.'); }
     };
     reader.readAsText(file);
@@ -2677,8 +2682,9 @@ img, video, canvas, svg { max-width: 100%; }
       if (name && sets.length) exercises.push({ name, sets });
     });
     if (!exercises.length) { $('whAddStatus').textContent = 'Add at least one exercise with valid sets (e.g. 8x30).'; return; }
-    whAppendWorkout(whNormalizeWorkout({ date, title, source: 'manual', exercises }, 'manual'));
-    whCommit();
+    const newWorkout = whNormalizeWorkout({ date, title, source: 'manual', exercises }, 'manual');
+    whAppendWorkout(newWorkout);
+    whCommit({ type: 'append', workout: newWorkout });
     whCloseAddModal();
   });
 
@@ -2756,6 +2762,12 @@ img, video, canvas, svg { max-width: 100%; }
   //   po_coach_weights : [{ dateKey:'YYYY-MM-DD', weight:Number }]
   //   po_coach_photos  : [{ id, dataUrl, dateKey, weight }]
   // ============================================================
+  // po_coach_weights migrated to DataLayer/records (collection
+  // gym_body_weight, id=dateKey) — see DATA_AUDIT.md. WT_KEY stays only
+  // as the legacy-mirror target so index.html (not migrated) keeps
+  // reading po_coach_weights from localStorage unchanged. po_coach_photos
+  // is NOT migrated — stays on PC_SYNCED_KEYS/pcPushNow as before.
+  const WT_COL = 'gym_body_weight';
   const WT_KEY = 'po_coach_weights';
   const PHOTO_KEY = 'po_coach_photos';
 
@@ -2791,12 +2803,12 @@ img, video, canvas, svg { max-width: 100%; }
 
   let wtEntries = wtLoad();
 
-  function wtSaveEntry(weight) {
+  async function wtSaveEntry(weight) {
     const key = wtDateKey(new Date());
     const existing = wtEntries.find(e => e.dateKey === key);
     if (existing) existing.weight = weight;
     else { wtEntries.push({ dateKey: key, weight }); wtEntries.sort((a,b) => a.dateKey.localeCompare(b.dateKey)); }
-    wtSave(wtEntries);
+    await DataLayer.put(WT_COL, key, { weight });
     wtRender();
   }
 
@@ -3095,6 +3107,11 @@ img, video, canvas, svg { max-width: 100%; }
   // activity (NEAT), not lifting volume. One entry per day, keyed by
   // the same date-key format as weight entries (wtDateKey).
   // ============================================================
+  // gym:steps migrated to DataLayer/records (collection gym_steps,
+  // id=date) — see DATA_AUDIT.md. STEPS_KEY stays only as the
+  // legacy-mirror target for index.html. gym:stepsGoal is NOT migrated —
+  // stays on PC_SYNCED_KEYS/pcPushNow as before.
+  const STEPS_COL = 'gym_steps';
   const STEPS_KEY = 'gym:steps';
   const STEPS_GOAL_KEY = 'gym:stepsGoal';
   const STEPS_DEFAULT_GOAL = 8000;
@@ -3491,13 +3508,13 @@ img, video, canvas, svg { max-width: 100%; }
   $('stepsInput').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') $('stepsSaveBtn').click();
   });
-  $('stepsSaveBtn').addEventListener('click', () => {
+  $('stepsSaveBtn').addEventListener('click', async () => {
     const v = parseInt($('stepsInput').value, 10);
     if (isNaN(v) || v < 0) return;
     const key = stepsSelectedDateKey();
     const prev = stepsData[key] || 0;
     stepsData[key] = v;
-    stepsSave(stepsData);
+    await DataLayer.put(STEPS_COL, key, { steps: v });
     stepsDirty = false;
     $('stepsDirtyNotice').classList.add('hidden');
     stepsRender({ animate: true, fromValue: prev });
@@ -3944,7 +3961,10 @@ img, video, canvas, svg { max-width: 100%; }
   // the wire. The actual JPEG lives in Supabase Storage. pcCollectState
   // strips any base64 dataUrl entries before push so the payload stays
   // tiny and we never blow iOS Safari's ~5MB localStorage quota.
-  const PC_SYNCED_KEYS = ['po_coach_v1', 'po_coach_weights', 'po_coach_photos', 'gym:steps', 'gym:stepsGoal'];
+  // po_coach_weights/gym:steps removed — migrated to DataLayer/records
+  // (gym_body_weight, gym_steps, see DATA_AUDIT.md); leaving them here
+  // too would double-sync them through two engines at once.
+  const PC_SYNCED_KEYS = ['po_coach_v1', 'po_coach_photos', 'gym:stepsGoal'];
 
   let pcSupa = null;
   let pcPushTimer = null;
@@ -4076,8 +4096,15 @@ img, video, canvas, svg { max-width: 100%; }
           { key: APP_KEY, data: state, updated_at: new Date().toISOString() },
           { onConflict: 'key' }
         );
-      if (!error) pcLastSyncedJson = json;
-    } catch (_) {}
+      if (!error) {
+        pcLastSyncedJson = json;
+        try { window.DashSyncStatus && window.DashSyncStatus.report('po-coach', true); } catch (e) {}
+      } else {
+        try { window.DashSyncStatus && window.DashSyncStatus.report('po-coach', false); } catch (e) {}
+      }
+    } catch (_) {
+      try { window.DashSyncStatus && window.DashSyncStatus.report('po-coach', false); } catch (e2) {}
+    }
   }
 
   function pcSchedulePush() {
@@ -4206,68 +4233,57 @@ img, video, canvas, svg { max-width: 100%; }
   });
 
   // ============================================================
-  // WORKOUT HISTORY CLOUD SYNC (Lyfta, manual — unified)
+  // WORKOUT HISTORY — DataLayer sync (collection gym_workouts)
   // ------------------------------------------------------------
-  // Separate table from the rest of the app — public.workout_history,
-  // one row keyed 'lyfta_data' — so a full import (which can be large)
-  // never bloats the main app_state sync payload. Requires the SQL
-  // block from SETUP.md to be run once in Supabase. Remote data is
-  // always run through whNormalizeBlob before use, same as local load,
-  // so older rows (saved before per-workout `source` existed) still
-  // get a correct badge.
+  // Migrated off the old single-blob public.workout_history table —
+  // see DATA_AUDIT.md. whData/whNormalizeBlob/whSaveLocal etc above are
+  // unchanged and still manage the in-memory + local-cache shape;
+  // everything below only changes how that data reaches Supabase.
   // ============================================================
-  let whSupa = null;
-  let whLastSyncedJson = null;
+  const GYM_WORKOUTS_COL = 'gym_workouts';
 
-  async function whPushToSupabase(data) {
-    if (!whSupa) return;
-    const json = JSON.stringify(data);
-    if (json === whLastSyncedJson) return;
-    try {
-      const { error } = await whSupa.from(WH_TABLE).upsert(
-        { key: WH_KEY, data: data, updated_at: new Date().toISOString() },
-        { onConflict: 'key' }
-      );
-      if (!error) whLastSyncedJson = json;
-    } catch (_) {}
+  function whSlug(s) {
+    return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'workout';
+  }
+  // Workouts have no natural stable id (whNormalizeWorkout never sets
+  // one) — derive one deterministically from date+title+position so
+  // repeated pushes of the same logical workout upsert instead of
+  // duplicating. The index is scoped PER SOURCE (position within just
+  // that source's own subset, in array order) rather than the workout's
+  // absolute position in whData.workouts: whMergeBySource rebuilds the
+  // whole array as kept-sources-first + replaced-source-last on every
+  // Lyfta re-import, which shifts absolute indices for every workout in
+  // the array — including sources that weren't reimported. A per-source
+  // index stays stable for any source that wasn't the one just replaced.
+  function whWorkoutId(w, sourceIndex) {
+    return (w && w.id) || ((w.date || 'nodate') + '_' + whSlug(w.title) + '_' + sourceIndex);
   }
 
-  (async function whInitCloudSync() {
-    if (!window.supabase || !SUPABASE_URL || !SUPABASE_KEY) return;
-    if (SUPABASE_URL.indexOf('PASTE-') === 0 || SUPABASE_KEY.indexOf('PASTE-') === 0) return;
-    // See pcSupa above — anon-only client, no reason to share/refresh the
-    // logged-in user's auth session.
-    whSupa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
-    try {
-      const { data, error } = await whSupa
-        .from(WH_TABLE).select('data').eq('key', WH_KEY).maybeSingle();
-      if (!error && data && data.data && Array.isArray(data.data.workouts)) {
-        whData = whNormalizeBlob(data.data);
-        whLastSyncedJson = JSON.stringify(whData);
-        whSaveLocal(whData);
-        renderWorkoutHistory();
-      } else if (whData.workouts && whData.workouts.length) {
-        whPushToSupabase(whData);
-      }
-    } catch (_) {}
-    whSupa.channel('workout_history_' + WH_KEY)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: WH_TABLE,
-        filter: 'key=eq.' + WH_KEY,
-      }, (payload) => {
-        if (!payload.new || !payload.new.data) return;
-        const normalized = whNormalizeBlob(payload.new.data);
-        const incoming = JSON.stringify(normalized);
-        if (incoming === whLastSyncedJson) return;
-        whLastSyncedJson = incoming;
-        whData = normalized;
-        whSaveLocal(whData);
-        renderWorkoutHistory();
-      })
-      .subscribe();
-  })();
+  // Manual add only ever appends — no diff/prune needed, just push the
+  // one new record.
+  async function whPushSingleWorkout(workout) {
+    const sourceWorkouts = (whData.workouts || []).filter((w) => w.source === workout.source);
+    const index = sourceWorkouts.length - 1;
+    await DataLayer.put(GYM_WORKOUTS_COL, whWorkoutId(workout, index), workout);
+  }
+  // A Lyfta (or any bulk) re-import replaces an entire source's
+  // workouts — push every current workout of `source` (upsert) and
+  // remove any gym_workouts row previously tagged with that source no
+  // longer present locally. This is the real per-record delete this
+  // migration exists to provide, scoped to just the source that changed
+  // instead of re-touching the whole history on every save.
+  async function whSyncSourceToDataLayer(source) {
+    const sourceWorkouts = (whData.workouts || []).filter((w) => w.source === source);
+    const currentIds = new Set();
+    const puts = sourceWorkouts.map((w, i) => {
+      const id = whWorkoutId(w, i);
+      currentIds.add(id);
+      return DataLayer.put(GYM_WORKOUTS_COL, id, w);
+    });
+    const cached = await DataLayer.list(GYM_WORKOUTS_COL);
+    const staleIds = cached.filter((r) => r.source === source && !currentIds.has(r.id)).map((r) => r.id);
+    await Promise.all(puts.concat(staleIds.map((id) => DataLayer.remove(GYM_WORKOUTS_COL, id))));
+  }
 
   document.addEventListener('focusout', () => {
     setTimeout(pcApplyPendingIfReady, 0);
@@ -4276,6 +4292,70 @@ img, video, canvas, svg { max-width: 100%; }
   window.addEventListener('beforeunload', pcFlushPushOnUnload);
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) pcFlushPushOnUnload();
+  });
+
+  // ------------------------------------------------------------
+  // Single DataLayer.init() for the whole page, gating only the 3
+  // migrated collections (workouts, body weight, steps) behind login —
+  // pcInitCloudSync/gpInitCloudSync (gymPesasStore.js) are anon-role and
+  // keep working without a session exactly as before, untouched.
+  // Wrapped in DOMContentLoaded: dataLayer.js loads with `defer`, but
+  // this giant IIFE doesn't, so window.DataLayer wouldn't exist yet at
+  // the point this file is parsed (same defer-timing reasoning as
+  // nutrition.html's boot()).
+  // ------------------------------------------------------------
+  document.addEventListener('DOMContentLoaded', async function initGymDataLayer() {
+    if (typeof DataLayer === 'undefined') return;
+    const session = await DataLayer.init({ requireAuth: true });
+    if (!session) return; // redirected to login.html
+
+    // ---- Body weight ----
+    function rowsToWeights(rows) {
+      return rows.map((r) => ({ dateKey: r.id, weight: r.weight })).sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+    }
+    wtEntries = rowsToWeights(await DataLayer.list(WT_COL));
+    DataLayer.setLegacyMirror(WT_COL, WT_KEY, rowsToWeights);
+    DataLayer.subscribe(WT_COL, async () => {
+      wtEntries = rowsToWeights(await DataLayer.list(WT_COL));
+      wtRender();
+    });
+    wtRender();
+
+    // ---- Daily steps ----
+    function rowsToStepsObj(rows) {
+      const obj = {};
+      rows.forEach((r) => { obj[r.id] = r.steps; });
+      return obj;
+    }
+    stepsData = rowsToStepsObj(await DataLayer.list(STEPS_COL));
+    DataLayer.setLegacyMirror(STEPS_COL, STEPS_KEY, rowsToStepsObj);
+    DataLayer.subscribe(STEPS_COL, async () => {
+      stepsData = rowsToStepsObj(await DataLayer.list(STEPS_COL));
+      stepsRender();
+    });
+    stepsRender();
+
+    // ---- Workout history ----
+    function rowsToWorkouts(rows) { return { workouts: rows.map((r) => whNormalizeWorkout(r)) }; }
+    const workoutRows = await DataLayer.list(GYM_WORKOUTS_COL);
+    if (workoutRows.length) {
+      whData = rowsToWorkouts(workoutRows);
+      whSaveLocal(whData);
+      renderWorkoutHistory();
+    } else if ((whData.workouts || []).length) {
+      // Local cache has workouts DataLayer doesn't know about yet —
+      // shouldn't normally happen (the one-time SQL migration already
+      // seeded gym_workouts from workout_history), just a safety net for
+      // a browser profile that never pulled workout_history either.
+      const sources = Array.from(new Set(whData.workouts.map((w) => w.source)));
+      await Promise.all(sources.map((s) => whSyncSourceToDataLayer(s)));
+    }
+    DataLayer.setLegacyMirror(GYM_WORKOUTS_COL, WH_LS_KEY, rowsToWorkouts);
+    DataLayer.subscribe(GYM_WORKOUTS_COL, async () => {
+      whData = rowsToWorkouts(await DataLayer.list(GYM_WORKOUTS_COL));
+      whSaveLocal(whData);
+      renderWorkoutHistory();
+    });
   });
 })();
 </script>

@@ -9,6 +9,8 @@
 <meta name="color-scheme" content="dark">
 <title>Health · Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="dataLayer.js" defer></script>
+<script src="syncStatus.js" defer></script>
 <script src="sync.js" defer></script>
 <script src="topbar.js" defer></script>
 <style>
@@ -669,16 +671,30 @@ main {
   </div>
   <script>
   (function () {
+    // Migrated to DataLayer/records (collection health_sleep, id=date) —
+    // see DATA_AUDIT.md. SLEEP_KEY is kept only as the legacy-mirror
+    // target so index.html (not migrated) keeps reading sleepEntries
+    // from localStorage exactly as before, with no change on its side.
+    const SLEEP_COL = 'health_sleep';
     const SLEEP_KEY = 'sleepEntries';
     const $ = (id) => document.getElementById(id);
 
-    function loadEntries() {
-      try { const v = JSON.parse(localStorage.getItem(SLEEP_KEY)); return Array.isArray(v) ? v : []; }
-      catch { return []; }
-    }
-    function saveEntries(list) {
-      try { localStorage.setItem(SLEEP_KEY, JSON.stringify(list)); return true; }
-      catch (e) { console.warn('[Sleep] localStorage.setItem failed', e); return false; }
+    // Populated by __initHealthSleep() once DataLayer.init() resolves —
+    // empty until then, same brief blank state nutrition.html's boot()
+    // already has before its first pull completes. Kept in the exact
+    // shape the old localStorage array used ({date,bedTime,wakeTime,...})
+    // so every render/lookup function below is unchanged.
+    let sleepEntriesCache = [];
+    function loadEntries() { return sleepEntriesCache; }
+    // DataLayer rows are {id,...data}; this widget's own code (and the
+    // legacy mirror) still expects {date,...} — convert at the boundary
+    // instead of touching every reader below.
+    function rowsToSleepEntries(rows) {
+      return rows.map((r) => {
+        const e = Object.assign({}, r, { date: r.id });
+        delete e.id;
+        return e;
+      });
     }
 
     function pad2(n) { return String(n).padStart(2, '0'); }
@@ -979,7 +995,7 @@ main {
       showWizardStep(1, 'backward');
     }
 
-    function doSleepSave() {
+    async function doSleepSave() {
       const date = selectedDateKey();
       const bedTime = $('sleepBedTime').value || null;
       const wakeTime = $('sleepWakeTime').value || null;
@@ -995,18 +1011,17 @@ main {
         quality: selectedQuality,
         loggedAt: new Date().toISOString(),
       };
-      const entries = loadEntries();
-      const idx = entries.findIndex(e => e.date === date);
-      if (idx >= 0) entries[idx] = entry; else entries.push(entry);
-      // UI_AUDIT.md CRÍTICO #5: used to show "Saved ✓" unconditionally,
-      // even if the localStorage write actually threw (quota exceeded,
-      // private-browsing lockdown, etc). Now the confirmation — and the
-      // form reset — only happen once the write is confirmed to have
-      // gone through.
-      if (!saveEntries(entries)) {
-        status.textContent = 'Could not save — your device storage may be full.';
-        return;
-      }
+      // UI_AUDIT.md CRÍTICO #5: used to show "Saved ✓" unconditionally
+      // even if the write actually failed. DataLayer.put() resolves once
+      // its optimistic local-cache write has happened (dataLayer.js); a
+      // real persistence failure past that point surfaces via DataLayer's
+      // own status dot/toast and its offline-queue retry, not via this
+      // function's return value the way the old localStorage.setItem
+      // failure used to — there's nothing left here that can silently
+      // claim a save that never happened.
+      const idx = sleepEntriesCache.findIndex(e => e.date === date);
+      if (idx >= 0) sleepEntriesCache[idx] = entry; else sleepEntriesCache.push(entry);
+      await DataLayer.put(SLEEP_COL, date, entry);
 
       showSavedConfirmation();
       renderSleep();
@@ -1657,14 +1672,21 @@ main {
       }).observe($('sleepWeekChartWrap'));
     }
 
-    // sleepEntries now rides the cloud sync (see initCloudSync config at
-    // the bottom of the file) — a remote pull dispatches a generic
-    // 'storage' event, so re-render whenever that happens to reflect it.
-    window.addEventListener('storage', (e) => { if (!e.key || e.key === SLEEP_KEY) renderSleep(); });
-
-    updateDatePillsUI();
-    updateSleepFormLiveState();
-    renderSleep();
+    // Cross-tab/cross-device refresh now rides DataLayer's realtime
+    // subscription (see __initHealthSleep below) instead of the
+    // 'storage' event sync.js used to dispatch — sleepEntries no longer
+    // goes through that engine after this migration.
+    window.__initHealthSleep = async function () {
+      sleepEntriesCache = rowsToSleepEntries(await DataLayer.list(SLEEP_COL));
+      DataLayer.setLegacyMirror(SLEEP_COL, SLEEP_KEY, rowsToSleepEntries);
+      DataLayer.subscribe(SLEEP_COL, async () => {
+        sleepEntriesCache = rowsToSleepEntries(await DataLayer.list(SLEEP_COL));
+        renderSleep();
+      });
+      updateDatePillsUI();
+      updateSleepFormLiveState();
+      renderSleep();
+    };
   })();
   </script>
 
@@ -1894,11 +1916,20 @@ main {
     // is what made loadBurnedHistory() have to scan every key in
     // localStorage on every chart render).
     // ============================================================
+    // Migrated to DataLayer/records (collection health_calories_burned,
+    // id=date) — see DATA_AUDIT.md. CB_KEY stays only as the legacy
+    // mirror target so index.html/nutrition.html (not migrated) keep
+    // reading caloriesBurnedEntries from localStorage unchanged.
+    const CB_COL = 'health_calories_burned';
     const CB_KEY = 'caloriesBurnedEntries';
     function cbLoadEntries() {
       try { const v = JSON.parse(localStorage.getItem(CB_KEY)); return Array.isArray(v) ? v : []; }
       catch { return []; }
     }
+    // Still used by cbMigrateLegacyKeysIfNeeded() below — a one-time,
+    // purely local migration from the old per-day 'burned:*' keys that
+    // predates DataLayer entirely and writes straight to localStorage.
+    // No longer used by the main save flow (see burnedSaveBtn handler).
     function cbSaveEntries(list) {
       try { localStorage.setItem(CB_KEY, JSON.stringify(list)); return true; }
       catch (e) { console.warn('[Calories burned] localStorage.setItem failed', e); return false; }
@@ -1923,7 +1954,8 @@ main {
       cbSaveEntries(migrated);
     }
     cbMigrateLegacyKeysIfNeeded();
-    let cbEntries = cbLoadEntries();
+    // Populated by __initHealthCalories() once DataLayer.init() resolves.
+    let cbEntries = [];
 
     // ---------- Which day this widget is reading/writing ----------
     // Defaults to today on every load (not persisted) — same pills+popover
@@ -2081,7 +2113,7 @@ main {
       $('burnedDirtyNotice').classList.toggle('hidden', !cbDirty);
     });
 
-    $('burnedSaveBtn').addEventListener('click', () => {
+    $('burnedSaveBtn').addEventListener('click', async () => {
       const raw = $('burnedInput').value;
       const v = parseFloat(raw);
       if (raw === '' || isNaN(v) || v <= 0) {
@@ -2093,37 +2125,32 @@ main {
       const entry = { date, kcal: Math.round(v), loggedAt: new Date().toISOString() };
       const nextEntries = cbEntries.slice();
       if (idx >= 0) nextEntries[idx] = entry; else nextEntries.push(entry);
-      // UI_AUDIT.md CRÍTICO #5: build the next array separately and only
-      // adopt it (and re-render as "logged") once the write is confirmed
-      // to have succeeded — previously cbEntries was mutated and render()
-      // always ran, so the UI could claim a save that never persisted.
-      if (!cbSaveEntries(nextEntries)) {
-        $('burnedStatus').textContent = 'Could not save — your device storage may be full.';
-        return;
-      }
+      // UI_AUDIT.md CRÍTICO #5: only adopt the new array (and re-render as
+      // "logged") once the write is confirmed. DataLayer.put() resolves
+      // after its optimistic local-cache write; an actual persistence
+      // failure past that point surfaces via DataLayer's own status
+      // dot/toast + offline-queue retry, not via this handler.
+      await DataLayer.put(CB_COL, date, entry);
       cbEntries = nextEntries;
       render();
     });
 
-    // Cross-tab / cloud-sync refresh: re-read the array (a remote pull
-    // writes straight to localStorage, so the in-memory cbEntries copy
-    // needs reloading) and re-render.
-    window.addEventListener('storage', (e) => {
-      if (!e.key || e.key === CB_KEY) {
-        cbEntries = cbLoadEntries();
-        // UI_AUDIT.md CRÍTICO #6: this used to always call render(),
-        // which unconditionally overwrites burnedInput's value and
-        // clears cbDirty — silently discarding whatever the user was
-        // mid-typing when a background/cross-tab sync landed. Same
-        // criterion the Sleep widget above already gets right
-        // (renderSleep() never touches the wizard's form fields): while
-        // an edit is in progress, only refresh the chart; the input and
-        // status line catch up the next time render() runs on its own
-        // (date change, or right after a successful save).
-        if (cbDirty) { renderBurnedChart(); return; }
-        render();
-      }
-    });
+    // Cross-tab/cross-device refresh now rides DataLayer's realtime
+    // subscription (see __initHealthCalories below) instead of the
+    // 'storage' event sync.js used to dispatch.
+    function onRemoteCaloriesChange(rows) {
+      cbEntries = rows.map((r) => ({ date: r.id, kcal: r.kcal, loggedAt: r.loggedAt }));
+      // UI_AUDIT.md CRÍTICO #6: this used to always call render(), which
+      // unconditionally overwrites burnedInput's value and clears
+      // cbDirty — silently discarding whatever the user was mid-typing
+      // when a background/cross-tab sync landed. Same criterion the
+      // Sleep widget above already gets right (renderSleep() never
+      // touches the wizard's form fields): while an edit is in progress,
+      // only refresh the chart; the input/status line catch up next time
+      // render() runs on its own (date change, or right after a save).
+      if (cbDirty) { renderBurnedChart(); return; }
+      render();
+    }
 
     // ============================================================
     // TREND CHART — same stock-chart look as finance.html's net-worth
@@ -2303,7 +2330,15 @@ main {
     });
 
     updateBurnedDatePillsUI();
-    render();
+
+    window.__initHealthCalories = async function () {
+      cbEntries = (await DataLayer.list(CB_COL)).map((r) => ({ date: r.id, kcal: r.kcal, loggedAt: r.loggedAt }));
+      DataLayer.setLegacyMirror(CB_COL, CB_KEY, (rows) => rows.map((r) => ({ date: r.id, kcal: r.kcal, loggedAt: r.loggedAt })));
+      DataLayer.subscribe(CB_COL, async () => {
+        onRemoteCaloriesChange(await DataLayer.list(CB_COL));
+      });
+      render();
+    };
   })();
   </script>
 
@@ -2320,16 +2355,31 @@ document.addEventListener('DOMContentLoaded', function () {
   if (typeof initCloudSync !== 'function') return;
   initCloudSync({
     appKey: 'health',
-    // 'burned:*' per-day keys are gone (migrated to the single
-    // caloriesBurnedEntries array below), so syncedPrefixes has nothing
-    // left to match — kept as an empty array rather than removed
-    // entirely, since sync.js defaults it to [] anyway if omitted.
-    syncedKeys: ['po_water_v1', 'sleepEntries', 'caloriesBurnedEntries'],
+    // sleepEntries/caloriesBurnedEntries migrated off this engine onto
+    // DataLayer/records (health_sleep, health_calories_burned) — see
+    // DATA_AUDIT.md. Only po_water_v1 still rides app_state; leaving the
+    // other two here would double-sync them through two engines at once.
+    syncedKeys: ['po_water_v1'],
     syncedPrefixes: [],
     onApplied: function () {
       window.dispatchEvent(new Event('storage'));
     }
   });
+});
+
+// Single DataLayer.init() for the whole page — the Sleep and Calories
+// Burned widgets above each expose an __initHealthX() hook instead of
+// calling DataLayer.init() themselves, so only one Supabase auth client
+// ever gets created here. Two independent clients would each
+// auto-refresh the same persisted session and race — see sync.js's
+// persistSession:false comment for the 401 storm that caused elsewhere
+// before it was fixed (commit c820bab).
+document.addEventListener('DOMContentLoaded', async function () {
+  if (typeof DataLayer === 'undefined') return;
+  const session = await DataLayer.init({ requireAuth: true });
+  if (!session) return; // redirected to login.html
+  await window.__initHealthSleep();
+  await window.__initHealthCalories();
 });
 </script>
 

@@ -124,8 +124,15 @@
           { key: appKey, data: merged, updated_at: new Date().toISOString() },
           { onConflict: 'key' }
         );
-        if (!error) { lastSyncedJson = json; lastKnownRemote = merged; }
-      } catch (e) {}
+        if (!error) {
+          lastSyncedJson = json; lastKnownRemote = merged;
+          try { window.DashSyncStatus && window.DashSyncStatus.report(appKey, true); } catch (e) {}
+        } else {
+          try { window.DashSyncStatus && window.DashSyncStatus.report(appKey, false); } catch (e) {}
+        }
+      } catch (e) {
+        try { window.DashSyncStatus && window.DashSyncStatus.report(appKey, false); } catch (e2) {}
+      }
     }
     function schedulePush() {
       clearTimeout(pushTimer);
