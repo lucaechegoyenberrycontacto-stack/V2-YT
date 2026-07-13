@@ -658,15 +658,27 @@ select.gm-input { appearance: none; -webkit-appearance: none; background-image: 
     if (items.length===0){ const li=document.createElement('li'); li.className='results-empty'; li.textContent='No match — add it with "+ New food" or "+ New combo" below.'; el.appendChild(li); return; }
     items.forEach(item=>{
       const li = document.createElement('li'); li.className='result';
+      li.dataset.type = item.type; li.dataset.id = item.id;
       const tag = item.type==='combo' ? 'Combo' : 'Food';
       li.innerHTML = '<span class="result-emoji">'+item.e+'</span><span class="result-name">'+escapeHtml(item.name)+' <span class="result-cat">· '+tag+'</span></span>';
-      li.addEventListener('click', ()=>{
-        if (item.type==='combo') openLogCombo(item.id);
-        else openLogSingleFood(item.id);
-      });
       el.appendChild(li);
     });
   }
+  // Bug fix: a listener attached to each <li> gets torn down and rebuilt
+  // on every renderResults() call — including the ones triggered
+  // reactively by DataLayer's realtime subscriptions (FOODS_COL/
+  // COMBOS_COL below), not just typing. If that re-render lands between
+  // a tap's press and release, the tapped <li> is gone before the click
+  // fires and the tap is silently lost — intermittent, needs several
+  // taps to "get lucky". A single delegated listener on the never-
+  // replaced <ul id="results"> catches the click regardless of how many
+  // times its children were rebuilt in between.
+  $('results').addEventListener('click', (e)=>{
+    const li = e.target.closest('.result');
+    if (!li) return;
+    if (li.dataset.type === 'combo') openLogCombo(li.dataset.id);
+    else openLogSingleFood(li.dataset.id);
+  });
 
   /* ============ Modals: open/close ============ */
   function openModal(id){ $(id).classList.add('on'); }
