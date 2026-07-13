@@ -4115,7 +4115,16 @@ img, video, canvas, svg { max-width: 100%; }
     if (!window.supabase || !SUPABASE_URL || !SUPABASE_KEY) return;
     // Skip if the placeholder values are still in place (local-only mode)
     if (SUPABASE_URL.indexOf('PASTE-') === 0 || SUPABASE_KEY.indexOf('PASTE-') === 0) return;
-    pcSupa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    // persistSession/autoRefreshToken:false — this client only ever does
+    // anon-role CRUD (no .auth. calls anywhere in this file). Left at
+    // their defaults, every createClient() on the page shares one
+    // localStorage-persisted session with whichever page the user last
+    // logged into (nutrition.html/login.html); multiple independent
+    // clients here (pcSupa/whSupa/gpSupa) each auto-refreshing that same
+    // rotating session caused intermittent 401s across every table,
+    // confirmed via Supabase API/Auth logs (simultaneous 401 bursts +
+    // concurrent token_refreshed/token_revoked events).
+    pcSupa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
     try {
       const { data, error } = await pcSupa
         .from('app_state').select('data').eq('key', APP_KEY).maybeSingle();
@@ -4226,7 +4235,9 @@ img, video, canvas, svg { max-width: 100%; }
   (async function whInitCloudSync() {
     if (!window.supabase || !SUPABASE_URL || !SUPABASE_KEY) return;
     if (SUPABASE_URL.indexOf('PASTE-') === 0 || SUPABASE_KEY.indexOf('PASTE-') === 0) return;
-    whSupa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    // See pcSupa above — anon-only client, no reason to share/refresh the
+    // logged-in user's auth session.
+    whSupa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
     try {
       const { data, error } = await whSupa
         .from(WH_TABLE).select('data').eq('key', WH_KEY).maybeSingle();

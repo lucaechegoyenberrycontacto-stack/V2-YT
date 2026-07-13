@@ -158,7 +158,15 @@
     }
 
     (async function init() {
-      supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      // persistSession/autoRefreshToken:false — this client (shared by
+      // every page that calls initCloudSync) only ever does anon-role
+      // CRUD, no .auth. calls. Left at defaults, it would silently share
+      // and auto-refresh whatever real user session login.html/
+      // nutrition.html's DataLayer created (same localStorage key,
+      // same-origin) — multiple independent clients across pages/tabs
+      // racing to refresh that one rotating session caused intermittent
+      // 401s dashboard-wide, confirmed via Supabase API + Auth logs.
+      supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
       try {
         const { data, error } = await supa
           .from('app_state').select('data').eq('key', appKey).maybeSingle();

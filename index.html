@@ -1016,7 +1016,10 @@ body::after {
   let warmupSupa = null;
   if (window.supabase && WARMUP_SUPABASE_URL && WARMUP_SUPABASE_KEY &&
       WARMUP_SUPABASE_URL.indexOf('PASTE-') !== 0 && WARMUP_SUPABASE_KEY.indexOf('PASTE-') !== 0) {
-    try { warmupSupa = window.supabase.createClient(WARMUP_SUPABASE_URL, WARMUP_SUPABASE_KEY); } catch (e) {}
+    // persistSession/autoRefreshToken:false — see sync.js/gym.html. This
+    // page is read-only by design and has no reason to touch the shared
+    // auth session either.
+    try { warmupSupa = window.supabase.createClient(WARMUP_SUPABASE_URL, WARMUP_SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false } }); } catch (e) {}
   }
   let lastWarmUpAt = 0;
 

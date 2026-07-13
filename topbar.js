@@ -389,7 +389,10 @@ body.topbar-modal-open {
     if (TOPBAR_SUPABASE_URL.indexOf('PASTE-') === 0) return;
 
     try {
-      const supa = window.supabase.createClient(TOPBAR_SUPABASE_URL, TOPBAR_SUPABASE_KEY);
+      // persistSession/autoRefreshToken:false — see sync.js. This client
+      // (created fresh on every "+1 agua" tap, on every page) has no
+      // reason to touch the shared auth session either.
+      const supa = window.supabase.createClient(TOPBAR_SUPABASE_URL, TOPBAR_SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
       const { data } = await supa
         .from('app_state').select('data').eq('key', 'health').maybeSingle();
       const current = (data && data.data) || {};

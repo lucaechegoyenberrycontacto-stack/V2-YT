@@ -161,7 +161,15 @@
   (async function gpInitCloudSync() {
     if (!window.supabase || !SUPABASE_URL || !SUPABASE_KEY) return;
     if (SUPABASE_URL.indexOf('PASTE-') === 0 || SUPABASE_KEY.indexOf('PASTE-') === 0) return;
-    gpSupa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    // persistSession/autoRefreshToken:false — root cause of the "No se
+    // pudo conectar con la nube al abrir" report: this client (plus
+    // gym.html's pcSupa/whSupa) shared the logged-in user's auth session
+    // via localStorage by default, and multiple independent clients each
+    // auto-refreshing that one rotating session raced each other,
+    // producing intermittent 401s here and on app_state/workout_history
+    // alike (confirmed via Supabase API + Auth logs). This client never
+    // calls .auth. anything — it only needs the anon key.
+    gpSupa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
     try {
       const { data, error } = await gpSupa.from(GP_TABLE).select('data').eq('key', GP_KEY).maybeSingle();
       if (error) throw error;
