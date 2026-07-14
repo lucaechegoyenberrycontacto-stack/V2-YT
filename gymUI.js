@@ -626,7 +626,7 @@
         date: date, title: 'Pesas', source: 'manual', discipline: 'pesas', exercises: partitioned.keptExercises,
       }, 'manual');
       window.WH.appendWorkout(workout);
-      window.WH.commit();
+      window.WH.commit(workout);
 
       partitioned.keptExercises.forEach(function (ex) {
         const vol = ex.sets.reduce(function (s, x) { return s + (x.weight || 0) * (x.reps || 0); }, 0);
@@ -778,7 +778,7 @@
       cardio: cardio,
     }, 'manual');
     window.WH.appendWorkout(workout);
-    window.WH.commit();
+    window.WH.commit(workout);
     closeCardioModal();
     renderTrCards();
     renderTrHomeStats();
