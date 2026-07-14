@@ -140,14 +140,6 @@ Replace the old URL/key in these files:
 
 ---
 
-## 4. Nova (AI mentor / gym coach) — optional
-
-No setup or key in the repo. Each user **pastes their own Anthropic API key** on the
-**Nova** tile; it's stored only in their browser and sent straight to Anthropic. Get a key at
-console.anthropic.com.
-
----
-
 ## TL;DR
 1. Fork → import to Vercel → deploy.
 2. New Supabase → run the **SQL** above → paste your **URL + anon key** into `sync.js`,
