@@ -264,16 +264,24 @@
   }
 
   /* ================= fetch + cache ================= */
+  // Reports whether the fetched rows actually differ from what was already
+  // cached — list()'s warm-cache path uses this to decide whether to
+  // notify subscribers. Without it, a background refresh notifies
+  // unconditionally, and a subscriber that itself calls list() (the
+  // pattern every migrated page uses) re-triggers another unconditional
+  // notify — an infinite loop from a single realtime event, since nothing
+  // ever needed to have changed for the cycle to keep going.
   async function fetchAndCache(collection) {
     try {
       const { data, error } = await supa.from('records').select('id,data').eq('collection', collection).order('id', { ascending: true });
       if (error) throw error;
       const rows = (data || []).map((r) => Object.assign({ id: r.id }, r.data));
+      const changed = JSON.stringify(rows) !== JSON.stringify(readCache(collection));
       writeCache(collection, rows);
-      return rows;
+      return { rows: rows, changed: changed };
     } catch (e) {
       console.warn('[DataLayer] list fetch failed, serving cache for', collection, e);
-      return readCache(collection);
+      return { rows: readCache(collection), changed: false };
     }
   }
 
@@ -326,15 +334,15 @@
     if (!supa) { console.warn('[DataLayer] list() called before init()'); return readCache(collection); }
     const cached = readCache(collection);
     if (cached.length) {
-      fetchAndCache(collection).then(() => {
+      fetchAndCache(collection).then((result) => {
         refreshLegacyMirrors(collection);
-        notifySubscribers(collection);
+        if (result.changed) notifySubscribers(collection);
       });
       return cached;
     }
     const fresh = await fetchAndCache(collection);
     refreshLegacyMirrors(collection);
-    return fresh;
+    return fresh.rows;
   }
 
   /**
