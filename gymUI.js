@@ -213,12 +213,9 @@
       : { isPlaceholder: true, muscles: {} };
 
     if (result.isPlaceholder) {
-      // Never show invented colors/numbers before a real config exists.
-      wrap.innerHTML =
-        '<div class="po-empty">Cargá tu lógica de recuperación para activar esto</div>'
-        + '<button class="po-btn-secondary" type="button" id="trMuscleMapConfigBtn" style="margin-top:10px;">Cargar configuración</button>';
-      const btn = $('trMuscleMapConfigBtn');
-      if (btn) btn.addEventListener('click', openMuscleConfigModal);
+      // The config is now always seeded in Supabase — reaching this means
+      // the fetch failed or hasn't landed yet, not a first-run state.
+      wrap.innerHTML = '<div class="po-empty">No se pudo cargar el mapa muscular. Reintentá recargando la página.</div>';
       appendSyncNoteIfError(wrap);
       return;
     }
@@ -291,40 +288,6 @@
         }).join('')
       : '<div class="po-empty">Ningún ejercicio de tu historial trabaja este músculo todavía.</div>';
     $('trMuscleDetailModalBg').classList.add('show');
-  }
-
-  function openMuscleConfigModal() {
-    const modal = $('trMuscleConfigModalBg');
-    if (!modal) return;
-    const current = (window.GymPesasStore && window.GymPesasStore.getMuscleFatigueConfig) ? window.GymPesasStore.getMuscleFatigueConfig() : null;
-    $('trMuscleConfigTextarea').value = current ? JSON.stringify(current, null, 2) : '';
-    $('trMuscleConfigStatus').textContent = '';
-    modal.classList.add('show');
-  }
-  function closeMuscleConfigModal() { $('trMuscleConfigModalBg').classList.remove('show'); }
-
-  function initMuscleConfigModal() {
-    const cancelBtn = $('trMuscleConfigCancel');
-    const saveBtn = $('trMuscleConfigSave');
-    if (cancelBtn) cancelBtn.addEventListener('click', closeMuscleConfigModal);
-    if (saveBtn) saveBtn.addEventListener('click', function () {
-      const statusEl = $('trMuscleConfigStatus');
-      let parsed;
-      try {
-        parsed = JSON.parse($('trMuscleConfigTextarea').value);
-      } catch (e) {
-        statusEl.textContent = 'JSON inválido: ' + e.message;
-        return;
-      }
-      if (!parsed || typeof parsed !== 'object' || !parsed.muscles) {
-        statusEl.textContent = 'El JSON debe tener al menos un campo "muscles".';
-        return;
-      }
-      window.GymPesasStore.setMuscleFatigueConfig(parsed);
-      statusEl.textContent = '';
-      closeMuscleConfigModal();
-      renderMuscleMap();
-    });
   }
 
   // ============================================================
@@ -546,6 +509,14 @@
       + '</select>';
   }
 
+  // Same "last session for this discipline" criterion used elsewhere
+  // (cardContextFor above) — sessions come back most-recent-date-first
+  // from window.WH.getAllWorkouts(), so .find() is enough.
+  function findLastPesasWorkout() {
+    const sessions = (window.WH && window.WH.getAllWorkouts) ? window.WH.getAllWorkouts() : [];
+    return sessions.find(function (w) { return (w.discipline || 'pesas') === 'pesas'; }) || null;
+  }
+
   function openPesasLogModal() {
     pesasLogRows = [{ rowId: ++pesasLogRowSeq, name: '', sets: [{ reps: 8, weight: 20, rir: '' }] }];
     renderPesasLogRows();
@@ -553,9 +524,27 @@
     if (!pesasLogDatePicker) pesasLogDatePicker = createDatePicker($('trPesasLogDatePicker'));
     pesasLogDatePicker.reset();
     refreshExerciseNameDatalist();
+    const repeatBtn = $('trPesasLogRepeatBtn');
+    if (repeatBtn) repeatBtn.disabled = !findLastPesasWorkout();
     $('trPesasLogModalBg').classList.add('show');
   }
   function closePesasLogModal() { $('trPesasLogModalBg').classList.remove('show'); }
+
+  // Pre-fills the form with the exercises/sets from the most recent Pesas
+  // workout — the date picker is left untouched (stays on "Hoy"), only
+  // exercises/sets are copied, and everything stays editable before saving.
+  function pesasLogRepeatLastSession() {
+    const last = findLastPesasWorkout();
+    if (!last || !last.exercises || !last.exercises.length) return;
+    pesasLogRows = last.exercises.map(function (ex) {
+      return {
+        rowId: ++pesasLogRowSeq,
+        name: ex.name || '',
+        sets: (ex.sets || []).map(function (s) { return { reps: s.reps || 0, weight: s.weight || 0, rir: s.rir || '' }; }),
+      };
+    });
+    renderPesasLogRows();
+  }
 
   // Column header for the sets grid — inputs come pre-filled with default
   // values (8 reps / 20kg), so the placeholder text never actually shows;
@@ -660,6 +649,7 @@
 
   function initPesasLogModal() {
     $('trPesasLogAddExBtn').addEventListener('click', pesasLogAddExercise);
+    $('trPesasLogRepeatBtn').addEventListener('click', pesasLogRepeatLastSession);
     $('trPesasLogCancel').addEventListener('click', closePesasLogModal);
     $('trPesasLogSave').addEventListener('click', savePesasLog);
   }
@@ -900,7 +890,6 @@
 
   function init() {
     renderMuscleMapAfterWarmUp();
-    initMuscleConfigModal();
     initExerciseLibraryModals();
     initPesasLogModal();
     initMobilityLogModal();

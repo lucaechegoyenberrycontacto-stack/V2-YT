@@ -444,6 +444,7 @@ img, video, canvas, svg { max-width: 100%; }
   -webkit-tap-highlight-color: transparent;
 }
 .po-btn-secondary:hover { background: rgba(255,255,255,0.10); }
+.po-btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ----- Prescription card ----- */
 .po-rx-card {
@@ -1915,9 +1916,10 @@ img, video, canvas, svg { max-width: 100%; }
 
       </div>
 
-      <!-- Workout History — one unified view over public.workout_history,
-           regardless of where each entry came from (Lyfta import or
-           manual entry). Every source is normalized to the same shape
+      <!-- Workout History — one unified view over the gym_workouts
+           collection, regardless of which source each entry came from
+           (old Lyfta/Strava imports, or manual entry — the only entry
+           path left). Every source is normalized to the same shape
            before it's saved (see whNormalizeWorkout in the script below),
            so the lists/PRs/chart never need to know or care where a
            given workout came from. -->
@@ -1943,11 +1945,9 @@ img, video, canvas, svg { max-width: 100%; }
         <div class="wh-actions">
           <div class="wh-actions-btns">
             <button class="po-btn-primary" id="whAddOpenBtn" type="button" style="width:auto; padding:11px 16px;">+ Log workout</button>
-            <button class="po-btn-secondary" id="whImportBtn" type="button">Import Lyfta JSON</button>
           </div>
           <span class="wh-meta" id="whMeta"></span>
         </div>
-        <input type="file" id="whImportFile" accept=".json" style="display:none">
       </div>
 
       <!-- Weekly Frequency — pulled out of .wh-stats-group into its own
@@ -2053,9 +2053,9 @@ img, video, canvas, svg { max-width: 100%; }
   </div>
 </div>
 
-<!-- Log Workout Modal — manual entry into workout_history. Saved
-     through the exact same normalize + save path as a Lyfta import,
-     just tagged source: 'manual'. -->
+<!-- Log Workout Modal — manual entry, the only way to add a workout now.
+     Saved through the same normalize + save path old Lyfta imports used
+     to go through, tagged source: 'manual'. -->
 <div class="po-modal-bg" id="whAddModalBg">
   <div class="po-modal" style="max-width: 480px;">
     <h3>Log a workout</h3>
@@ -2132,24 +2132,6 @@ img, video, canvas, svg { max-width: 100%; }
      overrides), reused by the Pesas log and Movilidad log forms. -->
 <datalist id="trExerciseNameOptions"></datalist>
 
-<!-- Training module — Muscle fatigue config loader (paste-JSON, same
-     pattern as the existing Import JSON flows elsewhere on this page). -->
-<div class="po-modal-bg" id="trMuscleConfigModalBg">
-  <div class="po-modal" style="max-width: 520px;">
-    <h3>Cargar configuración de recuperación</h3>
-    <div style="font-size:12px;color:var(--text-tertiary);line-height:1.5;margin-bottom:8px;">
-      Pegá tu JSON de configuración de fatiga muscular. Debe incluir <code>"isPlaceholder": false</code>
-      para activar el mapa.
-    </div>
-    <textarea id="trMuscleConfigTextarea" rows="10" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:10px;color:var(--text-primary);font-family:var(--font-mono);font-size:12px;padding:10px;"></textarea>
-    <div id="trMuscleConfigStatus" style="text-align:center;font-size:12px;color:var(--danger);min-height:16px;"></div>
-    <div class="po-modal-actions">
-      <button class="po-btn-secondary" id="trMuscleConfigCancel" type="button">Cancelar</button>
-      <button class="po-btn-primary" id="trMuscleConfigSave" type="button">Guardar</button>
-    </div>
-  </div>
-</div>
-
 <!-- Pesas — manual log. Just date + exercises + sets (reps × peso); no
      rutina que elegir. Cada ejercicio se enruta solo (fuerza/sin asignar
      vs. movilidad) según su clasificación en GymPesasStore al guardar. -->
@@ -2158,6 +2140,8 @@ img, video, canvas, svg { max-width: 100%; }
     <h3>Registrar Pesas</h3>
 
     <div id="trPesasLogDatePicker"></div>
+
+    <button class="po-btn-secondary" id="trPesasLogRepeatBtn" type="button" style="width:100%;margin-bottom:10px;">Repetir última sesión</button>
 
     <div id="trPesasLogExList"></div>
     <button class="po-add-row-btn" id="trPesasLogAddExBtn" type="button">+ Agregar ejercicio</button>
@@ -2288,8 +2272,15 @@ img, video, canvas, svg { max-width: 100%; }
     } catch (e) {}
     return { units: CONFIG.units || 'kg' };
   }
+  // dlReady flips true once initGymDataLayer (bottom of this IIFE) has
+  // pulled gym_routine_config/gym_steps_goal/gym_progress_photos — see
+  // that handler for why the rest of po_coach_v1 (days/gyms/exercises/
+  // splitAnchor/etc) is NOT migrated here (stale data from a discarded
+  // module, no longer read or written by any current code).
+  let dlReady = false;
   function saveState() {
     try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {}
+    if (dlReady) DataLayer.putSingleton('gym_routine_config', { units: state.units });
   }
   let state = loadState();
   document.getElementById('appTitle').textContent = CONFIG.appTitle || 'Progressive Overload Coach';
@@ -2301,8 +2292,9 @@ img, video, canvas, svg { max-width: 100%; }
   function estimate1RM(w, r) { if (r < 2) return w; return w * (1 + r / 30); }
 
   // ============================================================
-  // WORKOUT HISTORY — one unified log fed by multiple sources
-  // (Lyfta import, manual entry).
+  // WORKOUT HISTORY — one unified log. Old entries came from Lyfta or
+  // Strava imports; manual entry (the "+ Log workout" button) is the
+  // only active entry path now — import support was removed.
   //
   // Every workout is normalized to the same shape before it's ever
   // saved — { date, title, source, exercises:[{name, sets:[{reps,weight}]}] }
@@ -2380,30 +2372,21 @@ img, video, canvas, svg { max-width: 100%; }
   }
   let whData = whLoad();
 
-  // Bulk sources (a Lyfta re-import) replace only the entries tagged
-  // with their own source; every other source's entries are left
-  // untouched.
-  function whMergeBySource(newWorkouts, source) {
-    const kept = (whData.workouts || []).filter(w => w.source !== source);
-    whData = { workouts: kept.concat(newWorkouts) };
-  }
   // Manual entry adds a single workout without touching anything else.
   function whAppendWorkout(workout) {
     whData = { workouts: (whData.workouts || []).concat([workout]) };
   }
-  // One local-save path for every source; the actual DataLayer push is
-  // caller-specific (see `change`) because a Lyfta re-import
-  // (whMergeBySource) needs a full upsert+prune of that source's
-  // records, while a manual add (whAppendWorkout) only ever needs a
-  // single new put — see the gym_workouts sync functions further down.
-  function whCommit(change) {
+  // Local-save path for the only entry point left (manual add): local
+  // cache, re-render, then push the single new record to DataLayer.
+  // whSyncSourceToDataLayer (further down) still exists and is still
+  // used by the DataLayer boot's local-cache fallback — it's not dead,
+  // just no longer reachable from here since the Lyfta re-import UI
+  // that used to call it from this function was removed.
+  function whCommit(workout) {
     whSaveLocal(whData);
     renderWorkoutHistory();
-    if (!change) return;
-    const sync = change.type === 'append' ? whPushSingleWorkout(change.workout)
-      : change.type === 'merge' ? whSyncSourceToDataLayer(change.source)
-      : Promise.resolve();
-    sync.catch((e) => console.warn('[WorkoutHistory] gym_workouts sync failed', e));
+    if (!workout) return;
+    whPushSingleWorkout(workout).catch((e) => console.warn('[WorkoutHistory] gym_workouts sync failed', e));
   }
 
   function whSortedWorkouts() {
@@ -2604,42 +2587,6 @@ img, video, canvas, svg { max-width: 100%; }
     getPesasSetsGroupedByExercise: whGetPesasSetsGroupedByExercise,
   };
 
-  // ---- Lyfta import: bulk-replaces only the 'lyfta'-sourced entries ----
-  // Before normalizing, every workout's exercises are run through
-  // GymPesasStore.partitionWorkoutExercises: discarded names (Run,
-  // Stationary Bike Run) are dropped entirely, isMobility:true exercises
-  // are extracted into the separate mobility log, and the rest keep only
-  // their resolved primaryMuscle/secondaryMuscles. A workout left with no
-  // exercises after that (i.e. it was ONLY the discarded exercise) is
-  // dropped — it never enters workout_history and doesn't count for the
-  // training streak.
-  $('whImportBtn').addEventListener('click', () => $('whImportFile').click());
-  $('whImportFile').addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const parsed = JSON.parse(reader.result);
-        if (!parsed || !Array.isArray(parsed.workouts)) {
-          alert('Invalid file — expected a Lyfta export with a "workouts" array.');
-          return;
-        }
-        const allMobilityEntries = [];
-        const filteredWorkouts = parsed.workouts.map((w) => {
-          const partitioned = window.GymPesasStore.partitionWorkoutExercises(w && w.date, (w && w.exercises) || []);
-          if (partitioned.mobilityEntries.length) allMobilityEntries.push(...partitioned.mobilityEntries);
-          return Object.assign({}, w, { exercises: partitioned.keptExercises });
-        }).filter((w) => w.exercises.length > 0);
-        if (allMobilityEntries.length) window.GymPesasStore.addMobilityLogEntries(allMobilityEntries);
-        whMergeBySource(whNormalizeWorkouts(filteredWorkouts, 'lyfta'), 'lyfta');
-        whCommit({ type: 'merge', source: 'lyfta' });
-      } catch (err) { alert('Could not parse that file as JSON.'); }
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  });
-
   // ---- Manual entry: adds a single 'manual'-sourced workout ----
   function whParseSetsStr(str) {
     const out = [];
@@ -2684,7 +2631,7 @@ img, video, canvas, svg { max-width: 100%; }
     if (!exercises.length) { $('whAddStatus').textContent = 'Add at least one exercise with valid sets (e.g. 8x30).'; return; }
     const newWorkout = whNormalizeWorkout({ date, title, source: 'manual', exercises }, 'manual');
     whAppendWorkout(newWorkout);
-    whCommit({ type: 'append', workout: newWorkout });
+    whCommit(newWorkout);
     whCloseAddModal();
   });
 
@@ -2718,9 +2665,8 @@ img, video, canvas, svg { max-width: 100%; }
 
   // Export / Import / Reset — scoped to what Settings manages now (units +
   // exercise/muscle overrides, mobility log, fatigue config, via
-  // GymPesasStore). Workout history (Lyfta import / manual entries) has
-  // its own dedicated import flow above ("Import Lyfta JSON") and is
-  // intentionally untouched here.
+  // GymPesasStore). Workout history (logged via "+ Log workout" above,
+  // manual entry only) is intentionally untouched here.
   $('setExport').addEventListener('click', () => {
     const snapshot = { units: state.units, training: window.GymPesasStore.exportSnapshot() };
     const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
@@ -3135,6 +3081,7 @@ img, video, canvas, svg { max-width: 100%; }
   }
   function stepsSaveGoal(n) {
     try { localStorage.setItem(STEPS_GOAL_KEY, JSON.stringify(n)); } catch (e) {}
+    if (dlReady) DataLayer.putSingleton('gym_steps_goal', { goal: n });
   }
 
   let stepsData = stepsLoad();
@@ -3696,6 +3643,11 @@ img, video, canvas, svg { max-width: 100%; }
       delete e.dataUrl;
       photosSave();
       photosRender();
+      // Only URL-pointer entries ever reach DataLayer/records — same
+      // payload-size restriction the old PC_SYNCED_KEYS engine enforced
+      // via pcCollectState's dataUrl filter (see gym_progress_photos
+      // comment near PHOTO_KEY above).
+      if (dlReady) DataLayer.put('gym_progress_photos', e.id, { url: e.url, dateKey: e.dateKey, weight: e.weight });
     });
   }
 
@@ -3721,6 +3673,7 @@ img, video, canvas, svg { max-width: 100%; }
     delete e.dataUrl;
     photosSave();
     photosRender();
+    if (dlReady) DataLayer.put('gym_progress_photos', e.id, { url: e.url, dateKey: e.dateKey, weight: e.weight });
   }
   function fileToPhoto(file) {
     const r = new FileReader();
@@ -3905,6 +3858,7 @@ img, video, canvas, svg { max-width: 100%; }
     photos = photos.filter(p => p.id !== activePhotoId);
     photosSave();
     photosRender();
+    if (dlReady) DataLayer.remove('gym_progress_photos', activePhotoId);
     closePhoto();
   }
 
@@ -3957,14 +3911,18 @@ img, video, canvas, svg { max-width: 100%; }
   const SUPABASE_URL = (window.DASH_SUPABASE_URL) || 'https://bkkjtxvneldsqwyhrhub.supabase.co';
   const SUPABASE_KEY = (window.DASH_SUPABASE_KEY) || 'sb_publishable_G8LqREPRDk0_tMEJNSFBxA_mIXNAnmT';
   const APP_KEY = 'po-coach';
-  // Note: po_coach_photos IS synced, but only URL-pointer entries ride
-  // the wire. The actual JPEG lives in Supabase Storage. pcCollectState
-  // strips any base64 dataUrl entries before push so the payload stays
-  // tiny and we never blow iOS Safari's ~5MB localStorage quota.
-  // po_coach_weights/gym:steps removed — migrated to DataLayer/records
-  // (gym_body_weight, gym_steps, see DATA_AUDIT.md); leaving them here
-  // too would double-sync them through two engines at once.
-  const PC_SYNCED_KEYS = ['po_coach_v1', 'po_coach_photos', 'gym:stepsGoal'];
+  // po_coach_weights/gym:steps were removed first (migrated to
+  // gym_body_weight/gym_steps — see DATA_AUDIT.md); po_coach_v1,
+  // po_coach_photos, and gym:stepsGoal are the last 3 — migrated to
+  // gym_routine_config/gym_progress_photos/gym_steps_goal in this pass
+  // (see saveState/stepsSaveGoal/photosAdd/retryPhotoUpload/
+  // deleteActivePhoto above and initGymDataLayer below). That's every
+  // key this engine ever synced — PC_SYNCED_KEYS is intentionally empty
+  // now. pcCollectState/pcApplyRemoteState/the patched setItem/
+  // removeItem/pcSchedulePush/the initial pull+realtime subscribe below
+  // are left in place rather than removed (out of scope for this
+  // migration): with an empty list they simply have nothing left to do.
+  const PC_SYNCED_KEYS = [];
 
   let pcSupa = null;
   let pcPushTimer = null;
@@ -4250,11 +4208,10 @@ img, video, canvas, svg { max-width: 100%; }
   // repeated pushes of the same logical workout upsert instead of
   // duplicating. The index is scoped PER SOURCE (position within just
   // that source's own subset, in array order) rather than the workout's
-  // absolute position in whData.workouts: whMergeBySource rebuilds the
-  // whole array as kept-sources-first + replaced-source-last on every
-  // Lyfta re-import, which shifts absolute indices for every workout in
-  // the array — including sources that weren't reimported. A per-source
-  // index stays stable for any source that wasn't the one just replaced.
+  // absolute position in whData.workouts — same reason
+  // whSyncSourceToDataLayer below diffs per source instead of
+  // wholesale: a source-scoped index stays stable even if another
+  // source's entries are added/removed elsewhere in the array.
   function whWorkoutId(w, sourceIndex) {
     return (w && w.id) || ((w.date || 'nodate') + '_' + whSlug(w.title) + '_' + sourceIndex);
   }
@@ -4266,12 +4223,14 @@ img, video, canvas, svg { max-width: 100%; }
     const index = sourceWorkouts.length - 1;
     await DataLayer.put(GYM_WORKOUTS_COL, whWorkoutId(workout, index), workout);
   }
-  // A Lyfta (or any bulk) re-import replaces an entire source's
-  // workouts — push every current workout of `source` (upsert) and
-  // remove any gym_workouts row previously tagged with that source no
-  // longer present locally. This is the real per-record delete this
-  // migration exists to provide, scoped to just the source that changed
-  // instead of re-touching the whole history on every save.
+  // Used by the DataLayer boot's local-cache fallback below (a browser
+  // profile with workouts cached locally that DataLayer doesn't know
+  // about yet) — pushes every current workout of `source` (upsert) and
+  // removes any gym_workouts row previously tagged with that source no
+  // longer present locally. This per-record delete capability used to
+  // also back the Lyfta re-import UI (removed — imports are no longer
+  // supported, all entry is manual now); kept because the boot fallback
+  // still needs it.
   async function whSyncSourceToDataLayer(source) {
     const sourceWorkouts = (whData.workouts || []).filter((w) => w.source === source);
     const currentIds = new Set();
@@ -4356,6 +4315,79 @@ img, video, canvas, svg { max-width: 100%; }
       whSaveLocal(whData);
       renderWorkoutHistory();
     });
+
+    // ---- Routine config (units only) ----
+    // See the PC_SYNCED_KEYS comment above: the rest of the old
+    // po_coach_v1 blob (days/gyms/exercises/splitAnchor/splitRotation/
+    // etc) is stale data from a discarded module (gymData.js, itself
+    // superseded first by gym_workouts and now gymPesasStore.js) — no
+    // current code reads or writes it, so it's deliberately left out of
+    // gym_routine_config and out of this mirror. index.html's
+    // renderGymStat() reads `.logs` from this same localStorage key, but
+    // that's been an empty object (0 sets shown) since workout logging
+    // moved to gym_workouts in the prior migration — confirmed this
+    // mirror doesn't change that output (still 0 sets, just via a
+    // missing field now instead of an empty one).
+    const routineConfig = await DataLayer.getSingleton('gym_routine_config');
+    if (routineConfig && routineConfig.units) state.units = routineConfig.units;
+    DataLayer.setLegacyMirror('gym_routine_config', LS_KEY, (rows) => {
+      const row = rows.find((r) => r.id === 'main');
+      return { units: row ? row.units : (CONFIG.units || 'kg') };
+    });
+    DataLayer.subscribe('gym_routine_config', async () => {
+      const cfg = await DataLayer.getSingleton('gym_routine_config');
+      if (cfg && cfg.units) { state.units = cfg.units; wtRender(); }
+    });
+    wtRender();
+
+    // ---- Daily steps goal ----
+    const stepsGoalRow = await DataLayer.getSingleton('gym_steps_goal');
+    if (stepsGoalRow && typeof stepsGoalRow.goal === 'number' && stepsGoalRow.goal > 0) {
+      try { localStorage.setItem(STEPS_GOAL_KEY, JSON.stringify(stepsGoalRow.goal)); } catch (e) {}
+    }
+    DataLayer.setLegacyMirror('gym_steps_goal', STEPS_GOAL_KEY, (rows) => {
+      const row = rows.find((r) => r.id === 'main');
+      return row ? row.goal : STEPS_DEFAULT_GOAL;
+    });
+    DataLayer.subscribe('gym_steps_goal', async () => {
+      const g = await DataLayer.getSingleton('gym_steps_goal');
+      if (g && typeof g.goal === 'number' && g.goal > 0) {
+        try { localStorage.setItem(STEPS_GOAL_KEY, JSON.stringify(g.goal)); } catch (e) {}
+      }
+      stepsRender();
+    });
+    stepsRender();
+
+    // ---- Progress photos ----
+    // Only URL-pointer entries ever reach gym_progress_photos (same
+    // restriction the old PC_SYNCED_KEYS/pcCollectState engine enforced)
+    // — a local-only dataUrl entry (upload still in flight, or failed)
+    // is never in DataLayer's set, so every merge below keeps it
+    // alongside whatever DataLayer has, same reasoning as the old
+    // pcApplyRemoteState photo merge this replaces.
+    function rowsToPhotos(rows) {
+      return rows.map((r) => ({ id: r.id, url: r.url, dateKey: r.dateKey, weight: r.weight }))
+        .sort((a, b) => (b.dateKey || '').localeCompare(a.dateKey || ''));
+    }
+    function mergeLocalOnlyPhotos(remoteRows) {
+      const remoteIds = new Set(remoteRows.map((r) => r.id));
+      const localOnly = photos.filter((p) => p && !p.url && !remoteIds.has(p.id));
+      return rowsToPhotos(remoteRows).concat(localOnly);
+    }
+    const photoRows = await DataLayer.list('gym_progress_photos');
+    if (photoRows.length) {
+      photos = mergeLocalOnlyPhotos(photoRows);
+      photosSave();
+      photosRender();
+    }
+    DataLayer.setLegacyMirror('gym_progress_photos', PHOTO_KEY, mergeLocalOnlyPhotos);
+    DataLayer.subscribe('gym_progress_photos', async () => {
+      photos = mergeLocalOnlyPhotos(await DataLayer.list('gym_progress_photos'));
+      photosSave();
+      photosRender();
+    });
+
+    dlReady = true;
   });
 })();
 </script>
