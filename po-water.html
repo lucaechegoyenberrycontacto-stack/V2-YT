@@ -23,6 +23,7 @@ Contact: rowan.wisere@gmail.com
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="syncStatus.js" defer></script>
 <script src="sync.js" defer></script>
+<script src="dataLayer.js" defer></script>
 <script src="topbar.js" defer></script>
 
 <!-- =============================================================
@@ -746,6 +747,40 @@ body::after {
     s.logs = (s.logs && typeof s.logs === 'object') ? s.logs : {};  // {YYYY-MM-DD: number_of_servings}
     return s;
   }
+  // DataLayer bridge — po_water_v1 mixed config + a date-keyed logs
+  // series in one blob; split into health_water_log (id=date,
+  // {servings}) and health_water_config (singleton, everything else).
+  // dlReady gates writes until initWaterDataLayer (bottom of this IIFE)
+  // has pulled real data — every saveState() call before that runs
+  // against the loadState()-seeded `state` below, same as before, it
+  // just doesn't reach Supabase until dataLayer.js (deferred) is ready.
+  let dlReady = false;
+  let dlWaterLogsCache = {}; // date -> servings, last known DataLayer state
+  let dlConfigCacheJson = null; // last known DataLayer config, JSON — avoids
+  // re-pushing (and cross-device ping-ponging) an unchanged config every
+  // time saveState() runs, including from inside the subscribe callback
+  // below where a remote change to *logs* alone would otherwise still
+  // trigger a redundant config putSingleton.
+  function syncWaterLogsToDataLayer() {
+    if (!dlReady) return;
+    const allDates = new Set(Object.keys(state.logs).concat(Object.keys(dlWaterLogsCache)));
+    allDates.forEach((d) => {
+      const newVal = state.logs[d];
+      const oldVal = dlWaterLogsCache[d];
+      if (newVal == null) { if (oldVal != null) DataLayer.remove('health_water_log', d); }
+      else if (newVal !== oldVal) DataLayer.put('health_water_log', d, { servings: newVal });
+    });
+    dlWaterLogsCache = Object.assign({}, state.logs);
+  }
+  function syncWaterConfigToDataLayer() {
+    if (!dlReady) return;
+    const cfg = Object.assign({}, state);
+    delete cfg.logs;
+    const json = JSON.stringify(cfg);
+    if (json === dlConfigCacheJson) return;
+    dlConfigCacheJson = json;
+    DataLayer.putSingleton('health_water_config', cfg);
+  }
   // UI_AUDIT.md CRÍTICO #5: used to swallow a failed write silently, and
   // every one of its ~15 call sites (water +/-, settings fields,
   // substances, Import, Reset) just kept re-rendering as if it had
@@ -755,6 +790,8 @@ body::after {
   function saveState() {
     try {
       localStorage.setItem(LS_KEY, JSON.stringify(state));
+      syncWaterLogsToDataLayer();
+      syncWaterConfigToDataLayer();
       const banner = $('saveFailBanner');
       if (banner) banner.classList.remove('show');
       return true;
@@ -1130,15 +1167,28 @@ body::after {
     r.readAsText(f);
   });
   $('setReset').addEventListener('click', () => {
-    // UI_AUDIT.md CRÍTICO #4: the old copy said "This cannot be undone",
-    // which was false — sync.js only ever merges additive changes onto
-    // the last-known remote row, it never deletes a key just because
-    // it's now absent locally, so a synced copy of this data can come
-    // back on the next pull. Text corrected to say so instead of
-    // changing sync.js's merge-never-delete behavior for the whole app.
-    if (!confirm('Wipe ALL water logs and settings on this device? This only clears local data — if it was already synced to the cloud, it can come back here (or reappear on another device) the next time a sync happens.')) return;
+    // UI_AUDIT.md CRÍTICO #4 — now actually fixed for the DataLayer-backed
+    // data (health_water_log/health_water_config): a real per-record
+    // DataLayer.remove()/putSingleton(defaults) below, not just a local
+    // localStorage.removeItem that a future sync.js merge could resurrect.
+    // sync.js's own po_water_v1 mirror key still only ever merges
+    // additively (unchanged, out of scope here), so the confirm() copy
+    // still describes that half honestly.
+    const wasDlReady = dlReady;
+    const staleDates = Object.keys(dlWaterLogsCache);
+    const msg = wasDlReady
+      ? 'Wipe ALL water logs and settings? This deletes the cloud records too — it will NOT come back on its own.'
+      : 'Wipe ALL water logs and settings on this device? This only clears local data — if it was already synced to the cloud, it can come back here (or reappear on another device) the next time a sync happens.';
+    if (!confirm(msg)) return;
     localStorage.removeItem(LS_KEY);
     state = loadState();
+    if (wasDlReady) {
+      staleDates.forEach((d) => DataLayer.remove('health_water_log', d));
+      dlWaterLogsCache = {};
+      const cfg = Object.assign({}, state);
+      delete cfg.logs;
+      DataLayer.putSingleton('health_water_config', cfg);
+    }
     $('setModalBg').classList.remove('show');
     renderAll();
   });
@@ -1149,6 +1199,55 @@ body::after {
 
   // BOOT
   renderAll();
+
+  // ============================================================
+  // DataLayer bridge boot — pulls health_water_log/health_water_config
+  // into `state` (same shape normalize() already produces, so
+  // renderWater/renderSettings/computeTargetMl etc needed zero changes)
+  // then re-renders. Wrapped in DOMContentLoaded: dataLayer.js loads
+  // with `defer`, but this IIFE doesn't, so window.DataLayer wouldn't
+  // exist yet at the point this file is parsed — same reasoning as the
+  // other migrated pages. po-water.html is the source of truth for this
+  // data (health.html only embeds it via <iframe>, same-origin so it
+  // shares this localStorage — see health.html's own single-DataLayer-
+  // init comment); health.html needs no DataLayer calls of its own here.
+  // ============================================================
+  function buildLegacyWaterBlob() { return Object.assign({}, state); }
+  async function refreshWaterCaches() {
+    const [logRows, config] = await Promise.all([
+      DataLayer.list('health_water_log'),
+      DataLayer.getSingleton('health_water_config'),
+    ]);
+    const logs = {};
+    logRows.forEach((r) => { logs[r.id] = r.servings; });
+    dlWaterLogsCache = Object.assign({}, logs);
+    state = normalize(Object.assign({}, config, { logs: logs }));
+    const cfgOnly = Object.assign({}, state);
+    delete cfgOnly.logs;
+    dlConfigCacheJson = JSON.stringify(cfgOnly);
+  }
+  document.addEventListener('DOMContentLoaded', async function initWaterDataLayer() {
+    if (typeof DataLayer === 'undefined') return;
+    const session = await DataLayer.init({ requireAuth: true });
+    if (!session) return; // redirected to login.html
+
+    await refreshWaterCaches();
+    dlReady = true;
+    renderAll();
+    if (document.getElementById('setModalBg').classList.contains('show')) renderSettings();
+
+    DataLayer.setLegacyMirror('health_water_log', LS_KEY, buildLegacyWaterBlob);
+    DataLayer.setLegacyMirror('health_water_config', LS_KEY, buildLegacyWaterBlob);
+
+    ['health_water_log', 'health_water_config'].forEach((col) => {
+      DataLayer.subscribe(col, async () => {
+        await refreshWaterCaches();
+        saveState(); // re-mirrors po_water_v1 to localStorage; the DataLayer push half no-ops (caches already match what was just fetched)
+        renderAll();
+        if (document.getElementById('setModalBg').classList.contains('show')) renderSettings();
+      });
+    });
+  });
 })();
 </script>
 <style>

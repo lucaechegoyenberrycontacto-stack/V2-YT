@@ -11,6 +11,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="syncStatus.js" defer></script>
 <script src="sync.js" defer></script>
+<script src="dataLayer.js" defer></script>
 <script src="topbar.js" defer></script>
 
 <style>
@@ -302,7 +303,25 @@ body::after {
   const HABITS_KEY = 'po_habits_v1';
 
   function loadJSON(k, f) { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? f : v; } catch (e) { return f; } }
-  function saveJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+
+  // Writes below go straight to DataLayer (records: habits_nofap,
+  // habits_screen_time, habits_config) instead of a blob saveJSON — each
+  // guarded by `typeof DataLayer !== 'undefined'` since dataLayer.js is
+  // `defer`red and this IIFE isn't, so the very first synchronous paint
+  // (from the loadJSON seed below) runs before it exists. `state` itself
+  // is updated synchronously right before each DataLayer call, so the
+  // legacy `po_habits_v1` mirror (see initHabitsDataLayer at the bottom)
+  // — refreshed synchronously inside DataLayer.put — always reflects the
+  // fresh value, not a stale one.
+  function persistNofapDay(dstr, entry) {
+    if (typeof DataLayer !== 'undefined') DataLayer.put('habits_nofap', dstr, entry);
+  }
+  function persistScreenDay(dstr, hours) {
+    if (typeof DataLayer !== 'undefined') DataLayer.put('habits_screen_time', dstr, { hours: hours });
+  }
+  function persistScreenGoal(goalHours) {
+    if (typeof DataLayer !== 'undefined') DataLayer.putSingleton('habits_config', { screenTimeGoalHours: goalHours });
+  }
 
   function defaultHabits() {
     return { nofap: { logs: {} }, screenTime: { logs: {}, goalHours: 2 } };
@@ -313,8 +332,6 @@ body::after {
   if (!state.screenTime) state.screenTime = { logs: {}, goalHours: 2 };
   if (!state.screenTime.logs) state.screenTime.logs = {};
   if (!(state.screenTime.goalHours > 0)) state.screenTime.goalHours = 2;
-
-  function persist() { saveJSON(HABITS_KEY, state); }
 
   function pad2(n) { return String(n).padStart(2, '0'); }
   function dateKey(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
@@ -387,15 +404,16 @@ body::after {
   }
   function markDay(dstr, clean) {
     const prevNote = (state.nofap.logs[dstr] && state.nofap.logs[dstr].note) || '';
-    state.nofap.logs[dstr] = { clean: clean, note: clean ? '' : prevNote };
-    persist();
+    const entry = { clean: clean, note: clean ? '' : prevNote };
+    state.nofap.logs[dstr] = entry;
+    persistNofapDay(dstr, entry);
     renderNofap();
   }
   $('nofapCleanBtn').addEventListener('click', () => markDay(editingDate, true));
   $('nofapRelapseBtn').addEventListener('click', () => markDay(editingDate, false));
   $('nofapNote').addEventListener('input', () => {
     const entry = state.nofap.logs[editingDate];
-    if (entry && entry.clean === false) { entry.note = $('nofapNote').value; persist(); }
+    if (entry && entry.clean === false) { entry.note = $('nofapNote').value; persistNofapDay(editingDate, entry); }
   });
   $('nofapBackToToday').addEventListener('click', () => {
     editingDate = todayStr();
@@ -537,8 +555,8 @@ body::after {
     const status = $('screenStatus');
     if (!(hrs >= 0)) { status.textContent = 'Enter the hours first.'; return; }
     state.screenTime.logs[key] = hrs;
-    if (goal > 0) state.screenTime.goalHours = goal;
-    persist();
+    persistScreenDay(key, hrs);
+    if (goal > 0) { state.screenTime.goalHours = goal; persistScreenGoal(goal); }
     status.textContent = 'Saved ✓';
     setTimeout(() => { status.textContent = ''; }, 1800);
     renderScreenTime();
@@ -709,6 +727,72 @@ body::after {
   renderAll();
 
   window.addEventListener('storage', renderAll);
+
+  // ============================================================
+  // DataLayer bridge boot — pulls habits_nofap/habits_screen_time/
+  // habits_config into the same in-memory `state.nofap.logs`/
+  // `state.screenTime.logs`/`state.screenTime.goalHours` shape the
+  // streak/calendar/chart code above already reads, so none of that
+  // logic needed to change — only the load/save endpoints did. Wrapped
+  // in DOMContentLoaded: dataLayer.js loads with `defer`, but this giant
+  // IIFE doesn't, so window.DataLayer wouldn't exist yet at the point
+  // this file is parsed (same defer-timing reasoning as the other 4
+  // migrated pages).
+  // ============================================================
+  const HABITS_COLLECTIONS = ['habits_nofap', 'habits_screen_time', 'habits_config'];
+  async function refreshHabitsCaches() {
+    const [nofapRows, screenRows, config] = await Promise.all([
+      DataLayer.list('habits_nofap'),
+      DataLayer.list('habits_screen_time'),
+      DataLayer.getSingleton('habits_config'),
+    ]);
+    const nofapLogs = {};
+    nofapRows.forEach((r) => { nofapLogs[r.id] = { clean: r.clean, note: r.note }; });
+    const screenLogs = {};
+    screenRows.forEach((r) => { screenLogs[r.id] = r.hours; });
+    state.nofap.logs = nofapLogs;
+    state.screenTime.logs = screenLogs;
+    state.screenTime.goalHours = (config && config.screenTimeGoalHours > 0) ? config.screenTimeGoalHours : 2;
+  }
+  // Reconstructs the OLD combined po_habits_v1 shape from the current
+  // in-memory state — used both as the setLegacyMirror transform (for the
+  // local-write path, where DataLayer.put's own synchronous mirror
+  // refresh already runs against fresh `state`) and called manually from
+  // the subscribe callbacks below (a remote change refreshes the
+  // DataLayer-internal mirror BEFORE our subscribe callback gets to
+  // update `state`, which would otherwise write one event stale).
+  // Preserved for gym.html's warmUpEcosystemInputs (reads
+  // app_state.habits.po_habits_v1 via Supabase, fed by sync.js — still
+  // running below, unchanged) and gymEcosystem.js's readJSON fallback —
+  // confirmed via grep, contrary to DATA_AUDIT.md's assumption that
+  // nothing outside habits.html reads this key.
+  function buildLegacyHabitsBlob() {
+    return {
+      nofap: { logs: state.nofap.logs },
+      screenTime: { logs: state.screenTime.logs, goalHours: state.screenTime.goalHours }
+    };
+  }
+  function refreshPoHabitsMirror() {
+    try { localStorage.setItem(HABITS_KEY, JSON.stringify(buildLegacyHabitsBlob())); } catch (e) {}
+  }
+  document.addEventListener('DOMContentLoaded', async function initHabitsDataLayer() {
+    if (typeof DataLayer === 'undefined') return;
+    const session = await DataLayer.init({ requireAuth: true });
+    if (!session) return; // redirected to login.html
+
+    await refreshHabitsCaches();
+    renderAll();
+
+    HABITS_COLLECTIONS.forEach((col) => DataLayer.setLegacyMirror(col, HABITS_KEY, buildLegacyHabitsBlob));
+
+    HABITS_COLLECTIONS.forEach((col) => {
+      DataLayer.subscribe(col, async () => {
+        await refreshHabitsCaches();
+        refreshPoHabitsMirror();
+        renderAll();
+      });
+    });
+  });
 
   document.addEventListener('DOMContentLoaded', function () {
     if (typeof initCloudSync !== 'function') return;

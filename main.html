@@ -10,6 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="syncStatus.js" defer></script>
 <script src="sync.js" defer></script>
+<script src="dataLayer.js" defer></script>
 <script src="topbar.js" defer></script>
 <style>
 :root {
@@ -659,17 +660,61 @@ body::after {
   const ANTHROPIC_API_KEY = '';
 
   // ---------- storage helpers ----------
+  // Backed by DataLayer (records: goals_daily id=date, goals_streak
+  // singleton) instead of raw localStorage for the 'goals:*' key family
+  // and 'goal_streak_v1' — everything else (none, today) still falls
+  // through to plain localStorage. Kept behind the SAME key-based
+  // interface (storeGet/storeSet/storeDelete/storeListKeys) the rest of
+  // this file already used, so rollover()/processStreak()/getGoals()/
+  // setGoals()/loadStreak()/saveStreak() and every render/mutation
+  // function below needed zero changes — only this boundary did.
+  let dlReady = false; // flips true once initGoalsDataLayer (bottom) resolves
+  let dlGoalsByDate = {}; // 'YYYY-MM-DD' -> [{text,done,...}]
+  let dlStreak = { count: 0, lastProcessedDate: '' };
+
+  function mirrorGoalsDate(dateStr) {
+    try { localStorage.setItem('goals:' + dateStr, JSON.stringify(dlGoalsByDate[dateStr] || [])); } catch (e) {}
+  }
+  function mirrorAllGoalsDates() {
+    Object.keys(dlGoalsByDate).forEach(mirrorGoalsDate);
+  }
+
   function storeGet(key) {
+    if (typeof key === 'string' && key.indexOf('goals:') === 0) {
+      const dateStr = key.slice('goals:'.length);
+      return (dlGoalsByDate[dateStr] || []).map((g) => Object.assign({}, g));
+    }
+    if (key === 'goal_streak_v1') return Object.assign({}, dlStreak);
     try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; }
   }
   function storeSet(key, value) {
-    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
     if (typeof key === 'string' && key.indexOf('goals:') === 0) {
+      const dateStr = key.slice('goals:'.length);
+      dlGoalsByDate[dateStr] = Array.isArray(value) ? value : [];
+      mirrorGoalsDate(dateStr);
+      if (dlReady) DataLayer.put('goals_daily', dateStr, { items: dlGoalsByDate[dateStr] });
       window.dispatchEvent(new CustomEvent('goals-changed'));
+      return;
     }
+    if (key === 'goal_streak_v1') {
+      dlStreak = (value && typeof value === 'object') ? value : { count: 0, lastProcessedDate: '' };
+      if (dlReady) DataLayer.putSingleton('goals_streak', dlStreak);
+      return;
+    }
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
   }
-  function storeDelete(key) { try { localStorage.removeItem(key); } catch (e) {} }
+  function storeDelete(key) {
+    if (typeof key === 'string' && key.indexOf('goals:') === 0) {
+      const dateStr = key.slice('goals:'.length);
+      delete dlGoalsByDate[dateStr];
+      try { localStorage.removeItem(key); } catch (e) {}
+      if (dlReady) DataLayer.remove('goals_daily', dateStr);
+      return;
+    }
+    try { localStorage.removeItem(key); } catch (e) {}
+  }
   function storeListKeys(prefix) {
+    if (prefix === 'goals:') return Object.keys(dlGoalsByDate).map((d) => 'goals:' + d);
     const out = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
@@ -1191,6 +1236,67 @@ body::after {
   // Re-render when storage changes from another tab (or our bridged parent).
   window.addEventListener('storage', () => {
     loadToday(); loadTomorrow(); renderStreak();
+  });
+
+  // ============================================================
+  // DataLayer bridge boot — pulls goals_daily/goals_streak into
+  // dlGoalsByDate/dlStreak (the caches storeGet/storeSet/storeDelete/
+  // storeListKeys above read and write through), then re-runs the exact
+  // same boot sequence used above (rollover -> processStreak -> render)
+  // now that there's real data to roll over/process — the FIRST call to
+  // that sequence, higher up in this IIFE, ran synchronously against
+  // empty caches (before dataLayer.js, loaded with `defer`, had even
+  // executed) and was a harmless no-op. Wrapped in DOMContentLoaded for
+  // that same defer-timing reason, same as the other 6 migrated pages.
+  //
+  // Note: goal_streak_v1 never synced to the cloud before this migration
+  // (confirmed via direct Supabase query — no fila in app_state.goals).
+  // Per explicit user decision, its value is NOT recovered from anywhere;
+  // goals_streak starts at {count:0, lastProcessedDate:''} — the exact
+  // shape/field names loadStreak() already used (NOT {current,longest} —
+  // that was the task prompt's guess, not what the code actually has).
+  // ============================================================
+  async function refreshGoalsCaches() {
+    const [dailyRows, streak] = await Promise.all([
+      DataLayer.list('goals_daily'),
+      DataLayer.getSingleton('goals_streak'),
+    ]);
+    const byDate = {};
+    dailyRows.forEach((r) => { byDate[r.id] = Array.isArray(r.items) ? r.items : []; });
+    dlGoalsByDate = byDate;
+    dlStreak = (streak && typeof streak.count === 'number') ? streak : { count: 0, lastProcessedDate: '' };
+  }
+  document.addEventListener('DOMContentLoaded', async function initGoalsDataLayer() {
+    if (typeof DataLayer === 'undefined') return;
+    const session = await DataLayer.init({ requireAuth: true });
+    if (!session) return; // redirected to login.html
+
+    await refreshGoalsCaches();
+    dlReady = true;
+    mirrorAllGoalsDates();
+
+    rollover();
+    processStreak();
+    loadToday();
+    loadTomorrow();
+    renderStreak();
+    window.dispatchEvent(new CustomEvent('goals-changed'));
+
+    DataLayer.setLegacyMirror('goals_streak', 'goal_streak_v1', (rows) => {
+      const row = rows.find((r) => r.id === 'main');
+      return row ? { count: row.count, lastProcessedDate: row.lastProcessedDate } : { count: 0, lastProcessedDate: '' };
+    });
+
+    DataLayer.subscribe('goals_daily', async () => {
+      await refreshGoalsCaches();
+      mirrorAllGoalsDates();
+      loadToday(); loadTomorrow(); renderStreak();
+      window.dispatchEvent(new CustomEvent('goals-changed'));
+    });
+    DataLayer.subscribe('goals_streak', async () => {
+      await refreshGoalsCaches();
+      renderStreak();
+    });
   });
 })();
 </script>

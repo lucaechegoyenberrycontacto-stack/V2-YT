@@ -11,6 +11,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="syncStatus.js" defer></script>
 <script src="sync.js" defer></script>
+<script src="dataLayer.js" defer></script>
 <script src="topbar.js" defer></script>
 <style>
 :root {
@@ -2060,12 +2061,101 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   // ============================================================
   // STORAGE — localStorage shim. Same interface as the dashboard's
   // storeGet/storeSet so the existing render code drops straight in.
+  // The 7 key groups migrated onto DataLayer (nw:bank/stocks/crypto/
+  // other, nw:activity, nw:history, subs, wishlist, incoming_orders,
+  // expenses) are intercepted below and backed by Supabase `records`
+  // instead of raw localStorage; every other key is untouched.
   // ============================================================
+  const DL_ACCOUNT_KEYS = ['nw:bank', 'nw:stocks', 'nw:crypto', 'nw:other'];
+
+  // Populated by initFinanceDataLayer() (bottom of this IIFE) once
+  // DataLayer.init() resolves. Until dlReady flips true, storeGet for a
+  // migrated key returns an empty array and storeSet for one is a no-op —
+  // this page's own render calls run synchronously at IIFE-execution
+  // time, well before dataLayer.js (loaded with `defer`) has even run,
+  // so `DataLayer` doesn't exist yet and there's nothing real to persist
+  // (e.g. a $0 net-worth snapshot from an empty pre-load cache must never
+  // reach the real history).
+  let dlReady = false;
+  let dlAccounts = [];   // finance_accounts:          {id, category, name, amount}
+  let dlActivity = [];   // finance_activity:          {id, ts, cat, name, delta, kind}
+  let dlHistory  = [];   // finance_net_worth_history:  {id, t, v}
+  let dlSubs     = [];   // finance_subs
+  let dlWishlist = [];   // finance_wishlist
+  let dlOrders   = [];   // finance_incoming_orders
+  let dlExpenses = [];   // finance_expenses
+
+  function dlGenId(prefix) {
+    return prefix + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+  }
+  function dlStripId(it) {
+    const rest = Object.assign({}, it);
+    delete rest.id;
+    return rest;
+  }
+  // Diffs `items` (the array the caller is about to storeSet) against
+  // `cache` (that collection's current DataLayer-backed rows), assigns a
+  // stable id to any item that doesn't have one yet (via `assignId`),
+  // pushes only rows whose content actually changed, removes rows that
+  // were dropped from `items`, and returns the new cache array.
+  function dlSyncCollection(collection, cache, items, assignId) {
+    if (!dlReady) return cache;
+    const prevJsonById = new Map(cache.map(r => [r.id, JSON.stringify(r)]));
+    const nextIds = new Set();
+    const nextCache = items.map(it => {
+      if (!it.id) it.id = assignId(it);
+      nextIds.add(it.id);
+      const stripped = dlStripId(it);
+      const row = Object.assign({ id: it.id }, stripped);
+      if (prevJsonById.get(it.id) !== JSON.stringify(row)) DataLayer.put(collection, it.id, stripped);
+      return row;
+    });
+    prevJsonById.forEach((_, id) => { if (!nextIds.has(id)) DataLayer.remove(collection, id); });
+    return nextCache;
+  }
+  // finance_accounts unifies the 4 old nw:bank/stocks/crypto/other arrays
+  // into one collection — same diff logic as dlSyncCollection, but only
+  // touches the slice of dlAccounts matching `catKey` and adds `category`
+  // to each pushed row (implicit before, since it lived in the key name).
+  function dlSyncAccountsCategory(catKey, items) {
+    if (!dlReady) return;
+    const catCache = dlAccounts.filter(r => r.category === catKey);
+    const prevJsonById = new Map(catCache.map(r => [r.id, JSON.stringify(r)]));
+    const nextIds = new Set();
+    const nextCatCache = items.map(it => {
+      if (!it.id) it.id = dlGenId('acc');
+      nextIds.add(it.id);
+      const row = { id: it.id, category: catKey, name: it.name, amount: it.amount };
+      if (prevJsonById.get(it.id) !== JSON.stringify(row)) DataLayer.put('finance_accounts', it.id, { category: catKey, name: it.name, amount: it.amount });
+      return row;
+    });
+    prevJsonById.forEach((_, id) => { if (!nextIds.has(id)) DataLayer.remove('finance_accounts', id); });
+    dlAccounts = dlAccounts.filter(r => r.category !== catKey).concat(nextCatCache);
+  }
+
   function storeGet(key) {
+    if (DL_ACCOUNT_KEYS.indexOf(key) !== -1) {
+      const cat = key.slice(3);
+      return dlAccounts.filter(r => r.category === cat).map(r => ({ id: r.id, name: r.name, amount: r.amount }));
+    }
+    if (key === 'nw:activity')     return dlActivity.map(r => Object.assign({}, r));
+    if (key === 'nw:history')      return dlHistory.map(r => Object.assign({}, r));
+    if (key === 'subs')            return dlSubs.map(r => Object.assign({}, r));
+    if (key === 'wishlist')        return dlWishlist.map(r => Object.assign({}, r));
+    if (key === 'incoming_orders') return dlOrders.map(r => Object.assign({}, r));
+    if (key === 'expenses')        return dlExpenses.map(r => Object.assign({}, r));
     try { const raw = localStorage.getItem(key); return raw == null ? null : JSON.parse(raw); }
     catch (e) { return null; }
   }
   function storeSet(key, value) {
+    if (DL_ACCOUNT_KEYS.indexOf(key) !== -1) { dlSyncAccountsCategory(key.slice(3), Array.isArray(value) ? value : []); return; }
+    const items = Array.isArray(value) ? value : [];
+    if (key === 'nw:activity')     { dlActivity = dlSyncCollection('finance_activity', dlActivity, items, () => dlGenId('act')); return; }
+    if (key === 'nw:history')      { dlHistory  = dlSyncCollection('finance_net_worth_history', dlHistory, items, (it) => String(it.t)); return; }
+    if (key === 'subs')            { dlSubs     = dlSyncCollection('finance_subs', dlSubs, items, () => dlGenId('sub')); return; }
+    if (key === 'wishlist')        { dlWishlist = dlSyncCollection('finance_wishlist', dlWishlist, items, () => dlGenId('wish')); return; }
+    if (key === 'incoming_orders') { dlOrders   = dlSyncCollection('finance_incoming_orders', dlOrders, items, (it) => it.id || dlGenId('ord')); return; }
+    if (key === 'expenses')        { dlExpenses = dlSyncCollection('finance_expenses', dlExpenses, items, (it) => it.id || dlGenId('exp')); return; }
     try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
   }
 
@@ -2392,11 +2482,9 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   // Renders newest first. Cap at 50.
   // ============================================================
   const ACTIVITY_KEY = 'nw:activity';
-  const ACTIVITY_MAX = 50;
   function logActivity(catKey, name, deltaCHF, kind) {
     const arr = storeGet(ACTIVITY_KEY) || [];
     arr.push({ ts: Date.now(), cat: catKey, name: String(name || ''), delta: Number(deltaCHF) || 0, kind: kind || 'add' });
-    if (arr.length > ACTIVITY_MAX) arr.splice(0, arr.length - ACTIVITY_MAX);
     storeSet(ACTIVITY_KEY, arr);
   }
   function fmtActivityDate(ts) {
@@ -2572,14 +2660,12 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
   // Net-worth history chart
   const NW_HISTORY_KEY = 'nw:history';
-  const NW_HISTORY_MAX = 500;
   function logNetWorthSnapshot(grandCHF) {
     const v = Number(grandCHF) || 0;
     const hist = storeGet(NW_HISTORY_KEY) || [];
     const last = hist[hist.length - 1];
     if (last && Math.abs((last.v || 0) - v) < 0.005) return;
     hist.push({ t: Date.now(), v: v });
-    if (hist.length > NW_HISTORY_MAX) hist.splice(0, hist.length - NW_HISTORY_MAX);
     storeSet(NW_HISTORY_KEY, hist);
   }
   function nwSmoothPath(points) {
@@ -4091,6 +4177,66 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   }
   safeRenderTicker();
   setInterval(safeRenderTicker, 1500);
+
+  // ============================================================
+  // DataLayer bridge boot — populates the dlAccounts/dlActivity/dlHistory/
+  // dlSubs/dlWishlist/dlOrders/dlExpenses caches storeGet/storeSet read
+  // and write through (see the STORAGE section at the top of this IIFE),
+  // then flips dlReady so those functions start actually persisting.
+  // Wrapped in DOMContentLoaded: dataLayer.js loads with `defer`, but this
+  // giant IIFE doesn't, so window.DataLayer wouldn't exist yet at the
+  // point this file is parsed (same defer-timing reasoning as
+  // nutrition.html/gym.html/health.html's boot()).
+  // ============================================================
+  const DL_COLLECTIONS = ['finance_accounts', 'finance_activity', 'finance_net_worth_history', 'finance_subs', 'finance_wishlist', 'finance_incoming_orders', 'finance_expenses'];
+  async function refreshFinanceCaches() {
+    const [accounts, activity, history, subs, wishlist, orders, expenses] = await Promise.all(DL_COLLECTIONS.map((c) => DataLayer.list(c)));
+    dlAccounts = accounts;
+    dlActivity = activity;
+    dlHistory  = history;
+    dlSubs     = subs;
+    dlWishlist = wishlist;
+    dlOrders   = orders;
+    dlExpenses = expenses;
+  }
+  document.addEventListener('DOMContentLoaded', async function initFinanceDataLayer() {
+    if (typeof DataLayer === 'undefined') return;
+    const session = await DataLayer.init({ requireAuth: true });
+    if (!session) return; // redirected to login.html
+
+    await refreshFinanceCaches();
+    dlReady = true;
+
+    // Legacy mirrors — keep the OLD localStorage keys populated so sync.js
+    // (still loaded, unchanged) keeps pushing them into app_state.finance
+    // for cross-device consumers that read that row directly, namely
+    // index.html's read-only warm-up (nw:history, expenses).
+    const stripIdCat = (rows) => rows.map((r) => ({ name: r.name, amount: r.amount }));
+    const stripIdOnly = (rows) => rows.map((r) => dlStripId(r));
+    DataLayer.setLegacyMirror('finance_accounts', 'nw:bank',   (rows) => stripIdCat(rows.filter((r) => r.category === 'bank')));
+    DataLayer.setLegacyMirror('finance_accounts', 'nw:stocks', (rows) => stripIdCat(rows.filter((r) => r.category === 'stocks')));
+    DataLayer.setLegacyMirror('finance_accounts', 'nw:crypto', (rows) => stripIdCat(rows.filter((r) => r.category === 'crypto')));
+    DataLayer.setLegacyMirror('finance_accounts', 'nw:other',  (rows) => stripIdCat(rows.filter((r) => r.category === 'other')));
+    DataLayer.setLegacyMirror('finance_activity', 'nw:activity', stripIdOnly);
+    DataLayer.setLegacyMirror('finance_net_worth_history', 'nw:history', (rows) => rows.map((r) => ({ t: r.t, v: r.v })));
+    DataLayer.setLegacyMirror('finance_subs', 'subs', stripIdOnly);
+    DataLayer.setLegacyMirror('finance_wishlist', 'wishlist', stripIdOnly);
+    DataLayer.setLegacyMirror('finance_incoming_orders', 'incoming_orders', (rows) => rows);
+    DataLayer.setLegacyMirror('finance_expenses', 'expenses', (rows) => rows);
+
+    // Any remote change (another device/tab) re-pulls every collection and
+    // repaints the whole page — simplest correct option given how tightly
+    // renderAllNetWorth/renderSubs/renderWishlist/renderOrders/renderExpenses
+    // already cascade into each other.
+    DL_COLLECTIONS.forEach((col) => {
+      DataLayer.subscribe(col, async () => {
+        await refreshFinanceCaches();
+        renderSubs();
+      });
+    });
+
+    renderSubs(); // cascades into renderAllNetWorth -> everything else
+  });
 
 })();
 </script>
