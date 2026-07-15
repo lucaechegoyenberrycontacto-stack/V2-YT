@@ -1043,22 +1043,24 @@ body::after {
     if (!warmupSupa) return;
     lastWarmUpAt = Date.now();
     try {
-      const [healthRes, coachRes, financeRes, cbRes, logRes, foodsRes, goalsRes] = await Promise.allSettled([
+      const [healthRes, coachRes, financeRes, cbRes, logRes, foodsRes, goalsRes, sleepRes] = await Promise.allSettled([
         warmupSupa.from('app_state').select('data').eq('key', 'health').maybeSingle(),
         warmupSupa.from('app_state').select('data').eq('key', 'po-coach').maybeSingle(),
         warmupSupa.from('app_state').select('data').eq('key', 'finance').maybeSingle(),
-        // caloriesBurnedEntries/nut:log/nut:foods/nut:goals used to live on the
-        // 'health'/'nutrition' app_state rows above, but health.html and
-        // nutrition.html migrated them onto DataLayer/records
-        // (health_calories_burned, nutrition_log/foods/goals) — those app_state
-        // rows stopped being written the moment each page migrated, so warming
-        // up from them here was silently serving frozen pre-migration data.
-        // Read straight from records instead (anon read-only RLS policy added
-        // for this — see "anon read access records" migration).
+        // caloriesBurnedEntries/sleepEntries/nut:log/nut:foods/nut:goals used to
+        // live on the 'health'/'nutrition' app_state rows above, but health.html
+        // and nutrition.html migrated them onto DataLayer/records
+        // (health_calories_burned, health_sleep, nutrition_log/foods/goals) —
+        // those app_state rows stopped being written the moment each page
+        // migrated, so warming up from them here was silently serving frozen
+        // pre-migration data. Read straight from records instead (anon
+        // read-only RLS policy added for this — see "anon read access
+        // records" migration).
         warmupSupa.from('records').select('id,data').eq('collection', 'health_calories_burned'),
         warmupSupa.from('records').select('id,data').eq('collection', 'nutrition_log'),
         warmupSupa.from('records').select('id,data').eq('collection', 'nutrition_foods'),
         warmupSupa.from('records').select('id,data').eq('collection', 'nutrition_goals'),
+        warmupSupa.from('records').select('id,data').eq('collection', 'health_sleep'),
       ]);
       const health = warmUpRowData(healthRes);
       const coach = warmUpRowData(coachRes);
@@ -1067,11 +1069,15 @@ body::after {
       const logRows = warmUpRecordRows(logRes);
       const foodsRows = warmUpRecordRows(foodsRes);
       const goalsRows = warmUpRecordRows(goalsRes);
+      const sleepRows = warmUpRecordRows(sleepRes);
       let changed = false;
       let currencyChanged = false;
       if (health) {
-        changed = applyIfDifferent('sleepEntries', health.sleepEntries) || changed;
         changed = applyIfDifferent('po_water_v1', health.po_water_v1) || changed;
+      }
+      if (sleepRows) {
+        // Matches health.html's own rowsToSleepEntries()/setLegacyMirror transform.
+        changed = applyIfDifferent('sleepEntries', sleepRows.map((r) => Object.assign({}, r.data, { date: r.id }))) || changed;
       }
       if (cbRows) {
         // Matches health.html's own setLegacyMirror transform for CB_COL.

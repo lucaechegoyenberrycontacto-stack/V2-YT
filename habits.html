@@ -394,12 +394,20 @@ body::after {
     $('nofapCleanBtn').classList.toggle('on', !!(entry && entry.clean));
     $('nofapRelapseBtn').classList.toggle('on', !!(entry && entry.clean === false));
     const note = $('nofapNote');
+    // DataLayer.put() notifies subscribers synchronously on every write (see
+    // dataLayer.js), and the note saves on every keystroke (see the 'input'
+    // listener below) — so without this guard, each keystroke's own save
+    // round-trips into this same render and stomps the textarea's live value
+    // mid-typing, scrambling whatever the user is currently typing. Skip the
+    // overwrite while the field is focused, same principle as health.html's
+    // Calories Burned dirty-guard (UI_AUDIT.md CRÍTICO #6).
+    const noteHasFocus = document.activeElement === note;
     if (entry && entry.clean === false) {
       note.style.display = '';
-      note.value = entry.note || '';
+      if (!noteHasFocus) note.value = entry.note || '';
     } else {
       note.style.display = 'none';
-      note.value = '';
+      if (!noteHasFocus) note.value = '';
     }
   }
   function markDay(dstr, clean) {
