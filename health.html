@@ -153,6 +153,488 @@ main {
 
 <main>
 
+  <!-- ===== Journal (event log — several free-form entries per day) ===== -->
+  <style>
+    .jr-section { margin-bottom: 32px; }
+    .jr-card {
+      padding: 22px 22px 18px;
+      background: rgba(255,255,255,0.025);
+      border-radius: 22px;
+      box-shadow: 0 1px 0 0 rgba(255,255,255,0.06) inset, 0 12px 40px rgba(0,0,0,0.45), 0 1px 2px rgba(0,0,0,0.25);
+    }
+
+    .jr-field-block { margin-bottom: 16px; }
+    .jr-field-label { display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 8px; }
+    .jr-emoji-row { display: flex; gap: 8px; }
+    .jr-emoji-btn { flex: 1; padding: 12px 0; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.025); font-size: 22px; line-height: 1; cursor: pointer; transition: background 0.15s, border-color 0.15s, transform 0.1s; -webkit-tap-highlight-color: transparent; }
+    .jr-emoji-btn:hover { background: rgba(255,255,255,0.05); }
+    .jr-emoji-btn.active { border-color: rgba(107,227,164,0.55); background: rgba(107,227,164,0.10); transform: scale(1.08); }
+
+    .jr-more-toggle { display: block; margin: 4px 0 14px; padding: 0; border: none; background: none; color: var(--text-tertiary); font-family: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: color 0.15s; }
+    .jr-more-toggle:hover { color: var(--text-secondary); }
+    .jr-more-block.hidden { display: none; }
+    .jr-field-block-sm { margin-bottom: 12px; }
+    .jr-field-label-sm { font-size: 9px; margin-bottom: 6px; }
+    .jr-emoji-row-sm { gap: 6px; }
+    .jr-emoji-row-sm .jr-emoji-btn { padding: 8px 0; font-size: 16px; border-radius: 10px; opacity: 0.55; }
+    .jr-emoji-row-sm .jr-emoji-btn:hover { opacity: 0.85; }
+    .jr-emoji-row-sm .jr-emoji-btn.active { opacity: 1; }
+
+    /* Same divider treatment as .sleep-week's border-top — the wrapper
+       itself IS the divider, not a separate <hr>. */
+    .jr-note-divider { margin-top: 18px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.05); }
+    .jr-note { width: 100%; resize: none; overflow-y: hidden; max-height: 220px; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.28); color: var(--text-primary); font-family: inherit; font-size: 13.5px; line-height: 1.5; outline: none; transition: border-color 0.18s; }
+    .jr-note:focus { border-color: rgba(255,255,255,0.40); }
+    .jr-note::placeholder { color: var(--text-tertiary); }
+
+    .jr-save-btn { width: 100%; margin-top: 14px; padding: 12px; border: 1px solid rgba(255,255,255,0.85); border-radius: 12px; background: linear-gradient(180deg, #FFF, #E8E5DD); color: #0A0A0B; font-family: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 6px 20px rgba(0,0,0,0.30); transition: transform 0.12s; }
+    .jr-save-btn:hover { transform: translateY(-1px); }
+
+    .jr-ts-row { display: flex; align-items: center; justify-content: center; margin-top: 10px; }
+    .jr-ts-btn { padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03); color: var(--text-tertiary); font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.02em; cursor: pointer; transition: background 0.15s, color 0.15s; -webkit-tap-highlight-color: transparent; }
+    .jr-ts-btn:hover { background: rgba(255,255,255,0.06); color: var(--text-secondary); }
+    .jr-ts-btn.hidden { display: none; }
+    .jr-ts-input { display: block; margin: 0 auto; padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.28); color: var(--text-primary); font-family: inherit; font-size: 12.5px; outline: none; color-scheme: dark; }
+    .jr-ts-input.hidden { display: none; }
+
+    .jr-cancel-edit { display: block; margin: 10px auto 0; padding: 0; border: none; background: none; color: var(--text-tertiary); font-family: inherit; font-size: 11.5px; text-decoration: underline; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    .jr-cancel-edit.hidden { display: none; }
+
+    .jr-save-status { text-align: center; font-size: 11.5px; color: var(--text-tertiary); min-height: 16px; margin-top: 8px; opacity: 0; transition: opacity 0.2s ease; }
+    .jr-save-status.jr-status-visible { opacity: 1; }
+
+    .jr-timeline { margin-top: 20px; }
+    .jr-day-group { margin-bottom: 22px; }
+    .jr-day-header { font-family: var(--font-mono); font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-tertiary); margin: 0 4px 10px; }
+    /* Sparkline-style mini chart — no axes, just the shape. Mood is a
+       solid line, energy a dashed one, so the two read apart without
+       needing a second hue outside the existing palette. */
+    .jr-mini-chart { width: 100%; height: 34px; display: block; margin-bottom: 8px; overflow: visible; }
+    .jr-mini-line-mood { fill: none; stroke: var(--text-primary); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; opacity: 0.9; }
+    .jr-mini-line-energy { fill: none; stroke: var(--text-secondary); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 3 3; opacity: 0.8; }
+
+    .jr-day-entries { display: flex; flex-direction: column; gap: 6px; }
+    .jr-entry-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; cursor: pointer; transition: background 0.15s; }
+    .jr-entry-row:hover { background: rgba(255,255,255,0.045); }
+    .jr-entry-time { font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+    .jr-entry-emojis { display: flex; gap: 3px; font-size: 15px; flex: 0 0 auto; }
+    .jr-entry-note { flex: 1; min-width: 0; font-size: 12.5px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .jr-entry-del { flex: 0 0 auto; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; color: var(--text-tertiary); font-size: 15px; line-height: 1; cursor: pointer; transition: background 0.15s, color 0.15s; -webkit-tap-highlight-color: transparent; }
+    .jr-entry-del:hover { background: rgba(255,255,255,0.10); color: var(--text-primary); }
+
+    .jr-empty { margin-top: 16px; padding: 16px; text-align: center; font-size: 12.5px; color: var(--text-tertiary); font-style: italic; }
+    .jr-empty.hidden { display: none; }
+
+    .jr-more-days { display: block; margin: 14px auto 0; padding: 8px 16px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03); color: var(--text-secondary); font-family: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer; transition: background 0.15s; -webkit-tap-highlight-color: transparent; }
+    .jr-more-days:hover { background: rgba(255,255,255,0.06); }
+
+    @media (max-width: 400px) {
+      .jr-emoji-btn { font-size: 19px; padding: 10px 0; }
+      .jr-entry-note { font-size: 12px; }
+    }
+  </style>
+  <div class="jr-section" id="journal">
+    <div class="section-title">Journal</div>
+    <div class="jr-card">
+      <div class="jr-form" id="jrForm">
+        <div class="jr-field-block">
+          <span class="jr-field-label">Ánimo</span>
+          <div class="jr-emoji-row" id="jrMoodRow" role="group" aria-label="Ánimo"></div>
+        </div>
+        <div class="jr-field-block">
+          <span class="jr-field-label">Energía</span>
+          <div class="jr-emoji-row" id="jrEnergyRow" role="group" aria-label="Energía"></div>
+        </div>
+
+        <button type="button" class="jr-more-toggle" id="jrMoreToggle" aria-expanded="false" aria-controls="jrMoreBlock">+ más detalles</button>
+        <div class="jr-more-block hidden" id="jrMoreBlock">
+          <div class="jr-field-block jr-field-block-sm">
+            <span class="jr-field-label jr-field-label-sm">Estrés</span>
+            <div class="jr-emoji-row jr-emoji-row-sm" id="jrStressRow" role="group" aria-label="Estrés"></div>
+          </div>
+          <div class="jr-field-block jr-field-block-sm">
+            <span class="jr-field-label jr-field-label-sm">Digestión</span>
+            <div class="jr-emoji-row jr-emoji-row-sm" id="jrDigestionRow" role="group" aria-label="Digestión"></div>
+          </div>
+        </div>
+
+        <div class="jr-note-divider">
+          <textarea id="jrNote" class="jr-note" rows="1" placeholder="¿Algo que anotar? Síntomas, contexto, lo que sea..."></textarea>
+        </div>
+
+        <button id="jrSaveBtn" class="jr-save-btn" type="button">Guardar</button>
+        <div class="jr-ts-row">
+          <button type="button" class="jr-ts-btn" id="jrTsBtn"><span id="jrTsLabel">Ahora · --:-- ✎</span></button>
+          <input type="datetime-local" id="jrTsInput" class="jr-ts-input hidden">
+        </div>
+        <button type="button" class="jr-cancel-edit hidden" id="jrCancelEdit">Cancelar edición</button>
+        <div id="jrSaveStatus" class="jr-save-status"></div>
+      </div>
+    </div>
+    <div class="jr-timeline" id="jrTimeline"></div>
+    <div class="jr-empty hidden" id="jrEmpty">Todavía no hay entradas. Registrá la primera arriba.</div>
+  </div>
+  <script>
+  (function () {
+    const $ = (id) => document.getElementById(id);
+    const JR_COL = 'health_journal';
+
+    function jrPad2(n) { return String(n).padStart(2, '0'); }
+    function jrNewId() {
+      if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+      return 'jr_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    }
+    // Date#toISOString() always normalizes to UTC ("Z"), which would throw
+    // away the wall-clock moment the user actually meant. Format manually
+    // with the local offset instead, so ts/createdAt/updatedAt stay
+    // faithful to "when it happened for the user", not "when in UTC".
+    function jrFormatIsoLocal(d) {
+      const off = -d.getTimezoneOffset();
+      const sign = off >= 0 ? '+' : '-';
+      const abs = Math.abs(off);
+      const oh = jrPad2(Math.floor(abs / 60)), om = jrPad2(abs % 60);
+      return d.getFullYear() + '-' + jrPad2(d.getMonth() + 1) + '-' + jrPad2(d.getDate())
+        + 'T' + jrPad2(d.getHours()) + ':' + jrPad2(d.getMinutes()) + ':' + jrPad2(d.getSeconds())
+        + '.' + String(d.getMilliseconds()).padStart(3, '0') + sign + oh + ':' + om;
+    }
+    // Grouping/labeling always reads the LOCAL calendar date of ts, never
+    // its UTC representation — otherwise an entry logged late at night
+    // would silently jump to the wrong day's group for anyone west of UTC.
+    function jrLocalDateKey(d) { return d.getFullYear() + '-' + jrPad2(d.getMonth() + 1) + '-' + jrPad2(d.getDate()); }
+    function jrFormatTime(d) { return jrPad2(d.getHours()) + ':' + jrPad2(d.getMinutes()); }
+    function jrDatetimeLocalValue(d) {
+      return d.getFullYear() + '-' + jrPad2(d.getMonth() + 1) + '-' + jrPad2(d.getDate()) + 'T' + jrPad2(d.getHours()) + ':' + jrPad2(d.getMinutes());
+    }
+    function jrEscapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    const JR_WEEKDAYS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const JR_MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    function jrDayHeaderLabel(dateKey) {
+      const [y, m, day] = dateKey.split('-').map(Number);
+      const todayKey = jrLocalDateKey(new Date());
+      const yestKey = jrLocalDateKey(new Date(Date.now() - 86400000));
+      if (dateKey === todayKey) return 'Hoy';
+      if (dateKey === yestKey) return 'Ayer';
+      return JR_WEEKDAYS[new Date(y, m - 1, day).getDay()] + ' ' + day + ' ' + JR_MONTHS[m - 1];
+    }
+    function jrShortDate(d) { return d.getDate() + ' ' + JR_MONTHS[d.getMonth()]; }
+
+    // ---------- Shared "5 emoji buttons" component, one generator driving
+    // all 4 structured fields instead of 4 near-identical HTML blocks. ----------
+    const JR_FIELDS = {
+      mood: { emojis: [
+        { v: 1, emoji: '😩', label: 'Muy mal' },
+        { v: 2, emoji: '😕', label: 'Mal' },
+        { v: 3, emoji: '😐', label: 'Regular' },
+        { v: 4, emoji: '🙂', label: 'Bien' },
+        { v: 5, emoji: '😊', label: 'Muy bien' },
+      ] },
+      energy: { emojis: [
+        { v: 1, emoji: '🐌', label: 'Muy baja' },
+        { v: 2, emoji: '🐢', label: 'Baja' },
+        { v: 3, emoji: '🚶', label: 'Media' },
+        { v: 4, emoji: '🏃', label: 'Alta' },
+        { v: 5, emoji: '⚡', label: 'Muy alta' },
+      ] },
+      stress: { emojis: [
+        { v: 1, emoji: '😌', label: 'Nada estresado' },
+        { v: 2, emoji: '🙂', label: 'Poco estresado' },
+        { v: 3, emoji: '😐', label: 'Moderado' },
+        { v: 4, emoji: '😰', label: 'Estresado' },
+        { v: 5, emoji: '🤯', label: 'Muy estresado' },
+      ] },
+      digestion: { emojis: [
+        { v: 1, emoji: '🤢', label: 'Mal' },
+        { v: 2, emoji: '😣', label: 'Regular malo' },
+        { v: 3, emoji: '😐', label: 'Regular' },
+        { v: 4, emoji: '🙂', label: 'Regular bueno' },
+        { v: 5, emoji: '😌', label: 'Bien' },
+      ] },
+    };
+    const JR_ROW_IDS = { mood: 'jrMoodRow', energy: 'jrEnergyRow', stress: 'jrStressRow', digestion: 'jrDigestionRow' };
+
+    function jrRenderEmojiRow(field) {
+      $(JR_ROW_IDS[field]).innerHTML = JR_FIELDS[field].emojis.map((o) =>
+        '<button type="button" class="jr-emoji-btn" data-field="' + field + '" data-v="' + o.v + '" aria-label="' + o.label + '" aria-pressed="false">' + o.emoji + '</button>'
+      ).join('');
+    }
+    function jrSetFieldUI(field, value) {
+      $(JR_ROW_IDS[field]).querySelectorAll('.jr-emoji-btn').forEach((btn) => {
+        const active = Number(btn.dataset.v) === value;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-pressed', String(active));
+      });
+    }
+    function jrEmojiFor(field, v) {
+      if (v == null) return null;
+      const found = JR_FIELDS[field].emojis.find((o) => o.v === v);
+      return found ? found.emoji : null;
+    }
+    Object.keys(JR_FIELDS).forEach(jrRenderEmojiRow);
+
+    // Clicking an already-active button clears the field back to null —
+    // every structured field is optional, so any of them must be able to
+    // go back to "not answered", not just forward from it.
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('.jr-emoji-btn');
+      if (!btn) return;
+      const field = btn.dataset.field;
+      const v = Number(btn.dataset.v);
+      jrDraft[field] = (jrDraft[field] === v) ? null : v;
+      jrSetFieldUI(field, jrDraft[field]);
+    });
+
+    // ---------- Draft state (the form currently being composed/edited) ----------
+    let jrEntries = [];
+    let jrEditingId = null;
+    let jrDraft = { mood: null, energy: null, stress: null, digestion: null };
+    let jrDraftTs = new Date();
+
+    function jrAutoResizeNote() {
+      const el = $('jrNote');
+      el.style.height = 'auto';
+      const h = Math.min(el.scrollHeight, 220);
+      el.style.height = h + 'px';
+      el.style.overflowY = el.scrollHeight > 220 ? 'auto' : 'hidden';
+    }
+    $('jrNote').addEventListener('input', jrAutoResizeNote);
+
+    function jrUpdateTsLabel() {
+      const isToday = jrLocalDateKey(jrDraftTs) === jrLocalDateKey(new Date());
+      $('jrTsLabel').textContent = (isToday ? 'Ahora' : jrShortDate(jrDraftTs)) + ' · ' + jrFormatTime(jrDraftTs) + ' ✎';
+    }
+
+    function jrResetForm() {
+      jrEditingId = null;
+      jrDraft = { mood: null, energy: null, stress: null, digestion: null };
+      jrDraftTs = new Date();
+      Object.keys(JR_FIELDS).forEach((f) => jrSetFieldUI(f, null));
+      $('jrNote').value = '';
+      jrAutoResizeNote();
+      $('jrMoreBlock').classList.add('hidden');
+      $('jrMoreToggle').setAttribute('aria-expanded', 'false');
+      $('jrMoreToggle').textContent = '+ más detalles';
+      $('jrTsInput').classList.add('hidden');
+      $('jrTsBtn').classList.remove('hidden');
+      jrUpdateTsLabel();
+      $('jrSaveBtn').textContent = 'Guardar';
+      $('jrCancelEdit').classList.add('hidden');
+    }
+
+    function jrOpenForEdit(entry) {
+      jrEditingId = entry.id;
+      jrDraft = {
+        mood: entry.mood != null ? entry.mood : null,
+        energy: entry.energy != null ? entry.energy : null,
+        stress: entry.stress != null ? entry.stress : null,
+        digestion: entry.digestion != null ? entry.digestion : null,
+      };
+      jrDraftTs = new Date(entry.ts);
+      Object.keys(JR_FIELDS).forEach((f) => jrSetFieldUI(f, jrDraft[f]));
+      $('jrNote').value = entry.note || '';
+      jrAutoResizeNote();
+      const hasExtra = jrDraft.stress != null || jrDraft.digestion != null;
+      $('jrMoreBlock').classList.toggle('hidden', !hasExtra);
+      $('jrMoreToggle').setAttribute('aria-expanded', String(hasExtra));
+      $('jrMoreToggle').textContent = hasExtra ? '– menos detalles' : '+ más detalles';
+      $('jrTsInput').classList.add('hidden');
+      $('jrTsBtn').classList.remove('hidden');
+      jrUpdateTsLabel();
+      $('jrSaveBtn').textContent = 'Actualizar';
+      $('jrCancelEdit').classList.remove('hidden');
+      $('jrForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    $('jrMoreToggle').addEventListener('click', () => {
+      const expanded = $('jrMoreToggle').getAttribute('aria-expanded') === 'true';
+      $('jrMoreBlock').classList.toggle('hidden', expanded);
+      $('jrMoreToggle').setAttribute('aria-expanded', String(!expanded));
+      $('jrMoreToggle').textContent = expanded ? '+ más detalles' : '– menos detalles';
+    });
+    $('jrCancelEdit').addEventListener('click', jrResetForm);
+
+    $('jrTsBtn').addEventListener('click', () => {
+      const input = $('jrTsInput');
+      input.value = jrDatetimeLocalValue(jrDraftTs);
+      input.classList.remove('hidden');
+      $('jrTsBtn').classList.add('hidden');
+      input.focus();
+    });
+    $('jrTsInput').addEventListener('change', () => {
+      const v = $('jrTsInput').value;
+      if (!v) return;
+      const [datePart, timePart] = v.split('T');
+      const [y, m, d] = datePart.split('-').map(Number);
+      const [hh, mm] = timePart.split(':').map(Number);
+      jrDraftTs = new Date(y, m - 1, d, hh, mm, 0, 0);
+      jrUpdateTsLabel();
+    });
+    $('jrTsInput').addEventListener('blur', () => {
+      $('jrTsInput').classList.add('hidden');
+      $('jrTsBtn').classList.remove('hidden');
+    });
+
+    let jrStatusTimer = null;
+    function jrShowSaveStatus(msg) {
+      const el = $('jrSaveStatus');
+      el.textContent = msg;
+      el.classList.add('jr-status-visible');
+      clearTimeout(jrStatusTimer);
+      jrStatusTimer = setTimeout(() => el.classList.remove('jr-status-visible'), 2200);
+    }
+
+    $('jrSaveBtn').addEventListener('click', async () => {
+      const id = jrEditingId || jrNewId();
+      const existing = jrEntries.find((e) => e.id === id);
+      const nowIso = jrFormatIsoLocal(new Date());
+      const wasEditing = !!jrEditingId;
+      const data = {
+        ts: jrFormatIsoLocal(jrDraftTs),
+        mood: jrDraft.mood,
+        energy: jrDraft.energy,
+        stress: jrDraft.stress,
+        digestion: jrDraft.digestion,
+        note: $('jrNote').value.trim(),
+        createdAt: existing ? existing.createdAt : nowIso,
+        updatedAt: nowIso,
+      };
+      await DataLayer.put(JR_COL, id, data);
+      jrEntries = jrEntries.filter((e) => e.id !== id).concat([Object.assign({ id: id }, data)]);
+      jrShowSaveStatus(wasEditing ? 'Entrada actualizada ✓' : 'Entrada guardada ✓');
+      jrResetForm();
+      jrRenderTimeline();
+    });
+
+    // ============================================================
+    // TIMELINE — grouped by local day, newest day and newest entry
+    // first. Pure data helpers (group/sort/format) kept separate from
+    // the DOM-building ones below.
+    // ============================================================
+    function jrGroupByDay(entries) {
+      const groups = {};
+      entries.forEach((e) => {
+        const ts = new Date(e.ts);
+        const key = jrLocalDateKey(ts);
+        (groups[key] || (groups[key] = [])).push(Object.assign({}, e, { _ts: ts }));
+      });
+      Object.keys(groups).forEach((key) => groups[key].sort((a, b) => a._ts - b._ts));
+      return groups;
+    }
+    function jrTruncate(s, n) { return s.length > n ? s.slice(0, n).trim() + '…' : s; }
+    function jrSmoothPath(points) {
+      if (points.length < 2) return '';
+      if (points.length === 2) return 'M' + points[0].x + ',' + points[0].y + ' L' + points[1].x + ',' + points[1].y;
+      const d = ['M' + points[0].x + ',' + points[0].y];
+      for (let i = 0; i < points.length - 1; i++) {
+        const p0 = points[i - 1] || points[i];
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        const p3 = points[i + 2] || p2;
+        const c1x = p1.x + (p2.x - p0.x) / 6, c1y = p1.y + (p2.y - p0.y) / 6;
+        const c2x = p2.x - (p3.x - p1.x) / 6, c2y = p2.y - (p3.y - p1.y) / 6;
+        d.push('C' + c1x + ',' + c1y + ' ' + c2x + ',' + c2y + ' ' + p2.x + ',' + p2.y);
+      }
+      return d.join(' ');
+    }
+    // Never interpolates a value that wasn't logged: each series (mood,
+    // energy) only draws once it has 2+ real points of its own, and a
+    // series with fewer is simply omitted rather than faked as flat.
+    function jrMiniChartSvg(dayEntries) {
+      const W = 300, H = 34, padX = 4, padY = 4;
+      const plotW = W - padX * 2, plotH = H - padY * 2;
+      const times = dayEntries.map((e) => e._ts.getTime());
+      const t0 = Math.min.apply(null, times), t1 = Math.max.apply(null, times);
+      const range = Math.max(t1 - t0, 60000);
+      const xFor = (e) => padX + ((e._ts.getTime() - t0) / range) * plotW;
+      const yFor = (v) => padY + plotH - ((v - 1) / 4) * plotH;
+      const moodPts = dayEntries.filter((e) => e.mood != null).map((e) => ({ x: xFor(e), y: yFor(e.mood) }));
+      const energyPts = dayEntries.filter((e) => e.energy != null).map((e) => ({ x: xFor(e), y: yFor(e.energy) }));
+      if (moodPts.length < 2 && energyPts.length < 2) return '';
+      let paths = '';
+      if (moodPts.length >= 2) paths += '<path class="jr-mini-line-mood" d="' + jrSmoothPath(moodPts) + '"/>';
+      if (energyPts.length >= 2) paths += '<path class="jr-mini-line-energy" d="' + jrSmoothPath(energyPts) + '"/>';
+      return '<svg class="jr-mini-chart" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">' + paths + '</svg>';
+    }
+    function jrRenderEntryRow(e) {
+      const moodE = jrEmojiFor('mood', e.mood);
+      const energyE = jrEmojiFor('energy', e.energy);
+      let emojisHtml = '';
+      if (moodE) emojisHtml += '<span class="jr-entry-emoji" title="Ánimo">' + moodE + '</span>';
+      if (energyE) emojisHtml += '<span class="jr-entry-emoji" title="Energía">' + energyE + '</span>';
+      const notePreview = e.note ? jrEscapeHtml(jrTruncate(e.note, 80)) : '';
+      return '<div class="jr-entry-row" data-id="' + e.id + '">'
+        + '<div class="jr-entry-time">' + jrFormatTime(e._ts) + '</div>'
+        + '<div class="jr-entry-emojis">' + emojisHtml + '</div>'
+        + '<div class="jr-entry-note">' + notePreview + '</div>'
+        + '<button type="button" class="jr-entry-del" data-id="' + e.id + '" aria-label="Borrar entrada">×</button>'
+        + '</div>';
+    }
+
+    let jrShowAllDays = false;
+    const JR_DAYS_LIMIT = 14;
+    function jrRenderTimeline() {
+      const wrap = $('jrTimeline');
+      const groups = jrGroupByDay(jrEntries);
+      const dayKeys = Object.keys(groups).sort().reverse();
+      $('jrEmpty').classList.toggle('hidden', dayKeys.length > 0);
+      if (!dayKeys.length) { wrap.innerHTML = ''; return; }
+
+      const visibleKeys = jrShowAllDays ? dayKeys : dayKeys.slice(0, JR_DAYS_LIMIT);
+      let html = '';
+      visibleKeys.forEach((key) => {
+        const dayEntries = groups[key]; // ascending by time — feeds the mini chart left-to-right
+        html += '<div class="jr-day-group">'
+          + '<div class="jr-day-header">' + jrDayHeaderLabel(key) + '</div>'
+          + jrMiniChartSvg(dayEntries)
+          + '<div class="jr-day-entries">'
+          + dayEntries.slice().reverse().map(jrRenderEntryRow).join('') // most recent first in the list
+          + '</div></div>';
+      });
+      wrap.innerHTML = html;
+
+      if (dayKeys.length > JR_DAYS_LIMIT) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'jr-more-days';
+        btn.textContent = jrShowAllDays ? 'Ver menos' : 'Ver más';
+        btn.addEventListener('click', () => { jrShowAllDays = !jrShowAllDays; jrRenderTimeline(); });
+        wrap.appendChild(btn);
+      }
+    }
+
+    $('jrTimeline').addEventListener('click', async (e) => {
+      const delBtn = e.target.closest('.jr-entry-del');
+      if (delBtn) {
+        e.stopPropagation();
+        const id = delBtn.dataset.id;
+        if (!confirm('¿Borrar esta entrada del diario?')) return;
+        await DataLayer.remove(JR_COL, id);
+        jrEntries = jrEntries.filter((en) => en.id !== id);
+        if (jrEditingId === id) jrResetForm();
+        jrRenderTimeline();
+        return;
+      }
+      const row = e.target.closest('.jr-entry-row');
+      if (!row) return;
+      const entry = jrEntries.find((en) => en.id === row.dataset.id);
+      if (entry) jrOpenForEdit(entry);
+    });
+
+    jrResetForm();
+
+    window.__initHealthJournal = async function () {
+      jrEntries = await DataLayer.list(JR_COL);
+      DataLayer.subscribe(JR_COL, async () => {
+        jrEntries = await DataLayer.list(JR_COL);
+        jrRenderTimeline();
+      });
+      jrRenderTimeline();
+    };
+  })();
+  </script>
+
   <!-- ===== Sleep card (manual entry — Whoop removed, Strava has no sleep API) ===== -->
   <style>
     .sleep-section { margin-bottom: 32px; }
@@ -2378,6 +2860,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   if (typeof DataLayer === 'undefined') return;
   const session = await DataLayer.init({ requireAuth: true });
   if (!session) return; // redirected to login.html
+  await window.__initHealthJournal();
   await window.__initHealthSleep();
   await window.__initHealthCalories();
 });
