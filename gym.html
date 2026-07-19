@@ -920,10 +920,9 @@ img, video, canvas, svg { max-width: 100%; }
 .wh-freq-yaxis-label { font-size: 10px; fill: var(--text-tertiary); font-family: var(--font-mono); }
 .wh-freq-val { font-size: 11px; font-weight: 700; fill: var(--text-primary); font-family: var(--font-mono); }
 .wh-actions {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap;
   margin-top: 4px;
 }
-.wh-actions-btns { display: flex; gap: 8px; flex-wrap: wrap; }
 .wh-meta { font-size: 11px; color: var(--text-tertiary); }
 
 /* ============================================================
@@ -1943,9 +1942,6 @@ img, video, canvas, svg { max-width: 100%; }
         </div>
 
         <div class="wh-actions">
-          <div class="wh-actions-btns">
-            <button class="po-btn-primary" id="whAddOpenBtn" type="button" style="width:auto; padding:11px 16px;">+ Log workout</button>
-          </div>
           <span class="wh-meta" id="whMeta"></span>
         </div>
       </div>
@@ -2050,36 +2046,6 @@ img, video, canvas, svg { max-width: 100%; }
     <div class="po-modal-actions">
       <button class="po-btn-primary" id="setModalClose">Done</button>
     </div>
-  </div>
-</div>
-
-<!-- Log Workout Modal — manual entry, the only way to add a workout now.
-     Saved through the same normalize + save path old Lyfta imports used
-     to go through, tagged source: 'manual'. -->
-<div class="po-modal-bg" id="whAddModalBg">
-  <div class="po-modal" style="max-width: 480px;">
-    <h3>Log a workout</h3>
-    <div class="po-field">
-      <label style="font-size:11px;color:var(--text-tertiary);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Date</label>
-      <input type="date" id="whAddDate">
-    </div>
-    <div class="po-field">
-      <label style="font-size:11px;color:var(--text-tertiary);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Title</label>
-      <input type="text" id="whAddTitle" placeholder="e.g. Push day">
-    </div>
-    <div class="po-set-section">
-      <h4>Exercises</h4>
-      <div class="po-set-list" id="whAddExList"></div>
-      <button class="po-add-row-btn" id="whAddExRowBtn" type="button">+ Add exercise</button>
-      <div style="font-size:11px;color:var(--text-tertiary);margin-top:10px;line-height:1.5;">
-        Sets as reps×weight, comma-separated — e.g. "8x30, 6x30, 5x32.5". Bodyweight sets: use weight 0.
-      </div>
-    </div>
-    <div class="po-modal-actions">
-      <button class="po-btn-secondary" id="whAddCancel" type="button">Cancel</button>
-      <button class="po-btn-primary" id="whAddSave" type="button">Save workout</button>
-    </div>
-    <div id="whAddStatus" style="text-align:center;font-size:12px;color:var(--danger);min-height:16px;margin-top:6px;"></div>
   </div>
 </div>
 
@@ -2293,8 +2259,9 @@ img, video, canvas, svg { max-width: 100%; }
 
   // ============================================================
   // WORKOUT HISTORY — one unified log. Old entries came from Lyfta or
-  // Strava imports; manual entry (the "+ Log workout" button) is the
-  // only active entry path now — import support was removed.
+  // Strava imports; manual entry (the Pesas log modal in gymUI.js, via
+  // window.WH.commit) is the only active entry path now — import support
+  // and the old free-text "+ Log workout" quick-add form were removed.
   //
   // Every workout is normalized to the same shape before it's ever
   // saved — { date, title, source, exercises:[{name, sets:[{reps,weight}]}] }
@@ -2587,54 +2554,6 @@ img, video, canvas, svg { max-width: 100%; }
     getPesasSetsGroupedByExercise: whGetPesasSetsGroupedByExercise,
   };
 
-  // ---- Manual entry: adds a single 'manual'-sourced workout ----
-  function whParseSetsStr(str) {
-    const out = [];
-    (str || '').split(',').forEach(chunk => {
-      const m = chunk.trim().match(/^(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)$/i);
-      if (m) out.push({ reps: Number(m[1]), weight: Number(m[2]) });
-    });
-    return out;
-  }
-  function whAddExerciseRow(name, setsStr) {
-    const row = document.createElement('div');
-    row.className = 'po-set-row';
-    row.innerHTML = '<input type="text" class="wh-add-ex-name" placeholder="Exercise name" value="' + escape(name || '') + '">'
-      + '<input type="text" class="wh-add-ex-sets" placeholder="8x30, 6x30" value="' + escape(setsStr || '') + '">'
-      + '<button type="button" class="po-mini-btn wh-add-ex-del" aria-label="Remove exercise">×</button>';
-    row.querySelector('.wh-add-ex-del').addEventListener('click', () => row.remove());
-    $('whAddExList').appendChild(row);
-  }
-  function whOpenAddModal() {
-    $('whAddDate').value = new Date().toISOString().slice(0, 10);
-    $('whAddTitle').value = '';
-    $('whAddExList').innerHTML = '';
-    whAddExerciseRow('', '');
-    $('whAddStatus').textContent = '';
-    $('whAddModalBg').classList.add('show');
-  }
-  function whCloseAddModal() { $('whAddModalBg').classList.remove('show'); }
-
-  $('whAddOpenBtn').addEventListener('click', whOpenAddModal);
-  $('whAddExRowBtn').addEventListener('click', () => whAddExerciseRow('', ''));
-  $('whAddCancel').addEventListener('click', whCloseAddModal);
-  $('whAddSave').addEventListener('click', () => {
-    const date = $('whAddDate').value;
-    if (!date) { $('whAddStatus').textContent = 'Pick a date.'; return; }
-    const title = $('whAddTitle').value.trim() || 'Workout';
-    const exercises = [];
-    $('whAddExList').querySelectorAll('.po-set-row').forEach(row => {
-      const name = row.querySelector('.wh-add-ex-name').value.trim();
-      const sets = whParseSetsStr(row.querySelector('.wh-add-ex-sets').value);
-      if (name && sets.length) exercises.push({ name, sets });
-    });
-    if (!exercises.length) { $('whAddStatus').textContent = 'Add at least one exercise with valid sets (e.g. 8x30).'; return; }
-    const newWorkout = whNormalizeWorkout({ date, title, source: 'manual', exercises }, 'manual');
-    whAppendWorkout(newWorkout);
-    whCommit(newWorkout);
-    whCloseAddModal();
-  });
-
   // ============================================================
   // SETTINGS MODAL (units, training data export/import/reset)
   // The old gyms/days management and the exercise/rotation editors were
@@ -2665,8 +2584,8 @@ img, video, canvas, svg { max-width: 100%; }
 
   // Export / Import / Reset — scoped to what Settings manages now (units +
   // exercise/muscle overrides, mobility log, fatigue config, via
-  // GymPesasStore). Workout history (logged via "+ Log workout" above,
-  // manual entry only) is intentionally untouched here.
+  // GymPesasStore). Workout history (logged via the Pesas modal, manual
+  // entry only) is intentionally untouched here.
   $('setExport').addEventListener('click', () => {
     const snapshot = { units: state.units, training: window.GymPesasStore.exportSnapshot() };
     const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
