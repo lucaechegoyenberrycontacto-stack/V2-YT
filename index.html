@@ -857,25 +857,32 @@ body::after {
   }
 
   /* ============================================================
-     ACTIVIDAD FÍSICA — exact replica of gym.html's log shape
-     (state.logs[exerciseId] = [{date, weight, reps}, ...])
+     ACTIVIDAD FÍSICA — workout logging moved off po_coach_v1's old
+     `.logs` shape onto the gym_workouts DataLayer collection (see
+     gym.html's whCommit/whNormalizeWorkout); its legacy-mirror key is
+     po_coach_lyfta_v1 = {workouts: [{date, exercises:[{sets:[{reps,
+     weight}]}]}]}. po_coach_v1 itself still holds `.units` (mirrored
+     from gym_routine_config), so that part is unchanged.
      ============================================================ */
   function renderGymStat() {
-    let state = null;
-    try { state = JSON.parse(localStorage.getItem('po_coach_v1')); } catch (e) {}
-    if (!state || !state.logs) { setStat('statGym', '0 sets', null, '0 kg movidos'); return; }
+    let wh = null;
+    try { wh = JSON.parse(localStorage.getItem('po_coach_lyfta_v1')); } catch (e) {}
+    let routineState = null;
+    try { routineState = JSON.parse(localStorage.getItem('po_coach_v1')); } catch (e) {}
+    const workouts = (wh && Array.isArray(wh.workouts)) ? wh.workouts : [];
 
     const todayStr = calendarDateKey();
     let sets = 0, volume = 0;
-    Object.keys(state.logs).forEach(exId => {
-      (state.logs[exId] || []).forEach(l => {
-        if (l && typeof l.date === 'string' && l.date.slice(0, 10) === todayStr) {
+    workouts.forEach(w => {
+      if (!w || typeof w.date !== 'string' || w.date.slice(0, 10) !== todayStr) return;
+      (w.exercises || []).forEach(ex => {
+        (ex.sets || []).forEach(s => {
           sets++;
-          volume += (Number(l.weight) || 0) * (Number(l.reps) || 0);
-        }
+          volume += (Number(s && s.weight) || 0) * (Number(s && s.reps) || 0);
+        });
       });
     });
-    const unit = state.units === 'lb' ? 'lb' : 'kg';
+    const unit = (routineState && routineState.units === 'lb') ? 'lb' : 'kg';
     const hour = new Date().getHours();
     const status = sets > 0 ? 'good' : (hour >= 20 ? 'warn' : null);
     setStat('statGym', sets + ' sets', status, Math.round(volume).toLocaleString('es-ES') + ' ' + unit + ' movidos');
@@ -1043,7 +1050,7 @@ body::after {
     if (!warmupSupa) return;
     lastWarmUpAt = Date.now();
     try {
-      const [healthRes, coachRes, financeRes, cbRes, logRes, foodsRes, goalsRes, sleepRes] = await Promise.allSettled([
+      const [healthRes, coachRes, financeRes, cbRes, logRes, foodsRes, goalsRes, sleepRes, workoutsRes] = await Promise.allSettled([
         warmupSupa.from('app_state').select('data').eq('key', 'health').maybeSingle(),
         warmupSupa.from('app_state').select('data').eq('key', 'po-coach').maybeSingle(),
         warmupSupa.from('app_state').select('data').eq('key', 'finance').maybeSingle(),
@@ -1061,6 +1068,11 @@ body::after {
         warmupSupa.from('records').select('id,data').eq('collection', 'nutrition_foods'),
         warmupSupa.from('records').select('id,data').eq('collection', 'nutrition_goals'),
         warmupSupa.from('records').select('id,data').eq('collection', 'health_sleep'),
+        // gym.html's workout log itself moved off the 'po-coach' app_state
+        // row onto gym_workouts (see PC_SYNCED_KEYS in gym.html — that row
+        // is frozen/no longer written), so pull it the same way as the
+        // health/nutrition rows above instead of via `coach` below.
+        warmupSupa.from('records').select('id,data').eq('collection', 'gym_workouts'),
       ]);
       const health = warmUpRowData(healthRes);
       const coach = warmUpRowData(coachRes);
@@ -1070,6 +1082,7 @@ body::after {
       const foodsRows = warmUpRecordRows(foodsRes);
       const goalsRows = warmUpRecordRows(goalsRes);
       const sleepRows = warmUpRecordRows(sleepRes);
+      const workoutsRows = warmUpRecordRows(workoutsRes);
       let changed = false;
       let currencyChanged = false;
       if (health) {
@@ -1082,6 +1095,10 @@ body::after {
       if (cbRows) {
         // Matches health.html's own setLegacyMirror transform for CB_COL.
         changed = applyIfDifferent('caloriesBurnedEntries', cbRows.map((r) => ({ date: r.id, kcal: r.data.kcal, loggedAt: r.data.loggedAt }))) || changed;
+      }
+      if (workoutsRows) {
+        // Matches gym.html's own rowsToWorkouts() legacy-mirror transform.
+        changed = applyIfDifferent('po_coach_lyfta_v1', { workouts: workoutsRows.map((r) => Object.assign({}, r.data)) }) || changed;
       }
       if (logRows) {
         changed = applyIfDifferent('nut:log', logRows.map((r) => Object.assign({ id: r.id }, r.data))) || changed;
