@@ -19,10 +19,9 @@
   --text-primary: #FAFAFA;
   --text-secondary: #B8B6B0;
   --text-tertiary: #76746E;
-  --hb-clean: #6BE3A4;
-  --hb-relapse: #FF6B6B;
-  --hb-screen: #F14C4C;
-  --hb-goal: #F2C063;
+  --success: #6BE3A4;
+  --warning: #F2C063;
+  --danger: #FF6B6B;
   --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
@@ -102,8 +101,8 @@ body::after {
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 .hb-toggle-btn:hover { background: rgba(255,255,255,0.05); }
-.hb-toggle-btn.on.hb-clean-btn { border-color: rgba(107,227,164,0.55); background: rgba(107,227,164,0.14); color: var(--hb-clean); }
-.hb-toggle-btn.on.hb-relapse-btn { border-color: rgba(255,107,107,0.55); background: rgba(255,107,107,0.14); color: var(--hb-relapse); }
+.hb-toggle-btn.on.hb-clean-btn { border-color: rgba(107,227,164,0.55); background: rgba(107,227,164,0.14); color: var(--success); }
+.hb-toggle-btn.on.hb-relapse-btn { border-color: rgba(255,107,107,0.55); background: rgba(255,107,107,0.14); color: var(--danger); }
 .hb-note {
   width: 100%; margin-top: 10px; padding: 10px 12px; border-radius: 10px;
   border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.28);
@@ -132,8 +131,8 @@ body::after {
   border: 1px solid transparent; cursor: default;
 }
 .hb-cal-day.hb-empty { background: transparent; }
-.hb-cal-day.hb-clean { background: rgba(107,227,164,0.22); color: var(--hb-clean); cursor: pointer; }
-.hb-cal-day.hb-relapse { background: rgba(255,107,107,0.20); color: var(--hb-relapse); cursor: pointer; }
+.hb-cal-day.hb-clean { background: rgba(107,227,164,0.22); color: var(--success); cursor: pointer; }
+.hb-cal-day.hb-relapse { background: rgba(255,107,107,0.20); color: var(--danger); cursor: pointer; }
 .hb-cal-day.hb-past-empty { cursor: pointer; }
 .hb-cal-day.hb-past-empty:hover, .hb-cal-day.hb-clean:hover, .hb-cal-day.hb-relapse:hover { filter: brightness(1.25); }
 .hb-cal-day.hb-today { border-color: rgba(255,255,255,0.5); font-weight: 700; }
@@ -164,8 +163,8 @@ body::after {
 .hb-chart-legend { display: flex; gap: 12px; flex-wrap: wrap; }
 .hb-leg-item { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; color: var(--text-secondary); font-weight: 500; }
 .hb-leg-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
-.hb-leg-dot.d-screen { background: var(--hb-screen); }
-.hb-leg-dot.d-goal { background: var(--hb-goal); }
+.hb-leg-dot.d-screen { background: #F14C4C; } /* TODO: revisar con el usuario — mapear a --warning lo haría idéntico al color de d-goal */
+.hb-leg-dot.d-goal { background: var(--warning); }
 .hb-chart-empty { font-size: 12.5px; color: var(--text-tertiary); font-style: italic; text-align: center; padding: 20px 10px; }
 .hb-chart-wrap { position: relative; }
 .hb-week-svg { width: 100%; height: 260px; display: block; overflow: visible; }
@@ -173,9 +172,9 @@ body::after {
 .hb-week-grid { stroke: rgba(255,255,255,0.06); stroke-width: 1; }
 .hb-week-yaxis-label { font-size: 11px; fill: var(--text-tertiary); font-family: var(--font-mono); }
 .hb-week-daylabel { font-size: 11px; fill: var(--text-tertiary); font-family: var(--font-mono); }
-.hb-line-screen { fill: none; stroke: var(--hb-screen); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
-.hb-line-goal { fill: none; stroke: var(--hb-goal); stroke-width: 1.5; stroke-dasharray: 5 4; }
-.hb-dot { cursor: pointer; fill: var(--hb-screen); stroke: #050506; stroke-width: 1; }
+.hb-line-screen { fill: none; stroke: #F14C4C; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; } /* TODO: revisar con el usuario — mismo motivo que d-screen arriba */
+.hb-line-goal { fill: none; stroke: var(--warning); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.hb-dot { cursor: pointer; fill: #F14C4C; stroke: #050506; stroke-width: 1; } /* TODO: revisar con el usuario — mismo motivo que d-screen arriba */
 .hb-dot-hit { fill: rgba(0,0,0,0.001); pointer-events: all; cursor: pointer; }
 .hb-week-tooltip {
   position: absolute; display: none; pointer-events: none;
@@ -204,7 +203,7 @@ body::after {
 .hb-view-btn.active { background: rgba(255,255,255,0.10); color: var(--text-primary); }
 
 /* Month view — one bar per calendar month (total hours, not average) */
-.hb-bar { fill: var(--hb-screen); cursor: pointer; }
+.hb-bar { fill: #F14C4C; cursor: pointer; } /* TODO: revisar con el usuario — mismo motivo que d-screen arriba */
 .hb-bar-hit { fill: rgba(0,0,0,0.001); pointer-events: all; cursor: pointer; }
 </style>
 </head>

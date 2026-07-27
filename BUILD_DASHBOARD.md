@@ -208,8 +208,8 @@ After the list:
 - **Push remaining button** `gmPushBtn` — shown only when there's at least one unchecked goal. Full-width, dashed border, tertiary text, hover solidifies to primary. On click: confirm prompt, then move every unchecked goal into the tomorrow list (skip duplicates by exact text match), then strip them from today (keeping only the checked ones).
 - **Quick-add row** `.goal-input-wrap.gm-input-wrap` with a 14px top border + 14px top padding so it feels separated from the list:
   - Text input `goalInput` — flex 1, 11px×14px padding, 12px radius, glass background, white-on-focus border, placeholder `Add a goal for today…`.
-  - **+ Add button** `goalAddBtn` — primary white pill: `linear-gradient(180deg, #FFFFFF 0%, #E8E5DD 100%)` background, `#0A0A0B` text, weight 700, 11px×20px padding, multi-layer shadow including inset top highlight. Hover: lifts 1px and brightens.
-  - **✨ Polish button** `goalPolishBtn` — secondary glass pill: `rgba(255,255,255,0.04)` background, primary text, 1px hairline border `rgba(255,255,255,0.10)`, otherwise same shape as Add.
+  - **+ Add button** `goalAddBtn` — primary button, class `.gm-add`: `linear-gradient(180deg, #FFFFFF 0%, #E8E5DD 100%)` background, `#0A0A0B` text, weight 700, 11px×20px padding, `border-radius: 12px` (not a pill — this is the actual shape used consistently by `.gm-add` in main.html and nutrition.html), multi-layer shadow including inset top highlight. Hover: lifts 1px and brightens.
+  - **✨ Polish button** `goalPolishBtn` — secondary glass button, class `.gm-polish`: `rgba(255,255,255,0.04)` background, primary text, 1px hairline border `rgba(255,255,255,0.10)`, `border-radius: 12px`, otherwise same shape as Add.
 - A 11px tertiary status line `polishStatus` for transient messages.
 
 ### PLAN TOMORROW card

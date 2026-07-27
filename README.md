@@ -14,15 +14,21 @@ Open any `.html` file directly in your browser — no build step, no install.
 
 | File | What it is |
 |---|---|
-| [index.html](index.html) | Goals tracker (Day Ring, Goal Ticker, To Do list) — the home page |
+| [index.html](index.html) | Home status page (Day Ring, Goal Ticker, To Do list) |
+| [apps.html](apps.html) | App launcher — bento grid linking to every page below |
+| [main.html](main.html) | Goals & daily plan |
 | [health.html](health.html) | Supplement / daily stack tracker |
 | [po-water.html](po-water.html) | Water intake tracker |
-| [finance.html](finance.html) | Finances |
+| [finance.html](finance.html) | Finances — accounts, spending, net worth |
 | [gym.html](gym.html) | Progressive overload gym tracker |
+| [nutrition.html](nutrition.html) | Macro & meal tracker |
+| [habits.html](habits.html) | Streak tracking (NoFap) & screen time |
+| [login.html](login.html) | Sign-in page for pages that require auth |
+| [template.html](template.html) | Starter template matching the shared visual system |
 | [topbar.js](topbar.js) | Shared top bar — auto-injected into pages that `<script src="topbar.js">` |
 
-Each app stores its own state in browser `localStorage`. No accounts, no server.
+State is synced live to a shared Supabase (Postgres) backend, not `localStorage`. Two mechanisms currently coexist: the legacy `sync.js` + `app_state` table (older pages, being phased out), and the newer `dataLayer.js` + `records` table, which requires signing in via [login.html](login.html). Pages are migrated one at a time, so which mechanism a given page uses depends on when it was last touched.
 
 ## Building from scratch
 
-[BUILD_DASHBOARD.md](BUILD_DASHBOARD.md) is the prompt I gave Claude to generate `index.html` — paste it into Claude if you want to rebuild that page yourself.
+[BUILD_DASHBOARD.md](BUILD_DASHBOARD.md) is the prompt I gave Claude to generate `main.html` (Goal Ticker, Day Ring, To Do List) — paste it into Claude if you want to rebuild that page yourself.
