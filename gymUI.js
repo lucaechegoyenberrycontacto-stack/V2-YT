@@ -626,6 +626,39 @@
     return daysAgoLabel(last.date) || 'sin datos';
   }
 
+  // Live "this week" stat per card — same window.GymDomain.computeWeekOverWeek
+  // that already backs the 3 comparison charts above, just with a
+  // discipline-specific filter/extractor per card instead of a new
+  // aggregation function. Bici/Running are deliberately split (each scoped
+  // to its own discipline) so their sum matches the combined "Running /
+  // Bici (distancia)" chart exactly, and Boxeo is scoped to
+  // boxeo_muaythai only (not lumped with the other cardio disciplines).
+  function weekStatFor(discipline, sessions) {
+    if (discipline === 'pesas') {
+      const r = window.GymDomain.computeWeekOverWeek(
+        sessions,
+        function (w) { return (w.exercises || []).reduce(function (s, ex) { return s + (ex.sets || []).length; }, 0); },
+        function (w) { return (w.discipline || 'pesas') === 'pesas'; }
+      );
+      return r.thisWeek > 0 ? (r.thisWeek + ' series esta semana') : '—';
+    }
+    if (discipline === 'boxeo_muaythai') {
+      const r = window.GymDomain.computeWeekOverWeek(
+        sessions,
+        function (w) { return w.cardio ? (w.cardio.duration || 0) : 0; },
+        function (w) { return w.discipline === 'boxeo_muaythai'; }
+      );
+      return r.thisWeek > 0 ? (r.thisWeek + ' min esta semana') : '—';
+    }
+    // bici / running
+    const r = window.GymDomain.computeWeekOverWeek(
+      sessions,
+      function (w) { return (w.cardio && w.cardio.distance != null) ? w.cardio.distance : 0; },
+      function (w) { return w.discipline === discipline; }
+    );
+    return r.thisWeek > 0 ? (r.thisWeek + ' km esta semana') : '—';
+  }
+
   function renderTrCards() {
     const wrap = $('trCards');
     if (!wrap) return;
@@ -633,7 +666,10 @@
     wrap.innerHTML = DISCIPLINE_CARDS.map(function (c) {
       return '<button type="button" class="tr-card" id="' + c.id + '">'
         + '<span class="tr-card-title">' + escapeHtml(c.title) + '</span>'
-        + '<span class="tr-card-context">' + escapeHtml(cardContextFor(c.discipline, sessions)) + '</span>'
+        + '<span class="tr-card-foot">'
+        +   '<span class="tr-card-context">' + escapeHtml(cardContextFor(c.discipline, sessions)) + '</span>'
+        +   '<span class="tr-card-week">' + escapeHtml(weekStatFor(c.discipline, sessions)) + '</span>'
+        + '</span>'
         + '</button>';
     }).join('');
     $('trCardPesas').addEventListener('click', openPesasLogModal);
@@ -1003,6 +1039,13 @@
     showOrEmpty('trDistanceSvg', 'trDistanceEmpty', dist.thisWeek > 0 || dist.lastWeek > 0);
     if (dist.thisWeek > 0 || dist.lastWeek > 0) {
       window.renderPeriodComparisonChart('trDistanceSvg', { thisPeriod: dist.thisWeek, lastPeriod: dist.lastWeek, unit: 'km' });
+    }
+
+    const muscleVol = window.GymDomain.computeWeeklySetsByMuscle ? window.GymDomain.computeWeeklySetsByMuscle(sessions) : {};
+    const hasMuscleVol = Object.keys(muscleVol).some(function (m) { return muscleVol[m] > 0; });
+    showOrEmpty('trMuscleVolSvg', 'trMuscleVolEmpty', hasMuscleVol);
+    if (hasMuscleVol) {
+      window.renderMuscleVolumeChart('trMuscleVolSvg', muscleVol);
     }
   }
 

@@ -1485,6 +1485,16 @@ img, video, canvas, svg { max-width: 100%; }
 .tr-cmp-bar-current { fill: var(--success); opacity: 0.9; }
 .tr-cmp-bar-prev { fill: var(--text-tertiary); opacity: 0.35; }
 
+/* Weekly sets-per-muscle chart — bar color is informational, not a
+   severity signal (unlike the muscle-map fatigue colors), so above-range
+   deliberately stays neutral instead of --danger: training a muscle past
+   the 10-20/week reference isn't inherently bad. */
+.tr-mvol-bar-low { fill: var(--warning); opacity: 0.85; }
+.tr-mvol-bar-ref { fill: var(--success); opacity: 0.85; }
+.tr-mvol-bar-high { fill: var(--text-secondary); opacity: 0.55; }
+.tr-mvol-band { fill: rgba(255,255,255,0.05); }
+.tr-mvol-band-label { font-size: 10px; fill: var(--text-tertiary); font-family: var(--font-mono); }
+
 /* One-tap effort/difficulty selector (RIR/Fallo, Boxeo-MuayThai
    difficulty) — same visual language as .po-seg-btn but sized as
    individually-clickable pills instead of a single connected track,
@@ -1631,7 +1641,13 @@ img, video, canvas, svg { max-width: 100%; }
 }
 .tr-card:hover { background: rgba(255,255,255,0.07); border-color: var(--border-strong); }
 .tr-card-title { font-size: 14px; font-weight: 700; }
-.tr-card-context { font-size: 11px; color: var(--text-tertiary); margin-top: 6px; }
+/* .tr-card-foot groups context + the live weekly stat as ONE flex child
+   below the title, so .tr-card's justify-content:space-between still only
+   ever distributes 2 items (title, foot) — adding the week line as a
+   3rd direct sibling would instead spread all 3 apart across the card. */
+.tr-card-foot { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
+.tr-card-context { font-size: 11px; color: var(--text-tertiary); }
+.tr-card-week { font-size: 11px; color: var(--text-secondary); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="dataLayer.js" defer></script>
@@ -1993,6 +2009,20 @@ img, video, canvas, svg { max-width: 100%; }
         <div class="wh-freq-wrap">
           <div class="po-empty" id="trDistanceEmpty">Registrá una sesión de Running o Bici con distancia para ver esto.</div>
           <svg class="wh-freq-svg hidden" id="trDistanceSvg" viewBox="0 0 700 220"></svg>
+        </div>
+      </div>
+
+      <!-- Weekly hard sets per muscle group — same primary=1.0/secondary=0.5
+           weighting as gymMuscleFatigue.js's fatigue score, for conceptual
+           consistency with the muscle map below, but computed independently
+           (computeWeeklySetsByMuscle) with no recovery decay. Reference band
+           is a strength-training guideline (Schoenfeld, Ogborn & Krieger
+           2017), not a prescription. -->
+      <div class="wh-block">
+        <div class="wh-block-title">Series semanales por grupo muscular</div>
+        <div class="wh-freq-wrap">
+          <div class="po-empty" id="trMuscleVolEmpty">Registrá una sesión de pesas para ver esto.</div>
+          <svg class="wh-freq-svg hidden" id="trMuscleVolSvg" viewBox="0 0 700 420"></svg>
         </div>
       </div>
 

@@ -74,6 +74,42 @@
     return { thisWeek: thisWeek, lastWeek: lastWeek, deltaPct: deltaPct };
   }
 
+  // Hard sets received by each of the 13 window.MUSCLE_GROUPS so far this
+  // week (Monday through now), 'pesas' sessions only — same criterion
+  // renderPeriodCharts already uses for "Volumen semanal (pesas)": absent
+  // discipline defaults to 'pesas'. Weighting (primary set = 1.0, secondary
+  // set = 0.5) mirrors gymMuscleFatigue.js's computeMuscleFatigue for
+  // conceptual consistency with the muscle map, but this is a standalone
+  // flat weekly tally — no recovery decay, no ecosystem modifier, and it
+  // never touches computeMuscleFatigue itself.
+  // @param {Array} sessions
+  // @param {Date} [now] Injected for testability; defaults to current time.
+  // @returns {Object<string, number>} one entry per window.MUSCLE_GROUPS
+  //   (0 for muscles untouched this week), values rounded to 1 decimal.
+  function computeWeeklySetsByMuscle(sessions, now) {
+    const thisMonday = mondayOf(now || new Date());
+    const groups = window.MUSCLE_GROUPS || [];
+    const totals = {};
+    groups.forEach(function (m) { totals[m] = 0; });
+
+    (sessions || []).forEach(function (w) {
+      if ((w.discipline || 'pesas') !== 'pesas') return;
+      const d = parseLocalDateKey(w.date);
+      if (isNaN(d.getTime()) || d < thisMonday) return;
+      (w.exercises || []).forEach(function (ex) {
+        const setCount = (ex.sets || []).length;
+        if (!setCount) return;
+        if (ex.primaryMuscle && totals[ex.primaryMuscle] != null) totals[ex.primaryMuscle] += setCount;
+        (ex.secondaryMuscles || []).forEach(function (m) {
+          if (totals[m] != null) totals[m] += setCount * 0.5;
+        });
+      });
+    });
+
+    groups.forEach(function (m) { totals[m] = Math.round(totals[m] * 10) / 10; });
+    return totals;
+  }
+
   // Consecutive days (today backwards) with >=1 session of ANY discipline.
   // Today doesn't break an in-progress streak before the day is over — if
   // today has no session yet, counting starts from yesterday.
@@ -94,6 +130,7 @@
     checkWeightPR: checkWeightPR,
     checkVolumePR: checkVolumePR,
     computeWeekOverWeek: computeWeekOverWeek,
+    computeWeeklySetsByMuscle: computeWeeklySetsByMuscle,
     computeTrainingStreak: computeTrainingStreak,
   };
 })();
