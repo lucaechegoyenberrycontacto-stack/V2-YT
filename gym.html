@@ -1522,19 +1522,34 @@ img, video, canvas, svg { max-width: 100%; }
   box-shadow: 0 12px 32px rgba(0,0,0,0.45), 0 0 0 1px rgba(110,231,183,0.25);
 }
 
-/* Interim muscle-fatigue list — shown once a real config exists but before
-   the interactive SVG map (later phase) is built. Real numbers, no
-   invented colors. */
-.tr-muscle-list { display: flex; flex-direction: column; gap: 6px; }
-.tr-muscle-row {
-  display: flex; justify-content: space-between; align-items: center;
-  min-height: 44px; box-sizing: border-box;
-  padding: 8px 10px; background: rgba(255,255,255,0.025);
-  border: 1px solid var(--border); border-radius: 8px;
-  font-size: 13px; color: var(--text-secondary);
-  font-variant-numeric: tabular-nums;
+/* Anatomical front/back muscle map — geometric silhouette (ellipses/rects,
+   not a medical atlas), colored by fatigue score. Toggle reuses the
+   .po-seg-control/.po-seg-btn pattern (same as Steps' Hoy/Ayer/Elegir
+   fecha and Semana/Mes selectors) instead of a new component. */
+.tr-body-toggle { margin-bottom: 14px; }
+.tr-body-map {
+  position: relative; width: 100%; max-width: 300px; margin: 0 auto;
+  aspect-ratio: 240 / 450;
 }
-.tr-muscle-row:hover, .tr-muscle-row:focus-visible { background: rgba(255,255,255,0.06); color: var(--text-primary); }
+.tr-body-svg {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.tr-body-svg.active { opacity: 1; pointer-events: auto; }
+/* Decorative parts (head, hands, feet, off-view limb segments) exist only
+   so the figure reads as a continuous human silhouette — never a muscle,
+   never focusable. */
+.tr-body-deco { fill: rgba(255,255,255,0.05); }
+.tr-body-region {
+  cursor: pointer;
+  stroke: rgba(255,255,255,0.14); stroke-width: 1;
+  transition: fill 0.18s ease, fill-opacity 0.18s ease, stroke 0.18s ease, stroke-width 0.18s ease;
+  outline: none;
+}
+.tr-body-region:hover, .tr-body-region:focus-visible {
+  stroke: rgba(255,255,255,0.65); stroke-width: 2.5;
+}
 /* Discreet ecosystem-modifier note — a line of context, not a new
    section; only rendered when the modifier isn't neutral. */
 .tr-eco-note {
@@ -1737,7 +1752,7 @@ img, video, canvas, svg { max-width: 100%; }
                   </div>
                 </div>
                 <div class="steps-chart-wrap" id="stepsChartWrap">
-                  <svg class="steps-chart-svg" id="stepsChartSvg" viewBox="0 0 700 380" preserveAspectRatio="none"></svg>
+                  <svg class="steps-chart-svg" id="stepsChartSvg" viewBox="0 0 700 380"></svg>
                   <div class="steps-empty hidden" id="stepsEmpty">Registrá tu primer día para empezar a ver tu progreso.</div>
                 </div>
               </div>
@@ -1776,7 +1791,7 @@ img, video, canvas, svg { max-width: 100%; }
               <span id="wtYAxisMax">—</span>
               <span id="wtYAxisMin">—</span>
             </div>
-            <svg class="wt-chart" viewBox="0 0 320 130" preserveAspectRatio="none">
+            <svg class="wt-chart" id="wtChartSvg" viewBox="0 0 320 130">
               <defs>
                 <linearGradient id="wtFill" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stop-color="#6ee7b7" stop-opacity="0.25"/>
@@ -1953,7 +1968,7 @@ img, video, canvas, svg { max-width: 100%; }
         <div class="wh-block-title">Weekly frequency</div>
         <div class="wh-freq-wrap">
           <div class="po-empty" id="whFreqEmpty">Log or import workouts to see this.</div>
-          <svg class="wh-freq-svg hidden" id="whFreqSvg" viewBox="0 0 700 220" preserveAspectRatio="none"></svg>
+          <svg class="wh-freq-svg hidden" id="whFreqSvg" viewBox="0 0 700 220"></svg>
         </div>
       </div>
 
@@ -1963,21 +1978,21 @@ img, video, canvas, svg { max-width: 100%; }
         <div class="wh-block-title">Volumen semanal (pesas)</div>
         <div class="wh-freq-wrap">
           <div class="po-empty" id="trWeeklyVolEmpty">Registrá una sesión de pesas para ver esto.</div>
-          <svg class="wh-freq-svg hidden" id="trWeeklyVolSvg" viewBox="0 0 700 220" preserveAspectRatio="none"></svg>
+          <svg class="wh-freq-svg hidden" id="trWeeklyVolSvg" viewBox="0 0 700 220"></svg>
         </div>
       </div>
       <div class="wh-block">
         <div class="wh-block-title">Cardio (minutos)</div>
         <div class="wh-freq-wrap">
           <div class="po-empty" id="trCardioMinEmpty">Registrá una sesión de Boxeo/Muay Thai, Running o Bici para ver esto.</div>
-          <svg class="wh-freq-svg hidden" id="trCardioMinSvg" viewBox="0 0 700 220" preserveAspectRatio="none"></svg>
+          <svg class="wh-freq-svg hidden" id="trCardioMinSvg" viewBox="0 0 700 220"></svg>
         </div>
       </div>
       <div class="wh-block">
         <div class="wh-block-title">Running / Bici (distancia)</div>
         <div class="wh-freq-wrap">
           <div class="po-empty" id="trDistanceEmpty">Registrá una sesión de Running o Bici con distancia para ver esto.</div>
-          <svg class="wh-freq-svg hidden" id="trDistanceSvg" viewBox="0 0 700 220" preserveAspectRatio="none"></svg>
+          <svg class="wh-freq-svg hidden" id="trDistanceSvg" viewBox="0 0 700 220"></svg>
         </div>
       </div>
 
@@ -2495,7 +2510,10 @@ img, video, canvas, svg { max-width: 100%; }
     // Full-width, protagonist-sized chart (moved out of the shared
     // Recent sessions / PRs row) — wider viewBox with room for a Y
     // axis (training days/week) and a value label above each bar.
-    const W = 700, H = 220;
+    // W matches the SVG's actual rendered pixel width, same technique as
+    // health.html's renderWeekChart — keeps the coordinate system 1:1 with
+    // its on-screen size instead of squashing on narrower screens.
+    const W = svg.getBoundingClientRect().width || 700, H = 220;
     const padLeft = 26, padRight = 10, padTop = 22, padBottom = 30, gap = 14;
     const n = data.length;
     const plotW = W - padLeft - padRight;
@@ -2528,6 +2546,7 @@ img, video, canvas, svg { max-width: 100%; }
       bars += '<text class="wh-freq-val" x="' + (x + barW / 2).toFixed(1) + '" y="' + (y - 8).toFixed(1) + '" text-anchor="middle">' + d.count + '</text>';
       bars += '<text class="wh-freq-label" x="' + (x + barW / 2).toFixed(1) + '" y="' + (baseY + 20) + '" text-anchor="middle">' + label + '</text>';
     });
+    svg.setAttribute('viewBox', '0 0 ' + W.toFixed(1) + ' ' + H);
     svg.innerHTML = grid + bars;
   }
 
@@ -2740,13 +2759,22 @@ img, video, canvas, svg { max-width: 100%; }
   }
 
   function wtRenderChart() {
+    const svg = $('wtChartSvg');
+    // W matches the SVG's actual rendered pixel width, same technique as
+    // health.html's renderWeekChart — keeps the coordinate system 1:1 with
+    // its on-screen size instead of squashing on narrower screens. H stays
+    // fixed at 130 to match the chart's fixed CSS height.
+    const W = svg.getBoundingClientRect().width || 320, H = 130;
+    svg.setAttribute('viewBox', '0 0 ' + W.toFixed(1) + ' ' + H);
+    svg.querySelectorAll('.wt-grid').forEach(function (g) { g.setAttribute('x2', W.toFixed(1)); });
+
     const recent = wtEntries.slice(-30);
     const weights = recent.map(e => e.weight);
     const min = Math.min.apply(null, weights);
     const max = Math.max.apply(null, weights);
     const pad = Math.max((max - min) * 0.15, 0.5);
     const yMin = min - pad, yMax = max + pad;
-    const xLeft = 8, xRight = 312, yTop = 20, yBot = 110;
+    const xLeft = 8, xRight = W - 8, yTop = 20, yBot = 110;
     const xRange = xRight - xLeft, yRange = yBot - yTop;
     const xFor = (i) => recent.length === 1 ? xRight : xLeft + (i / (recent.length - 1)) * xRange;
     const yFor = (w) => yBot - ((w - yMin) / (yMax - yMin)) * yRange;
@@ -3113,8 +3141,13 @@ img, video, canvas, svg { max-width: 100%; }
     if (!hasAnyData) return;
 
     const els = stepsEnsureChartSkeleton();
+    const svg = $('stepsChartSvg');
     const data = stepsChartMode === 'month' ? stepsMonthData() : stepsWeekData();
-    const W = 700, H = 380;
+    // W matches the SVG's actual rendered pixel width, same technique as
+    // health.html's renderWeekChart — keeps the coordinate system 1:1 with
+    // its on-screen size instead of squashing on narrower screens.
+    const W = svg.getBoundingClientRect().width || 700, H = 380;
+    svg.setAttribute('viewBox', '0 0 ' + W.toFixed(1) + ' ' + H);
     const padLeft = 54, padRight = 16, padTop = 20, padBottom = 34;
     const plotW = W - padLeft - padRight;
     const plotH = H - padTop - padBottom;
@@ -4171,6 +4204,23 @@ img, video, canvas, svg { max-width: 100%; }
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) pcFlushPushOnUnload();
   });
+
+  // Re-draw the SVG-width-dependent charts (weekly frequency, steps,
+  // weight) when the viewport actually changes size — same debounce-then-
+  // redraw idea as health.html's sleep chart ResizeObserver, but window-
+  // level here since these charts scale with the viewport, not an
+  // independently-resizable container.
+  let chartResizeTimer = null;
+  function redrawWidthDependentCharts() {
+    clearTimeout(chartResizeTimer);
+    chartResizeTimer = setTimeout(function () {
+      whRenderFrequency();
+      stepsRenderChart();
+      wtRenderChart();
+    }, 150);
+  }
+  window.addEventListener('resize', redrawWidthDependentCharts);
+  window.addEventListener('orientationchange', redrawWidthDependentCharts);
 
   // ------------------------------------------------------------
   // Single DataLayer.init() for the whole page, gating only the 3

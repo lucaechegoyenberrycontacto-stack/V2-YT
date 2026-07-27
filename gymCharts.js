@@ -1,9 +1,10 @@
 // Reusable period-comparison chart for the training module (gym.html).
 // One implementation, used 3x: weights weekly volume, cardio minutes,
 // running/bike distance. Hand-rolled SVG, same convention as the existing
-// whRenderFrequency chart (viewBox 700x220, grid/bar/label sub-elements) —
-// reuses its .wh-freq-grid/.wh-freq-yaxis-label/.wh-freq-label/.wh-freq-val
-// classes for identical typography instead of duplicating them.
+// whRenderFrequency chart (viewBox width matches real rendered width, fixed
+// 220 height, grid/bar/label sub-elements) — reuses its .wh-freq-grid/
+// .wh-freq-yaxis-label/.wh-freq-label/.wh-freq-val classes for identical
+// typography instead of duplicating them.
 (function () {
   function escapeHtml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -25,7 +26,11 @@
     const thisLabel = opts.thisLabel || 'Esta semana';
     const lastLabel = opts.lastLabel || 'Semana pasada';
 
-    const W = 700, H = 220;
+    // W matches the SVG's actual rendered pixel width (not a fixed unit) so
+    // the internal coordinate system is always 1:1 with its on-screen size —
+    // same technique as health.html's renderWeekChart. Avoids the squashed-
+    // on-mobile distortion that preserveAspectRatio="none" used to paper over.
+    const W = svg.getBoundingClientRect().width || 700, H = 220;
     const padLeft = 40, padRight = 10, padTop = 22, padBottom = 30;
     const plotW = W - padLeft - padRight;
     const plotH = H - padTop - padBottom;
@@ -62,7 +67,7 @@
       barsHtml += '<text class="wh-freq-label" x="' + (b.x + barW / 2).toFixed(1) + '" y="' + (baseY + 20) + '" text-anchor="middle">' + escapeHtml(b.label) + '</text>';
     });
 
-    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    svg.setAttribute('viewBox', '0 0 ' + W.toFixed(1) + ' ' + H);
     svg.innerHTML = grid + barsHtml;
   }
 

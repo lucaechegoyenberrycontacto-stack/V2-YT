@@ -193,8 +193,175 @@
   }
 
   // ============================================================
-  // MUSCLE MAP
+  // MUSCLE MAP — simplified anatomical front/back body diagram (Fitbod-
+  // style geometric silhouette: plain ellipses/rects, not medical
+  // accuracy). Every region shape lives on one shared 240×450 coordinate
+  // system so toggling Frente/Espalda never jumps the figure around.
+  // Hombros and Cuello are intentionally duplicated across both views
+  // (visible from front and back, same score/color in both) — union the
+  // front-only + back-only + shared regions and it's exactly the 13-entry
+  // window.MUSCLE_GROUPS enum, once each. Region shapes never hardcode a
+  // muscle list of their own beyond what's already in that enum.
   // ============================================================
+  const BODY_VIEWBOX = '0 0 240 450';
+
+  // Non-interactive shapes that exist purely so the figure reads as a
+  // continuous human silhouette instead of floating disconnected blobs —
+  // never tied to a muscle, never focusable.
+  const BODY_DECO_HEAD = { tag: 'ellipse', attrs: { cx: 120, cy: 32, rx: 24, ry: 28 } };
+  const BODY_DECO_HANDS = [
+    { tag: 'ellipse', attrs: { cx: 46, cy: 254, rx: 10, ry: 14 } },
+    { tag: 'ellipse', attrs: { cx: 194, cy: 254, rx: 10, ry: 14 } },
+  ];
+  const BODY_DECO_FEET = [
+    { tag: 'ellipse', attrs: { cx: 100, cy: 420, rx: 16, ry: 9 } },
+    { tag: 'ellipse', attrs: { cx: 140, cy: 420, rx: 16, ry: 9 } },
+  ];
+
+  const BODY_FRONT_DECO = [
+    BODY_DECO_HEAD,
+    { tag: 'rect', attrs: { x: 90, y: 196, width: 60, height: 20, rx: 10 } }, // hip connector — front has no Glúteos region
+    { tag: 'ellipse', attrs: { cx: 100, cy: 368, rx: 14, ry: 42 } }, // lower legs — Gemelos is back-only
+    { tag: 'ellipse', attrs: { cx: 140, cy: 368, rx: 14, ry: 42 } },
+  ].concat(BODY_DECO_HANDS, BODY_DECO_FEET);
+
+  const BODY_FRONT_REGIONS = [
+    { muscle: 'Cuello', tag: 'rect', attrs: { x: 108, y: 56, width: 24, height: 18, rx: 6 } },
+    { muscle: 'Hombros', tag: 'ellipse', attrs: { cx: 72, cy: 92, rx: 24, ry: 20 } },
+    { muscle: 'Hombros', tag: 'ellipse', attrs: { cx: 168, cy: 92, rx: 24, ry: 20 } },
+    { muscle: 'Pecho', tag: 'rect', attrs: { x: 90, y: 74, width: 60, height: 64, rx: 18 } },
+    { muscle: 'Bíceps', tag: 'ellipse', attrs: { cx: 58, cy: 140, rx: 16, ry: 42 } },
+    { muscle: 'Bíceps', tag: 'ellipse', attrs: { cx: 182, cy: 140, rx: 16, ry: 42 } },
+    { muscle: 'Antebrazos', tag: 'ellipse', attrs: { cx: 50, cy: 210, rx: 13, ry: 36 } },
+    { muscle: 'Antebrazos', tag: 'ellipse', attrs: { cx: 190, cy: 210, rx: 13, ry: 36 } },
+    { muscle: 'Abdominales/Core', tag: 'rect', attrs: { x: 94, y: 140, width: 52, height: 58, rx: 14 } },
+    { muscle: 'Cuádriceps', tag: 'ellipse', attrs: { cx: 100, cy: 270, rx: 20, ry: 58 } },
+    { muscle: 'Cuádriceps', tag: 'ellipse', attrs: { cx: 140, cy: 270, rx: 20, ry: 58 } },
+  ];
+
+  const BODY_BACK_DECO = [
+    BODY_DECO_HEAD,
+    { tag: 'ellipse', attrs: { cx: 50, cy: 210, rx: 13, ry: 36 } }, // forearms — Antebrazos is front-only
+    { tag: 'ellipse', attrs: { cx: 190, cy: 210, rx: 13, ry: 36 } },
+  ].concat(BODY_DECO_HANDS, BODY_DECO_FEET);
+
+  const BODY_BACK_REGIONS = [
+    { muscle: 'Cuello', tag: 'rect', attrs: { x: 108, y: 56, width: 24, height: 18, rx: 6 } },
+    { muscle: 'Hombros', tag: 'ellipse', attrs: { cx: 72, cy: 92, rx: 24, ry: 20 } },
+    { muscle: 'Hombros', tag: 'ellipse', attrs: { cx: 168, cy: 92, rx: 24, ry: 20 } },
+    { muscle: 'Espalda alta', tag: 'rect', attrs: { x: 84, y: 74, width: 72, height: 54, rx: 16 } },
+    { muscle: 'Espalda baja', tag: 'rect', attrs: { x: 90, y: 130, width: 60, height: 46, rx: 14 } },
+    { muscle: 'Tríceps', tag: 'ellipse', attrs: { cx: 58, cy: 140, rx: 16, ry: 42 } },
+    { muscle: 'Tríceps', tag: 'ellipse', attrs: { cx: 182, cy: 140, rx: 16, ry: 42 } },
+    { muscle: 'Glúteos', tag: 'rect', attrs: { x: 88, y: 178, width: 64, height: 42, rx: 18 } },
+    { muscle: 'Isquiotibiales', tag: 'ellipse', attrs: { cx: 100, cy: 270, rx: 20, ry: 58 } },
+    { muscle: 'Isquiotibiales', tag: 'ellipse', attrs: { cx: 140, cy: 270, rx: 20, ry: 58 } },
+    { muscle: 'Gemelos', tag: 'ellipse', attrs: { cx: 100, cy: 368, rx: 14, ry: 42 } },
+    { muscle: 'Gemelos', tag: 'ellipse', attrs: { cx: 140, cy: 368, rx: 14, ry: 42 } },
+  ];
+
+  function svgTag(tag, attrs) {
+    let out = '<' + tag;
+    Object.keys(attrs).forEach(function (k) { out += ' ' + k + '="' + attrs[k] + '"'; });
+    return out + '></' + tag + '>';
+  }
+
+  function bodyDecoHtml(deco) {
+    return deco.map(function (d) {
+      return svgTag(d.tag, Object.assign({}, d.attrs, { class: 'tr-body-deco', 'aria-hidden': 'true' }));
+    }).join('');
+  }
+
+  function bodyRegionsHtml(regions) {
+    return regions.map(function (r) {
+      return svgTag(r.tag, Object.assign({}, r.attrs, {
+        class: 'tr-body-region', 'data-muscle': escapeHtml(r.muscle), role: 'button', tabindex: '0',
+      }));
+    }).join('');
+  }
+
+  function buildMuscleMapShell() {
+    return ''
+      + '<div class="po-seg-control tr-body-toggle" role="group" aria-label="Vista del mapa muscular">'
+      +   '<button type="button" class="po-seg-btn active" data-view="front" aria-pressed="true">Frente</button>'
+      +   '<button type="button" class="po-seg-btn" data-view="back" aria-pressed="false">Espalda</button>'
+      + '</div>'
+      + '<div class="tr-body-map">'
+      +   '<svg class="tr-body-svg active" data-view="front" viewBox="' + BODY_VIEWBOX + '">'
+      +     bodyDecoHtml(BODY_FRONT_DECO) + bodyRegionsHtml(BODY_FRONT_REGIONS)
+      +   '</svg>'
+      +   '<svg class="tr-body-svg" data-view="back" viewBox="' + BODY_VIEWBOX + '" aria-hidden="true">'
+      +     bodyDecoHtml(BODY_BACK_DECO) + bodyRegionsHtml(BODY_BACK_REGIONS)
+      +   '</svg>'
+      + '</div>';
+  }
+
+  // Toggle is purely presentational — swaps which <g>/<svg> is visible,
+  // never recomputes fatigue or re-fetches anything. Both views already
+  // read the same result.muscles from the one renderMuscleMap() call that
+  // built them.
+  function switchBodyView(wrap, view) {
+    wrap.querySelectorAll('.tr-body-toggle .po-seg-btn').forEach(function (b) {
+      const isActive = b.dataset.view === view;
+      b.classList.toggle('active', isActive);
+      b.setAttribute('aria-pressed', String(isActive));
+    });
+    wrap.querySelectorAll('.tr-body-svg').forEach(function (svg) {
+      const isActive = svg.dataset.view === view;
+      svg.classList.toggle('active', isActive);
+      if (isActive) svg.removeAttribute('aria-hidden'); else svg.setAttribute('aria-hidden', 'true');
+      // Keyboard users can only Tab into the currently-visible view's regions.
+      svg.querySelectorAll('.tr-body-region').forEach(function (r) { r.setAttribute('tabindex', isActive ? '0' : '-1'); });
+    });
+  }
+
+  function wireMuscleMapInteractions(wrap) {
+    const mapEl = wrap.querySelector('.tr-body-map');
+    mapEl.addEventListener('click', function (e) {
+      const region = e.target.closest('.tr-body-region');
+      if (region) openMuscleDetailModal(region.dataset.muscle);
+    });
+    mapEl.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const region = e.target.closest('.tr-body-region');
+      if (!region) return;
+      e.preventDefault();
+      openMuscleDetailModal(region.dataset.muscle);
+    });
+    wrap.querySelectorAll('.tr-body-toggle .po-seg-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () { switchBodyView(wrap, btn.dataset.view); });
+    });
+  }
+
+  // 3-step fatigue scale (0-33 recuperado / 34-66 moderado / 67-100 muy
+  // fatigado) using the existing --success/--warning/--danger tokens — no
+  // new colors introduced. lastTrainedAt === null means "never trained",
+  // which is NOT the same thing as score 0 ("trained, but recovered") —
+  // computeMuscleFatigue leaves both score and lastTrainedAt at their
+  // initial 0/null together only when a muscle has no sessions at all, so
+  // that's the one case that must render as neutral instead of green.
+  function fatigueBodyFill(info) {
+    if (!info || info.lastTrainedAt == null) return { color: 'var(--text-tertiary)', opacity: '0.22' };
+    if (info.score <= 33) return { color: 'var(--success)', opacity: '0.62' };
+    if (info.score <= 66) return { color: 'var(--warning)', opacity: '0.62' };
+    return { color: 'var(--danger)', opacity: '0.62' };
+  }
+
+  // Updates fill + aria-label on the already-built regions in place
+  // (rather than rebuilding the DOM) so the CSS transition on .tr-body-
+  // region's fill/fill-opacity actually animates between successive
+  // fatigue scores.
+  function updateMuscleMapFills(wrap, result) {
+    wrap.querySelectorAll('.tr-body-region').forEach(function (el) {
+      const muscle = el.dataset.muscle;
+      const info = result.muscles[muscle] || { score: 0, lastTrainedAt: null };
+      const fill = fatigueBodyFill(info);
+      el.style.fill = fill.color;
+      el.style.fillOpacity = fill.opacity;
+      el.setAttribute('aria-label', muscle + ' — fatiga ' + Math.round(info.score) + '%');
+    });
+  }
+
   function renderMuscleMap() {
     const wrap = $('trMuscleMapWrap');
     if (!wrap) return;
@@ -220,23 +387,21 @@
       return;
     }
 
-    // A real config now exists. Full anatomical front/back SVG is a
-    // possible future visual upgrade; this list already satisfies the
-    // functional requirement — real, non-invented per-muscle scores, and
-    // tapping a muscle filters to the exercises that train it.
-    const groups = window.MUSCLE_GROUPS || [];
-    wrap.innerHTML = '<div class="tr-muscle-list">' + groups.map(function (m) {
-      const info = result.muscles[m] || { score: 0, lastTrainedAt: null };
-      return '<div class="tr-muscle-row" data-muscle="' + escapeHtml(m) + '" role="button" tabindex="0" '
-        + 'aria-label="' + escapeHtml(m) + ' — fatiga ' + Math.round(info.score) + '%" style="cursor:pointer;">'
-        + '<span>' + escapeHtml(m) + '</span><span>' + Math.round(info.score) + '%</span></div>';
-    }).join('') + '</div>';
-    wrap.querySelectorAll('.tr-muscle-row').forEach(function (row) {
-      row.addEventListener('click', function () { openMuscleDetailModal(row.dataset.muscle); });
-      row.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openMuscleDetailModal(row.dataset.muscle); }
-      });
-    });
+    // Build the front/back diagram once per wrap, then only update fills/
+    // aria-labels in place on every later call (config edits, log saves,
+    // ecosystem/sync changes) — see updateMuscleMapFills above.
+    if (!wrap.querySelector('.tr-body-map')) {
+      wrap.innerHTML = buildMuscleMapShell();
+      wireMuscleMapInteractions(wrap);
+      // Normalize initial tabindex/aria-hidden state through the same code
+      // path as a real toggle click — bodyRegionsHtml gives every region
+      // tabindex="0" at build time, so without this a keyboard user could
+      // Tab into the still-hidden back view before ever touching the toggle.
+      switchBodyView(wrap, 'front');
+    } else {
+      wrap.querySelectorAll('.tr-eco-note, .tr-sync-note').forEach(function (n) { n.remove(); });
+    }
+    updateMuscleMapFills(wrap, result);
 
     // Discreet ecosystem-modifier note — only when today's sleep/protein/
     // screen-time signals are actually slowing recovery down. Nothing
@@ -908,6 +1073,21 @@
     // discreet note appended inside renderMuscleMap() — see
     // appendSyncNoteIfError() above.
     window.gpsOnSyncStatusChange = function () { renderMuscleMap(); };
+
+    // Re-draw the 3 period-comparison charts (weekly volume, cardio
+    // minutes, distance) when the viewport actually changes size — their
+    // SVG viewBox width is sized off the real rendered width (see
+    // gymCharts.js), so it goes stale on resize/rotation without this.
+    // Same debounce-then-redraw idea as health.html's sleep chart
+    // ResizeObserver, but window-level since these scale with the
+    // viewport, not an independently-resizable container.
+    let periodChartResizeTimer = null;
+    function redrawPeriodCharts() {
+      clearTimeout(periodChartResizeTimer);
+      periodChartResizeTimer = setTimeout(renderPeriodCharts, 150);
+    }
+    window.addEventListener('resize', redrawPeriodCharts);
+    window.addEventListener('orientationchange', redrawPeriodCharts);
   }
 
   if (document.readyState === 'loading') {
