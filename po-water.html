@@ -25,6 +25,10 @@ Contact: rowan.wisere@gmail.com
 <script src="sync.js" defer></script>
 <script src="dataLayer.js" defer></script>
 <script src="topbar.js" defer></script>
+<!-- Not deferred (matches gym.html): the main inline script at the bottom
+     of this page calls window.createDatePicker synchronously, so it must
+     already be defined by the time that script runs. -->
+<script src="datePicker.js"></script>
 
 <!-- =============================================================
      EDIT THIS BLOCK TO MAKE THE APP YOURS.
@@ -85,6 +89,11 @@ const CONFIG = {
   /* Intentional additional accent for the water theme, not a duplicate
      of an official token (same treatment as gym.html's --steps-accent). */
   --info: #7DD3FC;
+  /* Alias so the date-picker CSS below (copied verbatim from gym.html,
+     where it's written against --steps-accent) resolves to this page's
+     own pre-existing equivalent accent instead of introducing a second,
+     redundant color value — no new palette, per Fase 4's restriction. */
+  --steps-accent: var(--info);
   --font: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
   --font-mono: ui-monospace, SF Mono, Menlo, Consolas, monospace;
 }
@@ -121,20 +130,78 @@ body::after {
 @keyframes drift { 0% { transform: translate(0, 0); } 100% { transform: translate(-2%, 2%); } }
 .shell { position: relative; z-index: 2; max-width: 720px; margin: 0 auto; padding: 24px 16px 80px; }
 
-/* ----- Top day pill + header ----- */
-.day-pill {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 6px 12px;
+/* ----- Date picker (Hoy / Ayer / Elegir fecha) — CSS copied verbatim from
+   gym.html (BUILD_DASHBOARD.md / template.html shared design system),
+   unchanged, since there's no shared CSS file across pages in this
+   project. Backs window.createDatePicker from datePicker.js (Fase 4). ----- */
+.po-seg-control {
+  display: flex; flex: 1;
   background: rgba(255,255,255,0.04);
   border: 1px solid var(--border);
-  border-radius: 999px;
-  color: var(--text-secondary);
-  font-family: var(--font-mono);
-  font-size: 11px; font-weight: 700; letter-spacing: 0.10em;
-  text-transform: uppercase; margin-bottom: 10px;
+  border-radius: 12px; padding: 4px; gap: 3px;
+}
+.po-seg-btn {
+  flex: 1; padding: 10px 8px; border: none; background: transparent;
+  color: var(--text-tertiary); border-radius: 8px;
+  font-family: inherit; font-size: 12.5px; font-weight: 600;
+  cursor: pointer; transition: background 0.15s, color 0.15s;
   -webkit-tap-highlight-color: transparent;
 }
-.day-pill .day-sep { color: var(--text-tertiary); }
+.po-seg-btn:hover { color: var(--text-secondary); background: rgba(255,255,255,0.04); }
+.po-seg-btn.active {
+  background: linear-gradient(180deg, #ffffff 0%, #e8e5dd 100%);
+  color: #0a0a0b;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), 0 4px 12px rgba(0,0,0,0.35);
+}
+.steps-date-row { position: relative; margin-bottom: 14px; }
+.steps-date-seg { gap: 4px; }
+.steps-pill-cal { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.steps-cal-icon { width: 14px; height: 14px; flex: 0 0 auto; }
+/* Active state uses the steps accent instead of the shared white gradient,
+   so it doesn't get confused with any other segmented control. */
+.steps-date-seg .po-seg-btn.active {
+  background: var(--steps-accent); color: #073138;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 4px 12px rgba(0,0,0,0.35);
+}
+.steps-popover {
+  position: absolute; top: calc(100% + 8px); left: 0; z-index: 45;
+  width: min(300px, calc(100vw - 64px));
+  background: var(--bg-card); border: 1px solid var(--border-strong);
+  border-radius: 14px; padding: 16px;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+  opacity: 0; transform: scale(0.96) translateY(-4px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  pointer-events: none;
+}
+.steps-popover.open { opacity: 1; transform: scale(1) translateY(0); pointer-events: auto; }
+.steps-popover.hidden { display: none; }
+.steps-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.steps-cal-month { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+.steps-cal-nav {
+  width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text-secondary); font-size: 15px; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.steps-cal-nav:hover { background: rgba(255,255,255,0.09); color: var(--text-primary); }
+.steps-cal-nav:disabled { opacity: 0.3; cursor: default; pointer-events: none; }
+.steps-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.steps-cal-dow {
+  text-align: center; font-size: 9.5px; font-weight: 700; color: var(--text-tertiary);
+  padding: 4px 0; text-transform: uppercase;
+}
+.steps-cal-cell { aspect-ratio: 1; }
+.steps-cal-day {
+  width: 100%; height: 100%; border: none; border-radius: 8px;
+  background: transparent; color: var(--text-secondary); font-family: inherit;
+  font-size: 12.5px; font-variant-numeric: tabular-nums; cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.steps-cal-day:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+.steps-cal-day.today { color: var(--steps-accent); font-weight: 700; }
+.steps-cal-day.selected { background: var(--steps-accent); color: #073138; font-weight: 700; }
+.steps-cal-day:disabled { color: var(--text-tertiary); opacity: 0.35; cursor: default; }
 
 .header {
   display: flex; align-items: center; justify-content: space-between;
@@ -311,11 +378,15 @@ body::after {
 /* ----- History ----- */
 .hist-row {
   display: grid; grid-template-columns: 70px 1fr auto; gap: 10px;
-  padding: 10px 0; align-items: center;
+  padding: 10px 6px; margin: 0 -6px; align-items: center;
   border-bottom: 1px solid var(--border);
+  border-radius: 8px; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s;
   font-size: 13px;
 }
 .hist-row:last-child { border-bottom: none; }
+.hist-row:hover, .hist-row:focus-visible { background: rgba(255,255,255,0.05); outline: none; }
 .hist-date { font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono); }
 .hist-bar-wrap {
   height: 8px; background: rgba(255,255,255,0.04); border-radius: 4px; overflow: hidden;
@@ -508,6 +579,11 @@ body::after {
 @media (max-width: 480px) {
   .shell { padding: 16px 12px 60px; }
   .water-num { font-size: 48px; }
+  .po-seg-control { padding: 3px; gap: 2px; }
+  .po-seg-btn {
+    padding: 9px 6px; font-size: 12px;
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
 }
 </style>
 </head>
@@ -515,9 +591,7 @@ body::after {
 
 <div class="shell">
 
-  <button class="day-pill" id="dayPill" type="button">
-    <span id="dayPillLabel">—</span>
-  </button>
+  <div id="waterDatePicker"></div>
 
   <div class="header">
     <h1 class="title" id="appTitle">Water Coach</h1>
@@ -809,10 +883,17 @@ body::after {
   function dateKey(d) {
     return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
   }
-  function todayKey() { return dateKey(new Date()); }
-  function todayCount() { return state.logs[todayKey()] || 0; }
-  function setTodayCount(n) {
-    const k = todayKey();
+  // Backdating (Fase 4) — window.createDatePicker (datePicker.js) replaces
+  // the old read-only "today" pill. Every read/write below operates on
+  // whichever date is currently selected in the picker, never a bare
+  // `new Date()` — onChange re-renders the whole view whenever the user
+  // switches day (Hoy/Ayer/calendar/history row), so the counter, bar,
+  // and label always describe the date actually showing on screen.
+  const waterDatePicker = window.createDatePicker($('waterDatePicker'), { onChange: function () { renderWater(); } });
+  function selectedDayKey() { return waterDatePicker.getSelectedDateKey(); }
+  function selectedDayCount() { return state.logs[selectedDayKey()] || 0; }
+  function setSelectedDayCount(n) {
+    const k = selectedDayKey();
     if (n <= 0) delete state.logs[k];
     else state.logs[k] = n;
     saveState();
@@ -867,20 +948,20 @@ body::after {
   // ============================================================
   // RENDER
   // ============================================================
-  function renderDayPill() {
-    const d = new Date();
-    const dows = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
-    const mons = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-    $('dayPillLabel').textContent = dows[d.getDay()] + ', ' + mons[d.getMonth()] + ' ' + d.getDate();
-  }
-
   function renderWater() {
     const calc = computeTargetMl();
     const targetUnits = Math.ceil(calc.total / unitVolMl());
-    const count = todayCount();
+    const count = selectedDayCount();
     const unitName = unitLabelPlural();
 
-    $('waterUnitLabel').textContent = unitName.toUpperCase() + ' DRANK TODAY';
+    // Data-safety requirement (Fase 4): it must be unambiguous which day is
+    // being viewed/edited, so nobody logs today's water against the wrong
+    // day by mistake. The date picker's own pill already distinguishes
+    // Hoy/Ayer/otro día visually; this label is the second, textual cue.
+    const isToday = selectedDayKey() === window.dpDateKey(new Date());
+    $('waterUnitLabel').textContent = isToday
+      ? (unitName.toUpperCase() + ' DRANK TODAY')
+      : (unitName.toUpperCase() + ' DRANK — ' + window.dpFormatShort(waterDatePicker.getSelectedDate()).toUpperCase());
     $('waterNum').textContent = count;
     $('waterTarget').textContent = '/ ' + targetUnits;
     $('waterPlusLabel').textContent = 'Drank a ' + unitLabelSingular();
@@ -942,17 +1023,28 @@ body::after {
       const n = state.logs[k] || 0;
       days.push({ date: d, key: k, count: n });
     }
-    list.innerHTML = days.map(({date, count}) => {
+    list.innerHTML = days.map(({date, key, count}) => {
       const dows = ['Sun','Mon','Tue','Wed','THU','Fri','Sat'];
       const lbl = dows[date.getDay()] + ' ' + (date.getMonth()+1) + '/' + date.getDate();
       const pct = Math.min(100, (count / target) * 100);
       const cls = (count >= target) ? '' : 'miss';
-      return '<div class="hist-row">'
+      // Tappable (Fase 4): selecting a row jumps the date picker straight
+      // to that day, same effect as picking it from the calendar — quick
+      // correction of a recent day without opening the popover.
+      return '<div class="hist-row" role="button" tabindex="0" data-key="' + key + '" '
+        + 'aria-label="Ver y editar ' + lbl + ', ' + count + ' de ' + target + '">'
         + '<span class="hist-date">' + lbl + '</span>'
         + '<div class="hist-bar-wrap"><div class="hist-bar-fill ' + cls + '" style="width:' + pct + '%"></div></div>'
         + '<span class="hist-count">' + count + '/' + target + '</span>'
         + '</div>';
     }).join('') || '<div style="text-align:center;font-size:12px;color:var(--text-tertiary);padding:12px 0">No logs yet.</div>';
+
+    list.querySelectorAll('.hist-row').forEach((row) => {
+      row.addEventListener('click', () => waterDatePicker.setSelectedDateKey(row.dataset.key));
+      row.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); waterDatePicker.setSelectedDateKey(row.dataset.key); }
+      });
+    });
   }
 
   function renderSparkline(target) {
@@ -983,20 +1075,23 @@ body::after {
     svg.innerHTML = html;
   }
 
-  function renderAll() { renderDayPill(); renderWater(); }
+  function renderAll() { renderWater(); }
 
   // ============================================================
   // EVENT WIRING
   // ============================================================
+  // Always act on whichever date is currently selected in the picker — if
+  // the user navigated to "3 days ago" and taps +, that day's log is what
+  // changes, never today's.
   $('waterPlusBtn').addEventListener('click', () => {
-    setTodayCount(todayCount() + 1);
+    setSelectedDayCount(selectedDayCount() + 1);
     renderWater();
     const btn = $('waterPlusBtn');
     btn.style.transform = 'scale(0.97)';
     setTimeout(() => { btn.style.transform = ''; }, 120);
   });
   $('waterMinusBtn').addEventListener('click', () => {
-    setTodayCount(Math.max(0, todayCount() - 1));
+    setSelectedDayCount(Math.max(0, selectedDayCount() - 1));
     renderWater();
   });
 
