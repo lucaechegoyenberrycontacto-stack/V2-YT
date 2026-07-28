@@ -133,6 +133,21 @@ body::after {
 .stat.stat-warn .stat-num { color: var(--warning); }
 .stat.stat-bad  .stat-num { color: var(--danger); }
 
+.home-corr-card { font-size: 13px; }
+.home-corr-msg { color: var(--text-tertiary); }
+.home-corr-result.hidden, .home-corr-msg.hidden { display: none; }
+.home-corr-phrase { color: var(--text-primary); font-size: 15px; line-height: 1.4; }
+.home-corr-meta {
+  margin-top: 10px; display: flex; align-items: center; gap: 12px;
+}
+.home-corr-strength {
+  font-family: var(--font-mono); font-size: 22px; font-weight: 700;
+  letter-spacing: -0.02em; color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.home-corr-stars { font-size: 14px; letter-spacing: 0.06em; color: var(--warning); }
+.home-corr-disclaimer { margin-top: 10px; font-size: 10.5px; color: var(--text-tertiary); }
+
 /* ===== Home-page-specific bits ===== */
 .home-welcome {
   font-family: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', serif;
@@ -291,6 +306,21 @@ body::after {
         <div class="stat-label">Gastos (mes)</div>
         <div class="stat-sub" id="statExpensesSub"></div>
       </a>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Sueño vs. Entrenamiento</div>
+    <div class="gm-card home-corr-card" id="corrCard">
+      <div class="home-corr-msg" id="corrMsg">Cargando…</div>
+      <div class="home-corr-result hidden" id="corrResult">
+        <div class="home-corr-phrase" id="corrPhrase"></div>
+        <div class="home-corr-meta">
+          <span class="home-corr-strength" id="corrStrength"></span>
+          <span class="home-corr-stars" id="corrStars"></span>
+        </div>
+        <div class="home-corr-disclaimer">Correlación, no causalidad — no determina qué causa qué.</div>
+      </div>
     </div>
   </div>
 
@@ -785,6 +815,106 @@ body::after {
   }
 
   /* ============================================================
+     SUEÑO vs. ENTRENAMIENTO — read-only Pearson correlation between
+     nightly sleep hours (durationHours above) and same-day pesas sets,
+     over the last SLEEP_TRAINING_LOOKBACK_DAYS. Queried directly from
+     Supabase (records) via the same anon warmupSupa client used for
+     the cross-device warm-up above — this widget needs historical data
+     no localStorage mirror carries, so there's no mirror to read instead.
+     ============================================================ */
+  const SLEEP_TRAINING_MIN_PAIRS = 21; // adapted from Exist.io's 3-week minimum; adjust freely
+  const SLEEP_TRAINING_LOOKBACK_DAYS = 90;
+
+  // Simple linear (Pearson) correlation coefficient, no stats library.
+  function pearsonR(xs, ys) {
+    const n = xs.length;
+    const mx = xs.reduce((a, b) => a + b, 0) / n;
+    const my = ys.reduce((a, b) => a + b, 0) / n;
+    let num = 0, dx2 = 0, dy2 = 0;
+    for (let i = 0; i < n; i++) {
+      const dx = xs[i] - mx, dy = ys[i] - my;
+      num += dx * dy; dx2 += dx * dx; dy2 += dy * dy;
+    }
+    const denom = Math.sqrt(dx2 * dy2);
+    return denom === 0 ? 0 : num / denom;
+  }
+
+  // Heuristic sample-size -> star mapping, not a rigorous confidence
+  // interval — just "more days seen = more stars", per spec.
+  function confidenceStars(pairCount) {
+    let n;
+    if (pairCount >= 90) n = 5;
+    else if (pairCount >= 60) n = 4;
+    else if (pairCount >= 35) n = 3;
+    else n = 2; // pairCount >= SLEEP_TRAINING_MIN_PAIRS (21) to even get here
+    return '★'.repeat(n) + '☆'.repeat(5 - n);
+  }
+
+  function corrPhraseFor(r) {
+    if (r > 0.15) return 'Entrenás más los días que dormís más';
+    if (r < -0.15) return 'Entrenás más los días que dormís menos';
+    return 'No encontramos una relación clara entre tu sueño y tu entrenamiento';
+  }
+
+  function showCorrMsg(text) {
+    $('corrResult').classList.add('hidden');
+    const msg = $('corrMsg');
+    msg.classList.remove('hidden');
+    msg.textContent = text;
+  }
+
+  async function renderSleepTrainingCorrelation() {
+    if (!warmupSupa) { showCorrMsg('No se pudo conectar para calcular esta correlación.'); return; }
+    const cutoff = calendarDateKey(new Date(Date.now() - SLEEP_TRAINING_LOOKBACK_DAYS * 24 * 60 * 60 * 1000));
+    try {
+      const [sleepRes, workoutsRes] = await Promise.all([
+        warmupSupa.from('records').select('id,data').eq('collection', 'health_sleep').gte('id', cutoff),
+        warmupSupa.from('records').select('id,data').eq('collection', 'gym_workouts'),
+      ]);
+      const sleepRows = (sleepRes && sleepRes.data) || [];
+      const workoutRows = (workoutsRes && workoutsRes.data) || [];
+
+      const sleepHoursByDate = {};
+      sleepRows.forEach((r) => {
+        const d = r.data || {};
+        const hours = durationHours(d.bedTime, d.wakeTime);
+        if (hours != null) sleepHoursByDate[r.id] = hours;
+      });
+
+      const setsByDate = {};
+      workoutRows.forEach((r) => {
+        const d = r.data || {};
+        if (!d.date || d.date < cutoff) return;
+        // Mirrors gym.html's own pesas filter (whGetPesasSetsGroupedByExercise):
+        // missing discipline is legacy data and counts as pesas.
+        if (d.discipline && d.discipline !== 'pesas') return;
+        let sets = 0;
+        (d.exercises || []).forEach((ex) => { sets += (ex.sets || []).length; });
+        setsByDate[d.date] = (setsByDate[d.date] || 0) + sets;
+      });
+
+      const xs = [], ys = [];
+      Object.keys(sleepHoursByDate).forEach((date) => {
+        if (setsByDate[date] != null) { xs.push(sleepHoursByDate[date]); ys.push(setsByDate[date]); }
+      });
+
+      if (xs.length < SLEEP_TRAINING_MIN_PAIRS) {
+        showCorrMsg('Necesitás más datos (21+ días con sueño y entrenamiento registrados) para ver esta correlación.');
+        return;
+      }
+
+      const r = pearsonR(xs, ys);
+      $('corrPhrase').textContent = corrPhraseFor(r);
+      $('corrStrength').textContent = Math.round(Math.abs(r) * 100) + '%';
+      $('corrStars').textContent = confidenceStars(xs.length);
+      $('corrMsg').classList.add('hidden');
+      $('corrResult').classList.remove('hidden');
+    } catch (e) {
+      showCorrMsg('No se pudo calcular esta correlación.');
+    }
+  }
+
+  /* ============================================================
      GOALS DE HOY — exact replica of topbar.js getGoalsProgress()
      ============================================================ */
   function renderGoalsStat() {
@@ -1141,6 +1271,7 @@ body::after {
   }
   renderAllStats();
   warmUpFromCloud();
+  renderSleepTrainingCorrelation();
 
   // Other tabs/pages write these keys — refresh when they change or
   // when this tab regains focus, same convention as topbar.js.
