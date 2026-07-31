@@ -205,6 +205,116 @@ body::after {
 /* Month view — one bar per calendar month (total hours, not average) */
 .hb-bar { fill: #F14C4C; cursor: pointer; } /* TODO: revisar con el usuario — mismo motivo que d-screen arriba */
 .hb-bar-hit { fill: rgba(0,0,0,0.001); pointer-events: all; cursor: pointer; }
+
+/* ==========================================================================
+   READING — full-bleed section (breaks out of .page's 720px max-width by
+   living as a sibling of .page rather than inside it). Everything new here
+   is prefixed rd- to avoid colliding with the NoFap/Screen Time classes
+   above, which this section otherwise reuses wherever the visual language
+   already matches (hb-card, hb-stat*, hb-input, hb-save-btn, hb-cal-*,
+   hb-view-toggle/btn, hb-chart-*, hb-week-*, hb-bar*).
+   ========================================================================== */
+.rd-wrap { max-width: 1200px; margin: 0 auto; width: 100%; }
+.rd-grid { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
+@media (min-width: 900px) {
+  .rd-grid { grid-template-columns: minmax(340px, 460px) 1fr; gap: 24px; }
+}
+.rd-col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+
+.rd-stats-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 18px; }
+@media (min-width: 480px) { .rd-stats-row { grid-template-columns: repeat(4, 1fr); } }
+.rd-stat-sub { font-size: 9.5px; color: var(--text-tertiary); margin-top: 5px; font-variant-numeric: tabular-nums; }
+
+/* ---------- day editor / sessions ---------- */
+.rd-session-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.rd-session-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 12px; background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.06); }
+.rd-session-book { flex: 1; min-width: 0; font-size: 13px; color: var(--text-primary); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rd-session-book.rd-deleted { color: var(--text-tertiary); font-style: italic; font-weight: 400; }
+.rd-session-pages { font-size: 12.5px; color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rd-session-actions { display: flex; gap: 2px; flex-shrink: 0; }
+.rd-icon-btn { border: 0; background: transparent; color: var(--text-tertiary); font-size: 13.5px; cursor: pointer; padding: 5px 7px; border-radius: 7px; transition: color 0.15s, background 0.15s; }
+.rd-icon-btn:hover { color: var(--text-primary); background: rgba(255,255,255,0.07); }
+.rd-icon-btn.rd-danger:hover { color: var(--danger); }
+.rd-add-session-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.rd-add-session-row select.hb-input { flex: 2; min-width: 140px; }
+.rd-add-session-row input.hb-input { flex: 1; min-width: 70px; }
+.rd-empty { font-size: 12.5px; color: var(--text-tertiary); font-style: italic; padding: 8px 2px; }
+.rd-field-error { font-size: 11px; color: var(--danger); margin-top: 6px; min-height: 14px; }
+
+/* ---------- goal ---------- */
+.rd-goal-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.rd-goal-btn { border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.03); color: var(--text-secondary); font-family: inherit; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; padding: 6px 13px; border-radius: 999px; cursor: pointer; transition: background 0.15s, color 0.15s; }
+.rd-goal-btn:hover { background: rgba(255,255,255,0.07); color: var(--text-primary); }
+.rd-goal-body { display: flex; align-items: center; gap: 18px; }
+.rd-goal-ring-wrap { position: relative; width: 84px; height: 84px; flex-shrink: 0; }
+.rd-goal-ring-svg { width: 84px; height: 84px; transform: rotate(-90deg); }
+.rd-goal-ring-bg { fill: none; stroke: rgba(255,255,255,0.07); stroke-width: 8; }
+.rd-goal-ring-fg { fill: none; stroke: var(--success); stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 0.3s ease; }
+.rd-goal-ring-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.rd-goal-text { flex: 1; min-width: 0; }
+.rd-goal-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-tertiary); font-weight: 700; margin-bottom: 8px; }
+.rd-goal-val { font-size: 19px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.rd-goal-sub { font-size: 11.5px; color: var(--text-tertiary); margin-top: 4px; }
+.rd-goal-bar-track { width: 100%; height: 8px; border-radius: 999px; background: rgba(255,255,255,0.07); overflow: hidden; margin-top: 10px; }
+.rd-goal-bar-fill { height: 100%; border-radius: 999px; background: var(--success); transition: width 0.3s ease; }
+.rd-goal-none { font-size: 12.5px; color: var(--text-tertiary); font-style: italic; }
+
+/* ---------- reading chart (reuses the hb-week-/hb-chart- grid+tooltip look) ---------- */
+.rd-bar { fill: var(--success); cursor: pointer; }
+.rd-bar-hit { fill: rgba(0,0,0,0.001); pointer-events: all; cursor: pointer; }
+
+/* ---------- library ---------- */
+.rd-lib-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; gap: 10px; }
+.rd-add-book-btn { padding: 9px 16px; border: 1px solid rgba(255,255,255,0.85); border-radius: 12px; background: linear-gradient(180deg, #FFF, #E8E5DD); color: #0A0A0B; font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 6px 20px rgba(0,0,0,0.30); transition: transform 0.12s; white-space: nowrap; }
+.rd-add-book-btn:hover { transform: translateY(-1px); }
+.rd-lib-group { margin-bottom: 22px; }
+.rd-lib-group:last-child { margin-bottom: 0; }
+.rd-lib-group-title { font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+.rd-lib-group-count { font-weight: 500; letter-spacing: normal; text-transform: none; }
+.rd-book-row { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 12px; background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.06); margin-bottom: 8px; transition: background 0.15s; }
+.rd-book-row:last-child { margin-bottom: 0; }
+.rd-book-row:hover { background: rgba(255,255,255,0.045); }
+.rd-book-thumb { width: 38px; height: 55px; border-radius: 5px; object-fit: cover; flex-shrink: 0; background: rgba(255,255,255,0.06); }
+.rd-book-spine { width: 38px; height: 55px; border-radius: 5px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.85); }
+.rd-book-info { flex: 1; min-width: 0; }
+.rd-book-title { font-size: 13.5px; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rd-book-author { font-size: 11.5px; color: var(--text-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+.rd-book-progress { font-size: 10.5px; color: var(--text-tertiary); margin-top: 4px; font-variant-numeric: tabular-nums; }
+.rd-book-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.rd-status-select { border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.28); color: var(--text-secondary); font-family: inherit; font-size: 11px; border-radius: 8px; padding: 5px 6px; outline: none; }
+
+/* ---------- shelf (finished books, cover grid) ---------- */
+.rd-shelf-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+@media (min-width: 480px) { .rd-shelf-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 1100px) { .rd-shelf-grid { grid-template-columns: repeat(4, 1fr); } }
+.rd-shelf-card { cursor: pointer; }
+.rd-shelf-cover, .rd-shelf-spine { width: 100%; aspect-ratio: 2/3; border-radius: 8px; box-shadow: 0 8px 20px rgba(0,0,0,0.35); transition: transform 0.15s; }
+.rd-shelf-cover { object-fit: cover; background: rgba(255,255,255,0.06); display: block; }
+.rd-shelf-spine { display: flex; align-items: center; justify-content: center; font-size: 21px; font-weight: 700; color: rgba(255,255,255,0.9); }
+.rd-shelf-card:hover .rd-shelf-cover, .rd-shelf-card:hover .rd-shelf-spine { transform: translateY(-3px); }
+.rd-shelf-title { font-size: 12px; font-weight: 600; color: var(--text-primary); margin-top: 8px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.rd-shelf-author { font-size: 10.5px; color: var(--text-tertiary); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- book form + goal modal ---------- */
+.rd-modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
+.rd-modal-bg.show { display: flex; }
+.rd-modal { width: 100%; max-width: 440px; background: #121214; border: 1px solid rgba(255,255,255,0.10); border-radius: 18px; padding: 22px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+.rd-modal h3 { margin: 0 0 16px; font-size: 16px; font-weight: 700; color: var(--text-primary); }
+.rd-modal-field { margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px; }
+.rd-modal-seg { display: flex; gap: 4px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 3px; }
+.rd-modal-seg button { flex: 1; padding: 8px; border: none; background: transparent; color: var(--text-tertiary); border-radius: 7px; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.rd-modal-seg button.active { background: linear-gradient(180deg, #FFF 0%, #E8E5DD 100%); color: #0A0A0B; }
+.rd-cover-pick-row { display: flex; gap: 10px; align-items: center; }
+.rd-cover-preview { width: 44px; height: 62px; border-radius: 5px; object-fit: cover; background: rgba(255,255,255,0.06); flex-shrink: 0; }
+.rd-cover-preview.rd-empty-cover { display: flex; align-items: center; justify-content: center; font-size: 9px; color: var(--text-tertiary); text-align: center; }
+.rd-cover-btn { border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.03); color: var(--text-secondary); font-family: inherit; font-size: 11.5px; font-weight: 600; padding: 8px 12px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+.rd-cover-btn:hover { background: rgba(255,255,255,0.07); color: var(--text-primary); }
+.rd-modal-actions { display: flex; gap: 8px; margin-top: 18px; }
+.rd-modal-actions .hb-save-btn { flex: 1; align-self: stretch; text-align: center; }
+.rd-modal-cancel { flex: 1; border: 1px solid rgba(255,255,255,0.08); background: transparent; color: var(--text-secondary); border-radius: 12px; font-family: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+.rd-modal-cancel:hover { background: rgba(255,255,255,0.05); }
+.rd-modal-delete { display: block; width: 100%; text-align: center; margin-top: 14px; font-size: 12px; color: var(--danger); cursor: pointer; text-decoration: underline; background: none; border: none; font-family: inherit; padding: 6px; }
+.rd-modal-inline-status { font-size: 11px; color: var(--text-tertiary); margin-top: 4px; min-height: 14px; }
 </style>
 </head>
 <body>
@@ -295,6 +405,188 @@ body::after {
 
 </div>
 
+<!-- ===== Reading — full-bleed, breaks out of .page's 720px cap ===== -->
+<div class="rd-wrap">
+  <div class="section rd-section">
+    <div class="section-title">Reading</div>
+
+    <div class="rd-stats-row">
+      <div class="hb-stat"><div class="hb-stat-label">Libros (año)</div><div class="hb-stat-val" id="rdStatBooksYear">0</div></div>
+      <div class="hb-stat"><div class="hb-stat-label">Páginas (año)</div><div class="hb-stat-val" id="rdStatPagesYear">0</div></div>
+      <div class="hb-stat"><div class="hb-stat-label">Racha actual</div><div class="hb-stat-val" id="rdStatStreak">0</div><div class="rd-stat-sub" id="rdStatLongestStreak"></div></div>
+      <div class="hb-stat"><div class="hb-stat-label">Páginas hoy</div><div class="hb-stat-val" id="rdStatPagesToday">0</div></div>
+    </div>
+
+    <div class="rd-grid">
+      <!-- ===== Left column: daily log + calendar + stats/goal/chart ===== -->
+      <div class="rd-col">
+
+        <div class="hb-card">
+          <div class="hb-editor" style="margin-bottom:0;padding-bottom:0;border-bottom:none;">
+            <div class="hb-editor-date-row">
+              <span class="hb-editor-date" id="rdEditorDate">Today</span>
+              <button type="button" class="hb-editor-back" id="rdBackToToday" style="display:none">back to today</button>
+            </div>
+
+            <div id="rdSessionList" class="rd-session-list"></div>
+            <div id="rdSessionEmpty" class="rd-empty" style="display:none">Sin lectura registrada este día.</div>
+
+            <div class="rd-add-session-row">
+              <select id="rdSessionBookSelect" class="hb-input"></select>
+              <input type="number" min="1" step="1" id="rdSessionPagesInput" class="hb-input" placeholder="Páginas">
+              <button type="button" class="hb-save-btn" id="rdSessionAddBtn">＋ Add</button>
+            </div>
+            <div class="rd-field-error" id="rdSessionError"></div>
+          </div>
+
+          <div class="hb-cal" style="margin-top:16px">
+            <div class="hb-cal-head">
+              <button type="button" class="hb-cal-nav" id="rdPrevMonth">‹</button>
+              <span class="hb-cal-month" id="rdMonthLabel">—</span>
+              <button type="button" class="hb-cal-nav" id="rdNextMonth">›</button>
+            </div>
+            <div class="hb-cal-grid" id="rdCalGrid"></div>
+          </div>
+        </div>
+
+        <div class="hb-card">
+          <div class="rd-goal-card-head">
+            <span class="hb-chart-eye">Goal</span>
+            <button type="button" class="rd-goal-btn" id="rdGoalBtn">⚙ Goal</button>
+          </div>
+          <div id="rdGoalBody"></div>
+        </div>
+
+        <div class="hb-card">
+          <div class="hb-chart-head">
+            <span class="hb-chart-eye" id="rdChartEye">Last 7 days</span>
+            <div class="hb-view-toggle" id="rdViewToggle">
+              <button type="button" class="hb-view-btn active" data-mode="week">Week</button>
+              <button type="button" class="hb-view-btn" data-mode="month">Month</button>
+            </div>
+          </div>
+          <div id="rdChartEmpty" class="hb-chart-empty" style="display:none">No hay páginas registradas todavía.</div>
+          <div class="hb-chart-wrap" id="rdChartWrap">
+            <svg class="hb-week-svg hidden" id="rdWeekSvg" viewBox="0 0 300 260" preserveAspectRatio="none"></svg>
+            <div class="hb-week-tooltip" id="rdWeekTooltip"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ===== Right column: library + shelf ===== -->
+      <div class="rd-col">
+        <div class="hb-card">
+          <div class="rd-lib-head">
+            <span class="hb-chart-eye">Biblioteca</span>
+            <button type="button" class="rd-add-book-btn" id="rdAddBookBtn">＋ Add book</button>
+          </div>
+
+          <div id="rdLibEmpty" class="rd-empty" style="display:none">Tu biblioteca está vacía. Añadí tu primer libro.</div>
+
+          <div class="rd-lib-group">
+            <div class="rd-lib-group-title">Leyendo <span class="rd-lib-group-count" id="rdCountReading"></span></div>
+            <div id="rdListReading"></div>
+          </div>
+          <div class="rd-lib-group">
+            <div class="rd-lib-group-title">Por leer <span class="rd-lib-group-count" id="rdCountToread"></span></div>
+            <div id="rdListToread"></div>
+          </div>
+          <div class="rd-lib-group">
+            <div class="rd-lib-group-title">Terminados <span class="rd-lib-group-count" id="rdCountFinished"></span></div>
+            <div id="rdShelfEmpty" class="rd-empty" style="display:none">Todavía no terminaste ningún libro.</div>
+            <div id="rdShelfGrid" class="rd-shelf-grid"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===== Book add/edit modal ===== -->
+<div class="rd-modal-bg" id="rdBookModalBg">
+  <div class="rd-modal" role="dialog" aria-modal="true" aria-label="Libro">
+    <h3 id="rdBookModalTitle">Add book</h3>
+
+    <div class="rd-modal-field">
+      <span class="hb-field-label">Título</span>
+      <input type="text" id="rdBookTitleInput" class="hb-input" placeholder="Título del libro" maxlength="200">
+    </div>
+    <div class="rd-modal-field">
+      <span class="hb-field-label">Autor</span>
+      <input type="text" id="rdBookAuthorInput" class="hb-input" placeholder="Autor" maxlength="150">
+    </div>
+    <div class="rd-modal-field">
+      <span class="hb-field-label">Páginas totales (opcional)</span>
+      <input type="number" min="1" step="1" id="rdBookPagesInput" class="hb-input" placeholder="e.g. 320">
+    </div>
+    <div class="rd-modal-field">
+      <span class="hb-field-label">Estado</span>
+      <div class="rd-modal-seg" id="rdBookStatusSeg">
+        <button type="button" data-status="reading" class="active">Leyendo</button>
+        <button type="button" data-status="toread">Por leer</button>
+        <button type="button" data-status="finished">Terminado</button>
+      </div>
+    </div>
+    <div class="rd-modal-field">
+      <span class="hb-field-label">Portada</span>
+      <div class="rd-cover-pick-row">
+        <img id="rdCoverPreview" class="rd-cover-preview" style="display:none" alt="">
+        <div id="rdCoverPreviewEmpty" class="rd-cover-preview rd-empty-cover">sin<br>portada</div>
+        <button type="button" class="rd-cover-btn" id="rdCoverPickBtn">Subir archivo</button>
+        <input type="file" accept="image/*" id="rdCoverFileInput" style="display:none">
+      </div>
+      <input type="text" id="rdCoverUrlInput" class="hb-input" placeholder="…o pegá una URL de portada" style="margin-top:8px">
+      <div class="rd-modal-inline-status" id="rdCoverStatus"></div>
+    </div>
+
+    <div class="rd-field-error" id="rdBookFormError"></div>
+
+    <div class="rd-modal-actions">
+      <button type="button" class="rd-modal-cancel" id="rdBookCancelBtn">Cancelar</button>
+      <button type="button" class="hb-save-btn" id="rdBookSaveBtn">Guardar</button>
+    </div>
+    <button type="button" class="rd-modal-delete" id="rdBookDeleteBtn" style="display:none">Eliminar libro</button>
+  </div>
+</div>
+
+<!-- ===== Delete-book confirm modal ===== -->
+<div class="rd-modal-bg" id="rdDeleteConfirmBg">
+  <div class="rd-modal" style="max-width:360px" role="dialog" aria-modal="true" aria-label="Confirmar eliminación">
+    <h3>¿Eliminar libro?</h3>
+    <p style="font-size:13px;color:var(--text-secondary);margin:0 0 4px">Se eliminará <strong id="rdDeleteBookName" style="color:var(--text-primary)"></strong> de tu biblioteca. Las sesiones de lectura ya registradas no se borran.</p>
+    <div class="rd-modal-actions">
+      <button type="button" class="rd-modal-cancel" id="rdDeleteCancelBtn">Cancelar</button>
+      <button type="button" class="hb-save-btn" id="rdDeleteConfirmBtn" style="background:linear-gradient(180deg,#FF8A8A,#E85555);border-color:rgba(255,107,107,0.85)">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Goal modal ===== -->
+<div class="rd-modal-bg" id="rdGoalModalBg">
+  <div class="rd-modal" style="max-width:380px" role="dialog" aria-modal="true" aria-label="Meta de lectura">
+    <h3>Meta de lectura</h3>
+    <div class="rd-modal-field">
+      <span class="hb-field-label">Tipo de meta</span>
+      <select id="rdGoalTypeSelect" class="hb-input">
+        <option value="none">Sin meta</option>
+        <option value="daily_pages">Páginas por día</option>
+        <option value="yearly_books">Libros por año</option>
+        <option value="yearly_pages">Páginas por año</option>
+      </select>
+    </div>
+    <div class="rd-modal-field" id="rdGoalValueField">
+      <span class="hb-field-label" id="rdGoalValueLabel">Valor</span>
+      <input type="number" min="1" step="1" id="rdGoalValueInput" class="hb-input">
+    </div>
+    <div class="rd-modal-actions">
+      <button type="button" class="rd-modal-cancel" id="rdGoalCancelBtn">Cancelar</button>
+      <button type="button" class="hb-save-btn" id="rdGoalSaveBtn">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function () {
   'use strict';
@@ -318,9 +610,26 @@ body::after {
   function persistScreenDay(dstr, hours) {
     if (typeof DataLayer !== 'undefined') DataLayer.put('habits_screen_time', dstr, { hours: hours });
   }
+  // habits_config is a single shared singleton row (screenTimeGoalHours +
+  // readingGoalType/readingGoalValue) — DataLayer.putSingleton REPLACES the
+  // whole row rather than merging, so every writer must send the full
+  // current config or it'll silently wipe out the other feature's fields.
   function persistScreenGoal(goalHours) {
-    if (typeof DataLayer !== 'undefined') DataLayer.putSingleton('habits_config', { screenTimeGoalHours: goalHours });
+    if (typeof DataLayer !== 'undefined') DataLayer.putSingleton('habits_config', {
+      screenTimeGoalHours: goalHours,
+      readingGoalType: state.reading.goalType,
+      readingGoalValue: state.reading.goalValue,
+    });
   }
+  function persistReadingGoal(goalType, goalValue) {
+    if (typeof DataLayer !== 'undefined') DataLayer.putSingleton('habits_config', {
+      screenTimeGoalHours: state.screenTime.goalHours,
+      readingGoalType: goalType,
+      readingGoalValue: goalValue,
+    });
+  }
+
+  function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
   function defaultHabits() {
     return { nofap: { logs: {} }, screenTime: { logs: {}, goalHours: 2 } };
@@ -331,6 +640,10 @@ body::after {
   if (!state.screenTime) state.screenTime = { logs: {}, goalHours: 2 };
   if (!state.screenTime.logs) state.screenTime.logs = {};
   if (!(state.screenTime.goalHours > 0)) state.screenTime.goalHours = 2;
+  // Reading lives only in Supabase (reading_books/reading_logs/habits_config)
+  // — never seeded from the po_habits_v1 blob, so it always starts empty
+  // until refreshReadingCaches() runs post-DOMContentLoaded.
+  state.reading = { books: [], logs: [], goalType: 'none', goalValue: 0 };
 
   function pad2(n) { return String(n).padStart(2, '0'); }
   function dateKey(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
@@ -728,9 +1041,621 @@ body::after {
   }
 
   /* ============================================================
+     READING
+     ============================================================ */
+  function rdId(prefix) { return prefix + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8); }
+
+  function persistBook(id, data) { if (typeof DataLayer !== 'undefined') DataLayer.put('reading_books', id, data); }
+  function removeBookRemote(id) { if (typeof DataLayer !== 'undefined') DataLayer.remove('reading_books', id); }
+  function persistSession(id, data) { if (typeof DataLayer !== 'undefined') DataLayer.put('reading_logs', id, data); }
+  function removeSessionRemote(id) { if (typeof DataLayer !== 'undefined') DataLayer.remove('reading_logs', id); }
+  function persistBookFull(book) {
+    const data = Object.assign({}, book);
+    delete data.id;
+    persistBook(book.id, data);
+  }
+
+  // ---------- cover storage upload (same bucket/prefix pattern as gym.html's progress photos) ----------
+  const RD_SUPABASE_URL = (window.DASH_SUPABASE_URL) || 'https://bkkjtxvneldsqwyhrhub.supabase.co';
+  const RD_SUPABASE_KEY = (window.DASH_SUPABASE_KEY) || 'sb_publishable_G8LqREPRDk0_tMEJNSFBxA_mIXNAnmT';
+  let rdCoverSupa = null;
+  if (window.supabase && RD_SUPABASE_URL && RD_SUPABASE_KEY) {
+    rdCoverSupa = window.supabase.createClient(RD_SUPABASE_URL, RD_SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+  }
+  function compressImageToJpegBlob(file, maxW, quality) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('read failed'));
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error('decode failed'));
+        img.onload = () => {
+          let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+          if (w > maxW) { h = Math.round(h * (maxW / w)); w = maxW; }
+          const c = document.createElement('canvas');
+          c.width = w; c.height = h;
+          c.getContext('2d').drawImage(img, 0, 0, w, h);
+          c.toBlob((blob) => { blob ? resolve(blob) : reject(new Error('toBlob failed')); }, 'image/jpeg', quality);
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+  async function uploadCoverToStorage(file) {
+    if (!rdCoverSupa || !file) return null;
+    try {
+      const blob = await compressImageToJpegBlob(file, 1000, 0.82);
+      const filename = 'book-covers/cover_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10) + '.jpg';
+      const { error } = await rdCoverSupa.storage.from('progress-photos').upload(filename, blob, { contentType: 'image/jpeg', upsert: false });
+      if (error) { console.warn('[Reading] cover upload failed', error); return null; }
+      const { data } = rdCoverSupa.storage.from('progress-photos').getPublicUrl(filename);
+      return data ? data.publicUrl : null;
+    } catch (e) { console.warn('[Reading] cover upload threw', e); return null; }
+  }
+
+  // ---------- pure calc helpers ----------
+  function rdLogsByDate() {
+    const map = {};
+    state.reading.logs.forEach((s) => { (map[s.date] || (map[s.date] = [])).push(s); });
+    return map;
+  }
+  function rdPagesForDate(logsByDate, dstr) {
+    const sessions = logsByDate[dstr];
+    return sessions ? sessions.reduce((sum, s) => sum + (Number(s.pages) || 0), 0) : 0;
+  }
+  // Same "don't penalize an unlogged today" walk-back as computeCurrentStreak.
+  function rdComputeCurrentStreak(logsByDate) {
+    let d = new Date();
+    if (!(rdPagesForDate(logsByDate, dateKey(d)) > 0)) d.setDate(d.getDate() - 1);
+    let streak = 0;
+    while (rdPagesForDate(logsByDate, dateKey(d)) > 0) { streak++; d.setDate(d.getDate() - 1); }
+    return streak;
+  }
+  function rdComputeLongestStreak(logsByDate) {
+    const dates = Object.keys(logsByDate).filter((k) => rdPagesForDate(logsByDate, k) > 0).sort();
+    let longest = 0, run = 0, prev = null;
+    dates.forEach((k) => {
+      run = (prev && isNextCalendarDay(prev, k)) ? run + 1 : 1;
+      if (run > longest) longest = run;
+      prev = k;
+    });
+    return longest;
+  }
+  function rdBooksFinishedThisYear() {
+    const y = String(new Date().getFullYear());
+    return state.reading.books.filter((b) => b.finishedAt && b.finishedAt.slice(0, 4) === y).length;
+  }
+  function rdPagesThisYear() {
+    const y = String(new Date().getFullYear());
+    return state.reading.logs.filter((s) => s.date && s.date.slice(0, 4) === y).reduce((sum, s) => sum + (Number(s.pages) || 0), 0);
+  }
+  function rdBookPagesRead(bookId) {
+    return state.reading.logs.filter((s) => s.bookId === bookId).reduce((sum, s) => sum + (Number(s.pages) || 0), 0);
+  }
+  function rdWeekSeries(logsByDate) { return currentWeekKeys().map((k) => rdPagesForDate(logsByDate, k)); }
+  function rdMonthSeries() {
+    return last6Months().map((d) => {
+      const y = d.getFullYear(), m = d.getMonth();
+      return state.reading.logs.filter((s) => {
+        if (!s.date) return false;
+        const parts = s.date.split('-').map(Number);
+        return parts[0] === y && (parts[1] - 1) === m;
+      }).reduce((sum, s) => sum + (Number(s.pages) || 0), 0);
+    });
+  }
+  // Deterministic hue from the title, for the fallback "spine" placeholder.
+  function rdBookHue(title) {
+    let hash = 0;
+    const str = String(title || '');
+    for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) % 360;
+    return hash < 0 ? hash + 360 : hash;
+  }
+  function rdInitials(title) {
+    const words = String(title || '').trim().split(/\s+/).filter(Boolean);
+    if (!words.length) return '?';
+    return (words[0][0] + (words[1] ? words[1][0] : '')).toUpperCase();
+  }
+  function rdSpineHtml(book, cls) {
+    const hue = rdBookHue(book.title);
+    return '<div class="' + cls + '" style="background: linear-gradient(160deg, hsl(' + hue + ',48%,38%), hsl(' + hue + ',55%,20%));">' + escapeHtml(rdInitials(book.title)) + '</div>';
+  }
+
+  /* ---------- day editor + sessions ---------- */
+  let rdEditingDate = todayStr();
+  let rdCalYear, rdCalMonth;
+  (function rdInitCalendar() { const now = new Date(); rdCalYear = now.getFullYear(); rdCalMonth = now.getMonth(); })();
+
+  function rdFormatEditorDate(dstr) {
+    if (dstr === todayStr()) return 'Today';
+    const [y, m, d] = dstr.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  }
+  function rdBookLabel(book) { return book.title + (book.author ? ' — ' + book.author : ''); }
+  function rdFillSessionBookSelect() {
+    const sel = $('rdSessionBookSelect');
+    const prevValue = sel.value;
+    const rank = { reading: 0, toread: 1, finished: 2 };
+    const books = state.reading.books.slice().sort((a, b) => (rank[a.status] - rank[b.status]) || a.title.localeCompare(b.title));
+    if (!books.length) {
+      sel.innerHTML = '<option value="">Sin libros — añadí uno primero</option>';
+      sel.disabled = true;
+      return;
+    }
+    sel.disabled = false;
+    sel.innerHTML = books.map((b) => '<option value="' + b.id + '">' + escapeHtml(rdBookLabel(b)) + '</option>').join('');
+    if (books.some((b) => b.id === prevValue)) sel.value = prevValue;
+  }
+  function renderReadingEditor() {
+    $('rdEditorDate').textContent = rdFormatEditorDate(rdEditingDate);
+    $('rdBackToToday').style.display = rdEditingDate === todayStr() ? 'none' : '';
+    rdFillSessionBookSelect();
+
+    const logsByDate = rdLogsByDate();
+    const sessions = (logsByDate[rdEditingDate] || []).slice().sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    const list = $('rdSessionList'), emptyEl = $('rdSessionEmpty');
+    if (!sessions.length) {
+      list.innerHTML = '';
+      emptyEl.style.display = 'block';
+    } else {
+      emptyEl.style.display = 'none';
+      list.innerHTML = sessions.map((s) => {
+        const book = state.reading.books.find((b) => b.id === s.bookId);
+        const label = book ? escapeHtml(book.title) : 'Libro eliminado';
+        const cls = book ? 'rd-session-book' : 'rd-session-book rd-deleted';
+        return '<div class="rd-session-row" data-id="' + s.id + '">' +
+          '<span class="' + cls + '">' + label + '</span>' +
+          '<input type="number" min="1" step="1" class="hb-input" style="width:64px;padding:6px 8px;text-align:right" data-session-pages="' + s.id + '" value="' + s.pages + '">' +
+          '<span style="font-size:11px;color:var(--text-tertiary);white-space:nowrap">pág.</span>' +
+          '<span class="rd-session-actions"><button type="button" class="rd-icon-btn rd-danger" data-del-session="' + s.id + '" title="Eliminar" aria-label="Eliminar">✕</button></span>' +
+        '</div>';
+      }).join('');
+      list.querySelectorAll('[data-del-session]').forEach((btn) => btn.addEventListener('click', () => rdDeleteSession(btn.dataset.delSession)));
+      list.querySelectorAll('[data-session-pages]').forEach((inp) => inp.addEventListener('change', () => rdUpdateSessionPages(inp.dataset.sessionPages, inp.value)));
+    }
+  }
+  function rdDeleteSession(id) {
+    state.reading.logs = state.reading.logs.filter((s) => s.id !== id);
+    removeSessionRemote(id);
+    renderReading();
+  }
+  function rdUpdateSessionPages(id, value) {
+    const pages = parseInt(value, 10);
+    const session = state.reading.logs.find((s) => s.id === id);
+    if (!session) return;
+    if (!(pages > 0)) { renderReading(); return; } // invalid — revert to the stored value
+    session.pages = pages;
+    persistSession(id, { date: session.date, bookId: session.bookId, pages: pages, createdAt: session.createdAt });
+    renderReading();
+  }
+  $('rdSessionAddBtn').addEventListener('click', () => {
+    const err = $('rdSessionError');
+    err.textContent = '';
+    const bookId = $('rdSessionBookSelect').value;
+    const pages = parseInt($('rdSessionPagesInput').value, 10);
+    if (!bookId) { err.textContent = 'Añadí un libro a tu biblioteca primero.'; return; }
+    if (!(pages > 0)) { err.textContent = 'Ingresá un número de páginas válido.'; return; }
+    const id = rdId('s');
+    const entry = { date: rdEditingDate, bookId: bookId, pages: pages, createdAt: Date.now() };
+    state.reading.logs.push(Object.assign({ id: id }, entry));
+    persistSession(id, entry);
+    $('rdSessionPagesInput').value = '';
+    renderReading();
+  });
+  $('rdSessionPagesInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('rdSessionAddBtn').click(); });
+  $('rdBackToToday').addEventListener('click', () => {
+    rdEditingDate = todayStr();
+    const now = new Date(); rdCalYear = now.getFullYear(); rdCalMonth = now.getMonth();
+    renderReading();
+  });
+
+  /* ---------- calendar ---------- */
+  function renderReadingCalendar() {
+    $('rdMonthLabel').textContent = MONTH_NAMES[rdCalMonth] + ' ' + rdCalYear;
+    const now = new Date();
+    const isCurrentMonth = rdCalYear === now.getFullYear() && rdCalMonth === now.getMonth();
+    $('rdNextMonth').disabled = isCurrentMonth;
+
+    const firstOfMonth = new Date(rdCalYear, rdCalMonth, 1);
+    const daysInMonth = new Date(rdCalYear, rdCalMonth + 1, 0).getDate();
+    const leadingBlanks = (firstOfMonth.getDay() + 6) % 7;
+    const logsByDate = rdLogsByDate();
+
+    let html = DOW_LABELS.map((l) => '<div class="hb-cal-dow">' + l + '</div>').join('');
+    for (let i = 0; i < leadingBlanks; i++) html += '<div class="hb-cal-day hb-empty"></div>';
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dstr = rdCalYear + '-' + pad2(rdCalMonth + 1) + '-' + pad2(day);
+      const pages = rdPagesForDate(logsByDate, dstr);
+      const isFuture = dstr > todayStr();
+      let cls = 'hb-cal-day';
+      if (pages > 0) cls += ' hb-clean';
+      else if (!isFuture) cls += ' hb-past-empty';
+      if (dstr === todayStr()) cls += ' hb-today';
+      if (dstr === rdEditingDate) cls += ' hb-editing';
+      html += '<div class="' + cls + '" data-date="' + dstr + '" data-future="' + isFuture + '">' + day + '</div>';
+    }
+    $('rdCalGrid').innerHTML = html;
+    $('rdCalGrid').querySelectorAll('.hb-cal-day[data-date]').forEach((el) => {
+      if (el.dataset.future === 'true') return;
+      el.addEventListener('click', () => { rdEditingDate = el.dataset.date; renderReading(); });
+    });
+  }
+  $('rdPrevMonth').addEventListener('click', () => { rdCalMonth--; if (rdCalMonth < 0) { rdCalMonth = 11; rdCalYear--; } renderReadingCalendar(); });
+  $('rdNextMonth').addEventListener('click', () => {
+    if ($('rdNextMonth').disabled) return;
+    rdCalMonth++; if (rdCalMonth > 11) { rdCalMonth = 0; rdCalYear++; }
+    renderReadingCalendar();
+  });
+
+  /* ---------- goal ---------- */
+  function renderReadingGoal() {
+    const body = $('rdGoalBody');
+    const type = state.reading.goalType, val = state.reading.goalValue;
+    if (type === 'none' || !(val > 0)) {
+      body.innerHTML = '<div class="rd-goal-none">Sin meta configurada. Tocá ⚙ Goal para elegir una.</div>';
+      return;
+    }
+    if (type === 'daily_pages') {
+      const today = rdPagesForDate(rdLogsByDate(), todayStr());
+      const frac = Math.max(0, Math.min(1, today / val));
+      const R = 34, C = 2 * Math.PI * R;
+      body.innerHTML =
+        '<div class="rd-goal-body">' +
+          '<div class="rd-goal-ring-wrap">' +
+            '<svg class="rd-goal-ring-svg" viewBox="0 0 84 84">' +
+              '<circle class="rd-goal-ring-bg" cx="42" cy="42" r="' + R + '"></circle>' +
+              '<circle class="rd-goal-ring-fg" cx="42" cy="42" r="' + R + '" stroke-dasharray="' + C.toFixed(1) + '" stroke-dashoffset="' + (C * (1 - frac)).toFixed(1) + '"></circle>' +
+            '</svg>' +
+            '<div class="rd-goal-ring-label">' + Math.round(frac * 100) + '%</div>' +
+          '</div>' +
+          '<div class="rd-goal-text">' +
+            '<div class="rd-goal-label">Páginas hoy</div>' +
+            '<div class="rd-goal-val">' + today + ' / ' + val + '</div>' +
+            '<div class="rd-goal-sub">' + (today >= val ? 'Meta cumplida ✓' : (val - today) + ' páginas restantes') + '</div>' +
+          '</div>' +
+        '</div>';
+      return;
+    }
+    const done = type === 'yearly_books' ? rdBooksFinishedThisYear() : rdPagesThisYear();
+    const frac = Math.max(0, Math.min(1, done / val));
+    const label = type === 'yearly_books' ? 'Libros terminados este año' : 'Páginas leídas este año';
+    const unit = type === 'yearly_books' ? 'libro(s)' : 'páginas';
+    body.innerHTML =
+      '<div class="rd-goal-text">' +
+        '<div class="rd-goal-label">' + label + '</div>' +
+        '<div class="rd-goal-val">' + done + ' / ' + val + '</div>' +
+        '<div class="rd-goal-bar-track"><div class="rd-goal-bar-fill" style="width:' + (frac * 100).toFixed(1) + '%"></div></div>' +
+        '<div class="rd-goal-sub">' + (done >= val ? 'Meta cumplida ✓' : (val - done) + ' ' + unit + ' restantes') + '</div>' +
+      '</div>';
+  }
+  function rdUpdateGoalValueVisibility() {
+    const type = $('rdGoalTypeSelect').value;
+    const field = $('rdGoalValueField');
+    if (type === 'none') { field.style.display = 'none'; return; }
+    field.style.display = '';
+    const labels = { daily_pages: 'Páginas por día', yearly_books: 'Libros por año', yearly_pages: 'Páginas por año' };
+    $('rdGoalValueLabel').textContent = labels[type] || 'Valor';
+  }
+  $('rdGoalBtn').addEventListener('click', () => {
+    $('rdGoalTypeSelect').value = state.reading.goalType || 'none';
+    $('rdGoalValueInput').value = state.reading.goalValue || '';
+    rdUpdateGoalValueVisibility();
+    $('rdGoalModalBg').classList.add('show');
+  });
+  $('rdGoalCancelBtn').addEventListener('click', () => $('rdGoalModalBg').classList.remove('show'));
+  $('rdGoalTypeSelect').addEventListener('change', rdUpdateGoalValueVisibility);
+  $('rdGoalSaveBtn').addEventListener('click', () => {
+    const type = $('rdGoalTypeSelect').value;
+    let value = 0;
+    if (type !== 'none') {
+      value = parseInt($('rdGoalValueInput').value, 10);
+      if (!(value > 0)) { $('rdGoalValueInput').focus(); return; }
+    }
+    state.reading.goalType = type;
+    state.reading.goalValue = value;
+    persistReadingGoal(type, value);
+    $('rdGoalModalBg').classList.remove('show');
+    renderReading();
+  });
+
+  /* ---------- chart (week/month toggle, reuses the hb-week-/hb-chart- look) ---------- */
+  let rdViewMode = 'week';
+  $('rdViewToggle').querySelectorAll('.hb-view-btn').forEach((b) => {
+    b.addEventListener('click', () => {
+      $('rdViewToggle').querySelectorAll('.hb-view-btn').forEach((x) => x.classList.remove('active'));
+      b.classList.add('active');
+      rdViewMode = b.dataset.mode;
+      $('rdChartEye').textContent = rdViewMode === 'month' ? 'Last 6 months' : 'Last 7 days';
+      renderReadingChart();
+    });
+  });
+  function rdHideTooltip() { const t = $('rdWeekTooltip'); if (t) t.style.display = 'none'; }
+  function rdShowTooltip(el) {
+    const tip = $('rdWeekTooltip'), wrap = $('rdChartWrap');
+    const value = Number(el.getAttribute('data-value'));
+    tip.textContent = value + ' pág.';
+    tip.style.display = 'block';
+    const wrapRect = wrap.getBoundingClientRect(), elRect = el.getBoundingClientRect();
+    tip.style.left = (elRect.left + elRect.width / 2 - wrapRect.left) + 'px';
+    tip.style.top = (elRect.top - wrapRect.top) + 'px';
+  }
+  document.addEventListener('click', (e) => { if (!e.target.closest('.rd-bar, .rd-bar-hit')) rdHideTooltip(); });
+
+  function renderReadingChart() {
+    const svg = $('rdWeekSvg'), emptyEl = $('rdChartEmpty');
+    let labels, values;
+    if (rdViewMode === 'month') { labels = last6Months().map(monthLabel); values = rdMonthSeries(); }
+    else { labels = currentWeekKeys().map(dayLabel); values = rdWeekSeries(rdLogsByDate()); }
+
+    if (!values.some((v) => v > 0)) {
+      svg.innerHTML = ''; svg.classList.add('hidden');
+      emptyEl.style.display = 'block'; rdHideTooltip();
+      return;
+    }
+    emptyEl.style.display = 'none'; svg.classList.remove('hidden');
+
+    const n = values.length;
+    const W = svg.getBoundingClientRect().width || 600, H = 260;
+    svg.setAttribute('viewBox', '0 0 ' + W.toFixed(1) + ' ' + H);
+    const padLeft = 32, padRight = 14, padTop = 16, padBottom = 28, gap = 14;
+    const plotW = W - padLeft - padRight, plotH = H - padTop - padBottom;
+    const barW = (plotW - gap * (n - 1)) / n;
+
+    const rawMax = Math.max.apply(null, values.concat([1]));
+    const step = rawMax <= 4 ? 1 : Math.ceil(rawMax / 4);
+    const niceMax = Math.ceil(rawMax / step) * step;
+
+    let html = '';
+    for (let v = 0; v <= niceMax; v += step) {
+      const y = padTop + plotH - (v / niceMax) * plotH;
+      html += '<line class="hb-week-grid" x1="' + padLeft + '" y1="' + y.toFixed(1) + '" x2="' + (W - padRight).toFixed(1) + '" y2="' + y.toFixed(1) + '"></line>'
+        + '<text class="hb-week-yaxis-label" x="' + (padLeft - 8) + '" y="' + (y + 3).toFixed(1) + '" text-anchor="end">' + v + '</text>';
+    }
+    values.forEach((total, i) => {
+      const x = padLeft + i * (barW + gap);
+      const h = total > 0 ? Math.max(2, plotH * (total / niceMax)) : 0;
+      const y = padTop + plotH - h;
+      const attrs = ' data-value="' + total + '"';
+      html += '<rect class="rd-bar-hit" x="' + x.toFixed(1) + '" y="' + padTop + '" width="' + barW.toFixed(1) + '" height="' + plotH.toFixed(1) + '"' + attrs + '></rect>'
+        + '<rect class="rd-bar" x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + barW.toFixed(1) + '" height="' + h.toFixed(1) + '" rx="4"' + attrs + '></rect>'
+        + '<text class="hb-week-daylabel" x="' + (x + barW / 2).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="middle">' + labels[i] + '</text>';
+    });
+    svg.innerHTML = html;
+    svg.querySelectorAll('.rd-bar, .rd-bar-hit').forEach((bar) => {
+      bar.addEventListener('mouseenter', () => rdShowTooltip(bar));
+      bar.addEventListener('mouseleave', rdHideTooltip);
+      bar.addEventListener('click', (e) => { e.stopPropagation(); rdShowTooltip(bar); });
+    });
+  }
+
+  /* ---------- library (books) ---------- */
+  function rdBookRowHtml(book) {
+    const cover = book.coverUrl ? '<img class="rd-book-thumb" src="' + escapeHtml(book.coverUrl) + '" alt="">' : rdSpineHtml(book, 'rd-book-spine');
+    let progress = '';
+    if (book.totalPages > 0) {
+      const read = rdBookPagesRead(book.id);
+      const pct = Math.min(100, Math.round((read / book.totalPages) * 100));
+      progress = '<div class="rd-book-progress">' + read + ' / ' + book.totalPages + ' pág. · ' + pct + '%</div>';
+    }
+    return '<div class="rd-book-row" data-id="' + book.id + '">' +
+      cover +
+      '<div class="rd-book-info">' +
+        '<div class="rd-book-title">' + escapeHtml(book.title) + '</div>' +
+        '<div class="rd-book-author">' + escapeHtml(book.author || '') + '</div>' +
+        progress +
+      '</div>' +
+      '<div class="rd-book-actions">' +
+        '<select class="rd-status-select" data-status-for="' + book.id + '">' +
+          '<option value="reading"' + (book.status === 'reading' ? ' selected' : '') + '>Leyendo</option>' +
+          '<option value="toread"' + (book.status === 'toread' ? ' selected' : '') + '>Por leer</option>' +
+          '<option value="finished"' + (book.status === 'finished' ? ' selected' : '') + '>Terminado</option>' +
+        '</select>' +
+        '<button type="button" class="rd-icon-btn" data-edit-book="' + book.id + '" title="Editar" aria-label="Editar">✎</button>' +
+      '</div>' +
+    '</div>';
+  }
+  function rdShelfCardHtml(book) {
+    const cover = book.coverUrl ? '<img class="rd-shelf-cover" src="' + escapeHtml(book.coverUrl) + '" alt="">' : rdSpineHtml(book, 'rd-shelf-spine');
+    return '<div class="rd-shelf-card" data-edit-book="' + book.id + '">' +
+      cover +
+      '<div class="rd-shelf-title">' + escapeHtml(book.title) + '</div>' +
+      '<div class="rd-shelf-author">' + escapeHtml(book.author || '') + '</div>' +
+    '</div>';
+  }
+  function rdChangeBookStatus(id, newStatus) {
+    const book = state.reading.books.find((b) => b.id === id);
+    if (!book) return;
+    book.status = newStatus;
+    if (newStatus === 'reading' && !book.startedAt) book.startedAt = todayStr();
+    book.finishedAt = newStatus === 'finished' ? todayStr() : null;
+    persistBookFull(book);
+    renderReading();
+  }
+  function renderReadingLibrary() {
+    const books = state.reading.books;
+    $('rdLibEmpty').style.display = books.length ? 'none' : 'block';
+
+    const reading = books.filter((b) => b.status === 'reading').sort((a, b) => (b.startedAt || '').localeCompare(a.startedAt || ''));
+    const toread = books.filter((b) => b.status === 'toread').sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    const finished = books.filter((b) => b.status === 'finished').sort((a, b) => (b.finishedAt || '').localeCompare(a.finishedAt || ''));
+
+    $('rdCountReading').textContent = reading.length ? '(' + reading.length + ')' : '';
+    $('rdCountToread').textContent = toread.length ? '(' + toread.length + ')' : '';
+    $('rdCountFinished').textContent = finished.length ? '(' + finished.length + ')' : '';
+
+    $('rdListReading').innerHTML = reading.length ? reading.map(rdBookRowHtml).join('') : '<div class="rd-empty">Nada en curso.</div>';
+    $('rdListToread').innerHTML = toread.length ? toread.map(rdBookRowHtml).join('') : '<div class="rd-empty">Nada pendiente.</div>';
+    $('rdShelfEmpty').style.display = finished.length ? 'none' : 'block';
+    $('rdShelfGrid').innerHTML = finished.map(rdShelfCardHtml).join('');
+
+    document.querySelectorAll('#rdListReading [data-edit-book], #rdListToread [data-edit-book], #rdShelfGrid [data-edit-book]').forEach((el) => {
+      el.addEventListener('click', () => rdOpenBookModal(el.dataset.editBook));
+    });
+    document.querySelectorAll('#rdListReading [data-status-for], #rdListToread [data-status-for]').forEach((sel) => {
+      sel.addEventListener('change', () => rdChangeBookStatus(sel.dataset.statusFor, sel.value));
+    });
+  }
+
+  /* ---------- book add/edit modal ---------- */
+  let rdEditingBookId = null;
+  let rdPendingCoverFile = null;
+  let rdPendingCoverPreviewUrl = null;
+  function rdSetBookStatusSeg(status) {
+    $('rdBookStatusSeg').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.status === status));
+  }
+  function rdGetBookStatusSeg() {
+    const active = $('rdBookStatusSeg').querySelector('button.active');
+    return active ? active.dataset.status : 'reading';
+  }
+  $('rdBookStatusSeg').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => rdSetBookStatusSeg(b.dataset.status)));
+  function rdUpdateCoverPreview(url) {
+    const img = $('rdCoverPreview'), empty = $('rdCoverPreviewEmpty');
+    if (url) { img.src = url; img.style.display = ''; empty.style.display = 'none'; }
+    else { img.style.display = 'none'; empty.style.display = ''; }
+  }
+  function rdOpenBookModal(id) {
+    rdEditingBookId = id || null;
+    rdPendingCoverFile = null;
+    if (rdPendingCoverPreviewUrl) { URL.revokeObjectURL(rdPendingCoverPreviewUrl); rdPendingCoverPreviewUrl = null; }
+    const book = id ? state.reading.books.find((b) => b.id === id) : null;
+
+    $('rdBookModalTitle').textContent = book ? 'Edit book' : 'Add book';
+    $('rdBookTitleInput').value = book ? book.title : '';
+    $('rdBookAuthorInput').value = book ? (book.author || '') : '';
+    $('rdBookPagesInput').value = (book && book.totalPages) ? book.totalPages : '';
+    $('rdCoverUrlInput').value = (book && book.coverUrl) ? book.coverUrl : '';
+    $('rdBookFormError').textContent = '';
+    $('rdCoverStatus').textContent = '';
+    $('rdBookDeleteBtn').style.display = book ? '' : 'none';
+    $('rdCoverFileInput').value = '';
+
+    rdSetBookStatusSeg(book ? book.status : 'reading');
+    rdUpdateCoverPreview(book ? book.coverUrl : null);
+
+    $('rdBookModalBg').classList.add('show');
+    setTimeout(() => $('rdBookTitleInput').focus(), 0);
+  }
+  function rdCloseBookModal() {
+    $('rdBookModalBg').classList.remove('show');
+    rdEditingBookId = null;
+  }
+  $('rdAddBookBtn').addEventListener('click', () => rdOpenBookModal(null));
+  $('rdBookCancelBtn').addEventListener('click', rdCloseBookModal);
+  $('rdCoverPickBtn').addEventListener('click', () => $('rdCoverFileInput').click());
+  $('rdCoverFileInput').addEventListener('change', () => {
+    const file = $('rdCoverFileInput').files[0];
+    if (!file) return;
+    rdPendingCoverFile = file;
+    $('rdCoverUrlInput').value = '';
+    if (rdPendingCoverPreviewUrl) URL.revokeObjectURL(rdPendingCoverPreviewUrl);
+    rdPendingCoverPreviewUrl = URL.createObjectURL(file);
+    rdUpdateCoverPreview(rdPendingCoverPreviewUrl);
+  });
+  $('rdCoverUrlInput').addEventListener('input', () => {
+    rdPendingCoverFile = null;
+    rdUpdateCoverPreview($('rdCoverUrlInput').value.trim() || null);
+  });
+  $('rdBookSaveBtn').addEventListener('click', async () => {
+    const err = $('rdBookFormError');
+    err.textContent = '';
+    const title = $('rdBookTitleInput').value.trim();
+    const author = $('rdBookAuthorInput').value.trim();
+    const pagesRaw = $('rdBookPagesInput').value;
+    const totalPages = pagesRaw ? parseInt(pagesRaw, 10) : null;
+    const status = rdGetBookStatusSeg();
+    const pastedUrl = $('rdCoverUrlInput').value.trim();
+
+    if (!title) { err.textContent = 'El título es obligatorio.'; return; }
+    if (!author) { err.textContent = 'El autor es obligatorio.'; return; }
+    if (pagesRaw && !(totalPages > 0)) { err.textContent = 'Páginas totales inválido.'; return; }
+
+    const existing = rdEditingBookId ? state.reading.books.find((b) => b.id === rdEditingBookId) : null;
+
+    let coverUrl;
+    if (rdPendingCoverFile) {
+      $('rdCoverStatus').textContent = 'Subiendo portada…';
+      const uploaded = await uploadCoverToStorage(rdPendingCoverFile);
+      if (uploaded) {
+        coverUrl = uploaded;
+      } else {
+        coverUrl = existing ? (existing.coverUrl || null) : null;
+        $('rdCoverStatus').textContent = 'No se pudo subir la portada — se guardó el libro sin portada.';
+      }
+    } else {
+      coverUrl = pastedUrl || null;
+    }
+
+    const id = rdEditingBookId || rdId('b');
+    let startedAt = existing ? existing.startedAt : null;
+    if (status === 'reading' && !startedAt) startedAt = todayStr();
+    const finishedAt = status === 'finished' ? todayStr() : null;
+
+    const bookData = {
+      title: title,
+      author: author,
+      totalPages: totalPages || null,
+      status: status,
+      coverUrl: coverUrl,
+      startedAt: startedAt,
+      finishedAt: finishedAt,
+      createdAt: existing ? existing.createdAt : Date.now(),
+    };
+    if (existing) {
+      const idx = state.reading.books.findIndex((b) => b.id === id);
+      state.reading.books[idx] = Object.assign({ id: id }, bookData);
+    } else {
+      state.reading.books.push(Object.assign({ id: id }, bookData));
+    }
+    persistBook(id, bookData);
+    rdCloseBookModal();
+    renderReading();
+  });
+  $('rdBookDeleteBtn').addEventListener('click', () => {
+    if (!rdEditingBookId) return;
+    const book = state.reading.books.find((b) => b.id === rdEditingBookId);
+    $('rdDeleteBookName').textContent = book ? book.title : 'este libro';
+    $('rdDeleteConfirmBg').dataset.bookId = rdEditingBookId;
+    $('rdDeleteConfirmBg').classList.add('show');
+  });
+  $('rdDeleteCancelBtn').addEventListener('click', () => $('rdDeleteConfirmBg').classList.remove('show'));
+  $('rdDeleteConfirmBtn').addEventListener('click', () => {
+    const id = $('rdDeleteConfirmBg').dataset.bookId;
+    state.reading.books = state.reading.books.filter((b) => b.id !== id);
+    removeBookRemote(id);
+    $('rdDeleteConfirmBg').classList.remove('show');
+    rdCloseBookModal();
+    renderReading();
+  });
+  [$('rdBookModalBg'), $('rdDeleteConfirmBg'), $('rdGoalModalBg')].forEach((bg) => {
+    bg.addEventListener('click', (e) => { if (e.target === bg) bg.classList.remove('show'); });
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    [$('rdBookModalBg'), $('rdDeleteConfirmBg'), $('rdGoalModalBg')].forEach((bg) => bg.classList.remove('show'));
+  });
+
+  function renderReadingStats() {
+    const logsByDate = rdLogsByDate();
+    $('rdStatBooksYear').textContent = rdBooksFinishedThisYear();
+    $('rdStatPagesYear').textContent = rdPagesThisYear();
+    $('rdStatStreak').textContent = rdComputeCurrentStreak(logsByDate);
+    $('rdStatLongestStreak').textContent = 'récord: ' + rdComputeLongestStreak(logsByDate);
+    $('rdStatPagesToday').textContent = rdPagesForDate(logsByDate, todayStr());
+  }
+  function renderReading() {
+    renderReadingStats();
+    renderReadingGoal();
+    renderReadingEditor();
+    renderReadingCalendar();
+    renderReadingChart();
+    renderReadingLibrary();
+  }
+
+  /* ============================================================
      INIT + CLOUD SYNC
      ============================================================ */
-  function renderAll() { renderNofap(); renderScreenTime(); }
+  function renderAll() { renderNofap(); renderScreenTime(); renderReading(); }
   renderAll();
 
   window.addEventListener('storage', renderAll);
@@ -747,6 +1672,11 @@ body::after {
   // migrated pages).
   // ============================================================
   const HABITS_COLLECTIONS = ['habits_nofap', 'habits_screen_time', 'habits_config'];
+  // Reading has its own two collections — kept out of HABITS_COLLECTIONS
+  // because that array also drives setLegacyMirror(), and Reading
+  // deliberately isn't part of the po_habits_v1 blob (see state.reading
+  // init comment above).
+  const READING_COLLECTIONS = ['reading_books', 'reading_logs'];
   async function refreshHabitsCaches() {
     const [nofapRows, screenRows, config] = await Promise.all([
       DataLayer.list('habits_nofap'),
@@ -760,6 +1690,23 @@ body::after {
     state.nofap.logs = nofapLogs;
     state.screenTime.logs = screenLogs;
     state.screenTime.goalHours = (config && config.screenTimeGoalHours > 0) ? config.screenTimeGoalHours : 2;
+    // habits_config also carries the reading goal fields (shared singleton
+    // row) — refreshed here too so a habits_config-only realtime event
+    // (e.g. the screen time goal changing on another device) still keeps
+    // state.reading.goalType/goalValue current.
+    state.reading.goalType = (config && config.readingGoalType) || 'none';
+    state.reading.goalValue = (config && config.readingGoalValue > 0) ? config.readingGoalValue : 0;
+  }
+  async function refreshReadingCaches() {
+    const [books, logs, config] = await Promise.all([
+      DataLayer.list('reading_books'),
+      DataLayer.list('reading_logs'),
+      DataLayer.getSingleton('habits_config'),
+    ]);
+    state.reading.books = books;
+    state.reading.logs = logs;
+    state.reading.goalType = (config && config.readingGoalType) || 'none';
+    state.reading.goalValue = (config && config.readingGoalValue > 0) ? config.readingGoalValue : 0;
   }
   // Reconstructs the OLD combined po_habits_v1 shape from the current
   // in-memory state — used both as the setLegacyMirror transform (for the
@@ -787,7 +1734,7 @@ body::after {
     const session = await DataLayer.init({ requireAuth: true });
     if (!session) return; // redirected to login.html
 
-    await refreshHabitsCaches();
+    await Promise.all([refreshHabitsCaches(), refreshReadingCaches()]);
     renderAll();
 
     HABITS_COLLECTIONS.forEach((col) => DataLayer.setLegacyMirror(col, HABITS_KEY, buildLegacyHabitsBlob));
@@ -799,6 +1746,12 @@ body::after {
         renderAll();
       });
     });
+    READING_COLLECTIONS.forEach((col) => {
+      DataLayer.subscribe(col, async () => {
+        await refreshReadingCaches();
+        renderAll();
+      });
+    });
   });
 
   document.addEventListener('DOMContentLoaded', function () {
@@ -807,11 +1760,16 @@ body::after {
       appKey: 'habits',
       syncedKeys: [HABITS_KEY],
       onApplied: function () {
+        // po_habits_v1 never carries `reading` (it's DataLayer-only, see the
+        // state.reading init comment above) — preserve whatever's already
+        // loaded there instead of letting this reassignment wipe it out.
+        const preservedReading = state.reading;
         state = loadJSON(HABITS_KEY, defaultHabits());
         if (!state.nofap) state.nofap = { logs: {} };
         if (!state.nofap.logs) state.nofap.logs = {};
         if (!state.screenTime) state.screenTime = { logs: {}, goalHours: 2 };
         if (!state.screenTime.logs) state.screenTime.logs = {};
+        state.reading = preservedReading || { books: [], logs: [], goalType: 'none', goalValue: 0 };
         renderAll();
       }
     });
