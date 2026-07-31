@@ -39,16 +39,19 @@
       running:  { 'Cuádriceps': 0.6, 'Isquiotibiales': 0.5, 'Gemelos': 0.6, 'Glúteos': 0.4 },
       bici:     { 'Cuádriceps': 0.7, 'Isquiotibiales': 0.3, 'Gemelos': 0.4, 'Glúteos': 0.3 },
     },
-    // Applied as a LAYER on top of cardioMuscleMap's per-muscle units (never
-    // baked into the map itself, so previously-saved user configs keep the
-    // map's shape). Curve is deliberately non-linear — level 3 is the
+    // Applied as a LAYER on top of a session's base units — cardioMuscleMap's
+    // per-muscle values for boxeo/muaythai, or setCount for pesas — never
+    // baked into cardioMuscleMap itself, so previously-saved user configs
+    // keep their shape. Curve is deliberately non-linear — level 3 is the
     // neutral baseline (1.0, matches pre-intensity behavior exactly), level
-    // 5 tops out at 1.75x (a hard sparring session is meaningfully harder
-    // than a light one, but not "5x" hard), level 1 is a regenerative
-    // session at 0.6x. Read by computeMuscleFatigue below AND by
-    // GymDomain.computeSessionLoad (gymDomain.js) — defined once here so
-    // both stay in sync; a session with no/invalid difficulty (legacy
-    // running/bici entries included) falls back to 1.0, i.e. unchanged.
+    // 5 tops out at 1.75x (a hard session is meaningfully harder than a
+    // light one, but not "5x" hard), level 1 is a regenerative session at
+    // 0.6x. Generic across disciplines, defined ONCE here and reused by:
+    // computeMuscleFatigue below (cardio.difficulty or sessionMetrics.
+    // intensity, see the cardio/pesas branches), and GymDomain.
+    // computeSessionLoad (gymDomain.js). A session with no/invalid
+    // level (legacy entries, or any session logged before this field
+    // existed) falls back to 1.0, i.e. unchanged — never retroactive.
     intensityMultiplier: { 1: 0.6, 2: 0.8, 3: 1.0, 4: 1.35, 5: 1.75 },
     // Daily multiplier (>=1.0), applied EQUALLY to every muscle's
     // recoveryHours for sessions logged on a given date — never
@@ -112,12 +115,14 @@
     }
 
     const cardioMuscleMap = config.cardioMuscleMap || {};
-    // Difficulty is 1-5 informational input on boxeo/muaythai sessions only;
-    // any other/missing value (running, bici, legacy entries) is a no-op
-    // multiplier so behavior for those stays exactly as before.
-    function intensityFactorFor(difficulty) {
+    // 1-5 informational input — cardio.difficulty (boxeo/muaythai) or
+    // sessionMetrics.intensity (pesas, see whNormalizeWorkout in gym.html);
+    // any other/missing value (running, bici, legacy entries with neither
+    // field) is a no-op multiplier so behavior for those stays exactly as
+    // before. Level 3 maps to 1.0, i.e. today's un-scaled baseline.
+    function intensityFactorFor(level) {
       const table = config.intensityMultiplier;
-      const v = table && table[difficulty];
+      const v = table && table[level];
       return (typeof v === 'number' && v > 0) ? v : 1;
     }
     (sessions || []).forEach(function (w) {
@@ -133,12 +138,13 @@
           addLoad(muscle, (w.cardio.duration || 0) * map[muscle] * intensityFactor, hoursAgo, w.date);
         });
       } else {
+        const intensityFactor = intensityFactorFor(w.sessionMetrics && w.sessionMetrics.intensity);
         (w.exercises || []).forEach(function (ex) {
           const setCount = (ex.sets || []).length;
           if (!setCount) return;
-          addLoad(ex.primaryMuscle, setCount, hoursAgo, w.date);
+          addLoad(ex.primaryMuscle, setCount * intensityFactor, hoursAgo, w.date);
           (ex.secondaryMuscles || []).forEach(function (m) {
-            addLoad(m, setCount * 0.5, hoursAgo, w.date);
+            addLoad(m, setCount * 0.5 * intensityFactor, hoursAgo, w.date);
           });
         });
       }

@@ -1543,6 +1543,28 @@ img, video, canvas, svg { max-width: 100%; }
    see gymEcosystem.js estimateHrRange). */
 .tr-hr-estimate { font-size: 11.5px; color: var(--text-tertiary); margin-top: 8px; text-align: center; }
 
+/* "Métricas de la sesión" block in the Pesas log modal (CAMBIO 2) — a
+   subtle top divider separates it from the datepicker above. */
+.tr-session-metrics { margin: 14px 0 12px; padding-top: 14px; border-top: 1px solid var(--border); }
+/* Subtle required-field marker — deliberately NOT a red asterisk, just a
+   quieter weight/case than the label itself. */
+.tr-required-tag {
+  color: var(--text-secondary); opacity: 0.65; font-weight: 600;
+  text-transform: none; letter-spacing: 0; margin-left: 6px; font-size: 10px;
+}
+.tr-metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tr-metrics-hr-field { grid-column: 1 / -1; }
+.tr-metrics-hr-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 480px) {
+  .tr-metrics-grid { grid-template-columns: 1fr; }
+  .tr-metrics-hr-row { grid-template-columns: 1fr; }
+}
+
+/* Measured/estimated HR line for the last pesas session (CAMBIO 5) —
+   :empty collapses the row entirely when there's nothing to show. */
+.tr-session-hr-line { font-size: 11.5px; color: var(--text-tertiary); margin-bottom: 8px; }
+.tr-session-hr-line:empty { display: none; margin: 0; }
+
 /* ----- Unified chart tooltip (cht-) — same recipe as habits.html's
    .hb-week-tooltip, reused here for a consistent look. Any chart wrap
    that wants one just needs position:relative (.wh-freq-wrap already has
@@ -2079,6 +2101,11 @@ img, video, canvas, svg { max-width: 100%; }
            gymCharts.js), fed 3x with different data. Monday-starting weeks. -->
       <div class="wh-block">
         <div class="wh-block-title">Volumen semanal (pesas)</div>
+        <!-- Measured HR (sessionMetrics) for the last pesas session, or an
+             estimateHrRange(intensity) fallback tagged "(estimado)" — purely
+             cosmetic, see pesasHrLineFor() in gymUI.js. Empty when neither
+             is available; :empty collapses it with no layout gap. -->
+        <div class="tr-session-hr-line" id="trPesasLastHr"></div>
         <div class="wh-freq-wrap">
           <div class="po-empty" id="trWeeklyVolEmpty">Registrá una sesión de pesas para ver esto.</div>
           <svg class="wh-freq-svg hidden" id="trWeeklyVolSvg" viewBox="0 0 700 220"></svg>
@@ -2260,6 +2287,35 @@ img, video, canvas, svg { max-width: 100%; }
     <h3>Registrar Pesas</h3>
 
     <div id="trPesasLogDatePicker"></div>
+
+    <!-- Session-level metrics — intensidad is required (modulates
+         computeMuscleFatigue, see gymMuscleFatigue.js); the rest are
+         optional and persist as `sessionMetrics` (see whNormalizeWorkout),
+         a sibling of `cardio` never merged into it. -->
+    <div class="tr-session-metrics">
+      <div class="wh-block-title" style="margin-top:0;">Métricas de la sesión</div>
+      <div class="po-field">
+        <label style="font-size:11px;color:var(--text-tertiary);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Intensidad<span class="tr-required-tag">requerido</span></label>
+        <div id="trPesasIntensityGroup"></div>
+      </div>
+      <div class="tr-metrics-grid">
+        <div class="po-field">
+          <label style="font-size:11px;color:var(--text-tertiary);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Duración (min, opcional)</label>
+          <input type="number" id="trPesasDuration" min="0" placeholder="60">
+        </div>
+        <div class="po-field">
+          <label style="font-size:11px;color:var(--text-tertiary);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Hora de la sesión (opcional)</label>
+          <input type="time" id="trPesasTimeOfDay">
+        </div>
+        <div class="po-field tr-metrics-hr-field">
+          <label style="font-size:11px;color:var(--text-tertiary);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">LPM (opcional)</label>
+          <div class="tr-metrics-hr-row">
+            <input type="number" id="trPesasAvgHr" min="0" placeholder="Promedio">
+            <input type="number" id="trPesasMaxHr" min="0" placeholder="Máximo">
+          </div>
+        </div>
+      </div>
+    </div>
 
     <button class="po-btn-secondary" id="trPesasLogRepeatBtn" type="button" style="width:100%;margin-bottom:10px;">Repetir última sesión</button>
 
@@ -2463,6 +2519,20 @@ img, video, canvas, svg { max-width: 100%; }
         pace: raw.cardio.pace != null ? Number(raw.cardio.pace) : null,
         spo2: raw.cardio.spo2 != null ? Number(raw.cardio.spo2) : null,
         difficulty: raw.cardio.difficulty != null ? Number(raw.cardio.difficulty) : null,
+      } : null,
+      // Session-level metrics, generic (not pesas-specific) but only wired
+      // up from the Pesas log for now — deliberately a SEPARATE object from
+      // `cardio`, never reused: computeMuscleFatigue (gymMuscleFatigue.js)
+      // treats any `w.cardio` as a cardio session and maps it through
+      // cardioMuscleMap, so folding these fields into `cardio` would
+      // silently corrupt the muscle map for pesas sessions. Explicit
+      // names/units so a raw workout_history row reads cleanly in Supabase.
+      sessionMetrics: (raw.sessionMetrics && typeof raw.sessionMetrics === 'object') ? {
+        avgHr: raw.sessionMetrics.avgHr != null ? Number(raw.sessionMetrics.avgHr) : null, // bpm promedio
+        maxHr: raw.sessionMetrics.maxHr != null ? Number(raw.sessionMetrics.maxHr) : null, // bpm máximo
+        durationMin: raw.sessionMetrics.durationMin != null ? Number(raw.sessionMetrics.durationMin) : null, // minutos
+        timeOfDay: raw.sessionMetrics.timeOfDay || null, // "HH:MM" 24h local
+        intensity: raw.sessionMetrics.intensity != null ? Number(raw.sessionMetrics.intensity) : null, // 1..5
       } : null,
     };
   }

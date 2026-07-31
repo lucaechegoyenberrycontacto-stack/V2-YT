@@ -30,13 +30,17 @@
     toastTimer = setTimeout(function () { el.classList.remove('tr-toast-show'); }, opts.duration || 2600);
   }
 
-  // ---- One-tap button group (Boxeo/MuayThai difficulty scale uses this) ----
+  // ---- One-tap button group — shared 1-5 intensity scale, same options
+  // feeding both Boxeo/MuayThai's "Dificultad percibida" (cardio.difficulty)
+  // and Pesas' "Intensidad" (sessionMetrics.intensity). One label set so the
+  // scale reads the same regardless of discipline; the values are what
+  // gymMuscleFatigue.js's intensityMultiplier keys off. ----
   const DIFFICULTY_OPTIONS = [
     { value: 1, label: '1 · Suave' },
-    { value: 2, label: '2' },
-    { value: 3, label: '3 · Media' },
-    { value: 4, label: '4' },
-    { value: 5, label: '5 · Muy duro' },
+    { value: 2, label: '2 · Ligero' },
+    { value: 3, label: '3 · Medio' },
+    { value: 4, label: '4 · Duro' },
+    { value: 5, label: '5 · Máximo' },
   ];
 
   function renderButtonGroup(container, options, selectedValue, onSelect) {
@@ -563,6 +567,7 @@
   let pesasLogRows = [];   // [{rowId, name, sets:[{reps,weight,rir}]}]
   let pesasLogRowSeq = 0;
   let pesasLogDatePicker = null; // lazily created, reset to "Hoy" every time
+  let pesasLogIntensity = null;  // 1..5, required — null renders with no pill active
 
   // RIR (reps in reserve) or Fallo (failure) — optional per-set effort tag.
   // Purely informational: stored as `sets[].rir` (already part of the
@@ -602,6 +607,17 @@
     refreshExerciseNameDatalist();
     const repeatBtn = $('trPesasLogRepeatBtn');
     if (repeatBtn) repeatBtn.disabled = !findLastPesasWorkout();
+
+    // Session metrics (CAMBIO 2) — intensity starts unselected (no active
+    // pill) so the required field visibly needs a tap; the rest are blank,
+    // never pre-filled, so an untouched optional field saves as null.
+    pesasLogIntensity = null;
+    window.renderButtonGroup($('trPesasIntensityGroup'), window.DIFFICULTY_OPTIONS, pesasLogIntensity, function (v) { pesasLogIntensity = v; });
+    $('trPesasDuration').value = '';
+    $('trPesasTimeOfDay').value = '';
+    $('trPesasAvgHr').value = '';
+    $('trPesasMaxHr').value = '';
+
     $('trPesasLogModalBg').classList.add('show');
   }
   function closePesasLogModal() { $('trPesasLogModalBg').classList.remove('show'); }
@@ -686,11 +702,22 @@
   }
 
   function savePesasLog() {
+    if (pesasLogIntensity == null) { $('trPesasLogStatus').textContent = 'Elegí la intensidad de la sesión.'; return; }
     const date = pesasLogDatePicker ? pesasLogDatePicker.getSelectedDateKey() : new Date().toISOString().slice(0, 10);
     const rawExercises = pesasLogRows
       .map(function (r) { return { name: r.name.trim(), sets: r.sets.filter(function (s) { return s.reps > 0; }) }; })
       .filter(function (r) { return r.name && r.sets.length; });
     if (!rawExercises.length) { $('trPesasLogStatus').textContent = 'Agregá al menos un ejercicio con una serie válida.'; return; }
+
+    // Empty optional input -> null, never a spurious 0.
+    const num = function (id) { const v = $(id).value; return v === '' ? null : Number(v); };
+    const sessionMetrics = {
+      avgHr: num('trPesasAvgHr'),
+      maxHr: num('trPesasMaxHr'),
+      durationMin: num('trPesasDuration'),
+      timeOfDay: $('trPesasTimeOfDay').value || null,
+      intensity: pesasLogIntensity,
+    };
 
     const allWorkoutsBefore = window.WH.getAllWorkouts();
     const partitioned = window.GymPesasStore.partitionWorkoutExercises(date, rawExercises);
@@ -699,7 +726,7 @@
 
     if (partitioned.keptExercises.length) {
       const workout = window.WH.normalizeWorkout({
-        date: date, title: 'Pesas', source: 'manual', discipline: 'pesas', exercises: partitioned.keptExercises,
+        date: date, title: 'Pesas', source: 'manual', discipline: 'pesas', exercises: partitioned.keptExercises, sessionMetrics: sessionMetrics,
       }, 'manual');
       window.WH.appendWorkout(workout);
       window.WH.commit(workout);
@@ -876,6 +903,27 @@
     $('trCardioSave').addEventListener('click', saveCardio);
   }
 
+  // Measured HR (sessionMetrics.avgHr/maxHr) for a pesas session, or — when
+  // nothing was measured but intensity was logged — an estimateHrRange
+  // fallback tagged "(estimado)". Purely cosmetic display string: this
+  // never feeds computeMuscleFatigue or computeSessionLoad, same rule as
+  // boxeo's HR estimate.
+  function pesasHrLineFor(session) {
+    const m = session && session.sessionMetrics;
+    if (!m) return '';
+    if (m.avgHr != null || m.maxHr != null) {
+      const parts = [];
+      if (m.avgHr != null) parts.push(m.avgHr);
+      if (m.maxHr != null) parts.push('máx ' + m.maxHr);
+      return 'HR: ' + parts.join(' / ') + ' bpm';
+    }
+    if (m.intensity != null && window.GymEcosystem && window.GymEcosystem.estimateHrRange) {
+      const hr = window.GymEcosystem.estimateHrRange(m.intensity);
+      if (hr) return 'HR: ' + hr.low + '–' + hr.high + ' bpm (estimado)';
+    }
+    return '';
+  }
+
   // ============================================================
   // ANALYTICS — period-comparison charts (one component, 3 instances) +
   // per-exercise PR progression. Untouched by the Pesas rework.
@@ -899,6 +947,11 @@
       // against — computeWeekOverWeek reports a synthetic 100% off a zero
       // baseline, which would read as a misleading "doubled" claim here.
       window.renderPeriodComparisonChart('trWeeklyVolSvg', { thisPeriod: vol.thisWeek, lastPeriod: vol.lastWeek, unit: 'kg', deltaPct: vol.lastWeek > 0 ? vol.deltaPct : null });
+    }
+    const hrLineEl = $('trPesasLastHr');
+    if (hrLineEl) {
+      const lastPesas = sessions.find(function (w) { return (w.discipline || 'pesas') === 'pesas'; });
+      hrLineEl.textContent = pesasHrLineFor(lastPesas);
     }
 
     const cardioMin = window.GymDomain.computeWeekOverWeek(
