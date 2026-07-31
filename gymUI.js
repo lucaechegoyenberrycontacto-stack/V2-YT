@@ -719,6 +719,7 @@
     renderTrHomeStats();
     renderMuscleMap();
     renderPeriodCharts();
+    renderBoxeoInsights();
     renderExerciseProgression();
     renderMobilityHistory();
   }
@@ -860,6 +861,7 @@
     renderTrHomeStats();
     renderMuscleMap();
     renderPeriodCharts();
+    renderBoxeoInsights();
   }
 
   function initCardioModal() {
@@ -924,6 +926,43 @@
     showOrEmpty('trMuscleVolSvg', 'trMuscleVolEmpty', hasMuscleVol);
     if (hasMuscleVol) {
       window.renderMuscleVolumeChart('trMuscleVolSvg', muscleVol);
+    }
+  }
+
+  // ============================================================
+  // BOXEO/MUAY THAI — session load ring + cosmetic HR estimate (most recent
+  // session) + weekly load trend. Same muscleFatigueConfig lookup as
+  // renderTrHomeStats() above so the intensity curve driving the ring
+  // matches the one driving the muscle map. HR is display-only: it reads
+  // window.GymEcosystem.estimateHrRange but that value is never passed into
+  // computeMuscleFatigue or computeSessionLoad.
+  // ============================================================
+  function renderBoxeoInsights() {
+    const sessions = (window.WH && window.WH.getAllWorkouts) ? window.WH.getAllWorkouts() : [];
+    const config = (window.GymPesasStore && window.GymPesasStore.getMuscleFatigueConfig) ? window.GymPesasStore.getMuscleFatigueConfig() : window.DEFAULT_MUSCLE_FATIGUE_CONFIG;
+
+    // getAllWorkouts() is already sorted most-recent-first (whSortedWorkouts).
+    const last = sessions.find(function (w) { return w.discipline === 'boxeo_muaythai'; });
+    const hasLast = !!(last && last.cardio);
+    if ($('trBoxeoLastEmpty')) $('trBoxeoLastEmpty').classList.toggle('hidden', hasLast);
+    if ($('trBoxeoLastWrap')) $('trBoxeoLastWrap').classList.toggle('hidden', !hasLast);
+    if (hasLast) {
+      const load = window.GymDomain.computeSessionLoad(last, config);
+      window.renderLoadRing('trBoxeoLoadRingSvg', load);
+      const hr = window.GymEcosystem.estimateHrRange(last.cardio.difficulty);
+      $('trBoxeoHrEstimate').textContent = hr ? ('HR estimado: ' + hr.low + '–' + hr.high + ' bpm') : '';
+    }
+
+    const weeklyLoad = window.GymDomain.computeWeekOverWeek(
+      sessions,
+      function (w) { return window.GymDomain.computeSessionLoad(w, config).score; },
+      function (w) { return w.discipline === 'boxeo_muaythai'; }
+    );
+    const hasWeeklyLoad = weeklyLoad.thisWeek > 0 || weeklyLoad.lastWeek > 0;
+    if ($('trBoxeoLoadTrendSvg')) $('trBoxeoLoadTrendSvg').classList.toggle('hidden', !hasWeeklyLoad);
+    if ($('trBoxeoLoadTrendEmpty')) $('trBoxeoLoadTrendEmpty').classList.toggle('hidden', hasWeeklyLoad);
+    if (hasWeeklyLoad) {
+      window.renderPeriodComparisonChart('trBoxeoLoadTrendSvg', { thisPeriod: weeklyLoad.thisWeek, lastPeriod: weeklyLoad.lastWeek, unit: 'carga', deltaPct: weeklyLoad.lastWeek > 0 ? weeklyLoad.deltaPct : null });
     }
   }
 
@@ -1115,6 +1154,7 @@
     renderTrCards();
     renderTrHomeStats();
     renderPeriodCharts();
+    renderBoxeoInsights();
     renderExerciseProgression();
     renderMobilityHistory();
     // Any remote gym_pesas_store pull/realtime update should refresh
@@ -1126,17 +1166,17 @@
     // appendSyncNoteIfError() above.
     window.gpsOnSyncStatusChange = function () { renderMuscleMap(); };
 
-    // Re-draw the 3 period-comparison charts (weekly volume, cardio
-    // minutes, distance) when the viewport actually changes size — their
-    // SVG viewBox width is sized off the real rendered width (see
-    // gymCharts.js), so it goes stale on resize/rotation without this.
-    // Same debounce-then-redraw idea as health.html's sleep chart
-    // ResizeObserver, but window-level since these scale with the
+    // Re-draw the period-comparison charts (weekly volume, cardio minutes,
+    // distance, Boxeo/Muay Thai load ring + trend) when the viewport
+    // actually changes size — their SVG viewBox width is sized off the real
+    // rendered width (see gymCharts.js), so it goes stale on resize/rotation
+    // without this. Same debounce-then-redraw idea as health.html's sleep
+    // chart ResizeObserver, but window-level since these scale with the
     // viewport, not an independently-resizable container.
     let periodChartResizeTimer = null;
     function redrawPeriodCharts() {
       clearTimeout(periodChartResizeTimer);
-      periodChartResizeTimer = setTimeout(renderPeriodCharts, 150);
+      periodChartResizeTimer = setTimeout(function () { renderPeriodCharts(); renderBoxeoInsights(); }, 150);
     }
     window.addEventListener('resize', redrawPeriodCharts);
     window.addEventListener('orientationchange', redrawPeriodCharts);

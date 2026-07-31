@@ -169,4 +169,58 @@
   }
 
   window.renderMuscleVolumeChart = renderMuscleVolumeChart;
+
+  /**
+   * 0-100 donut/ring for a single session's load score (GymDomain.
+   * computeSessionLoad) — number centered, threshold label below, same
+   * sweep-in motion as gym.html's stepsAnimateNumber (ease-out quad).
+   * Color is a severity signal (green->amber->red as load climbs), unlike
+   * the neutral tr-mvol-bar-high — a single session reading "Muy alta" is
+   * actionable in a way a muscle group trained above the weekly reference
+   * band isn't.
+   * @param {SVGElement|string} target   An <svg> element, or its id.
+   * @param {{score:number, label:string}} opts
+   */
+  function renderLoadRing(target, opts) {
+    const svg = typeof target === 'string' ? document.getElementById(target) : target;
+    if (!svg) return;
+    opts = opts || {};
+    const score = Math.max(0, Math.min(100, Number(opts.score) || 0));
+    const label = opts.label || '';
+
+    // Square, sized off the real rendered width — same 1:1 coordinate-system
+    // technique as the other charts in this file.
+    const W = svg.getBoundingClientRect().width || 160;
+    const cx = W / 2, cy = W / 2;
+    const r = W / 2 - 12;
+    const circumference = 2 * Math.PI * r;
+    const targetOffset = circumference * (1 - score / 100);
+    const cls = score <= 25 ? 'tr-load-ring-arc-low'
+      : score <= 50 ? 'tr-load-ring-arc-mid'
+      : score <= 75 ? 'tr-load-ring-arc-high'
+      : 'tr-load-ring-arc-veryhigh';
+
+    svg.setAttribute('viewBox', '0 0 ' + W.toFixed(1) + ' ' + W.toFixed(1));
+    svg.innerHTML =
+      '<circle class="tr-load-ring-track" cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" r="' + r.toFixed(1) + '"></circle>'
+      + '<circle class="tr-load-ring-arc ' + cls + '" cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" r="' + r.toFixed(1) + '" '
+      +   'stroke-dasharray="' + circumference.toFixed(1) + '" stroke-dashoffset="' + circumference.toFixed(1) + '" '
+      +   'transform="rotate(-90 ' + cx.toFixed(1) + ' ' + cy.toFixed(1) + ')"></circle>'
+      + '<text class="tr-load-ring-val" x="' + cx.toFixed(1) + '" y="' + (cy - 2).toFixed(1) + '" text-anchor="middle">0</text>'
+      + '<text class="tr-load-ring-label" x="' + cx.toFixed(1) + '" y="' + (cy + 20).toFixed(1) + '" text-anchor="middle">' + escapeHtml(label) + '</text>';
+
+    const arcEl = svg.querySelector('.tr-load-ring-arc');
+    const valEl = svg.querySelector('.tr-load-ring-val');
+    const start = performance.now(), duration = 500;
+    function frame(now) {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 2);
+      valEl.textContent = Math.round(score * eased);
+      arcEl.setAttribute('stroke-dashoffset', (circumference - (circumference - targetOffset) * eased).toFixed(1));
+      if (t < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  window.renderLoadRing = renderLoadRing;
 })();

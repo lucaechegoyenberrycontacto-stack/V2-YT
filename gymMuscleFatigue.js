@@ -31,11 +31,25 @@
       'Cuello':           { recoveryHours: 48, weight: 1.0 },
     },
     cardioMuscleMap: {
-      boxeo:    { 'Hombros': 0.6, 'Antebrazos': 0.5, 'Abdominales/Core': 0.4, 'Espalda alta': 0.3 },
-      muaythai: { 'Cuádriceps': 0.5, 'Isquiotibiales': 0.4, 'Abdominales/Core': 0.5, 'Hombros': 0.4 },
+      // Boxeo stays upper-body/core; Muay Thai adds glúteos/gemelos/tríceps
+      // (checks, clinch, teeps) so it reads as clearly more lower-body/core
+      // loaded than boxeo, matching the sport's actual demand.
+      boxeo:    { 'Hombros': 0.6, 'Antebrazos': 0.5, 'Abdominales/Core': 0.5, 'Espalda alta': 0.35, 'Tríceps': 0.35, 'Cuello': 0.2 },
+      muaythai: { 'Cuádriceps': 0.6, 'Isquiotibiales': 0.45, 'Glúteos': 0.45, 'Gemelos': 0.5, 'Abdominales/Core': 0.55, 'Hombros': 0.4, 'Cuello': 0.25 },
       running:  { 'Cuádriceps': 0.6, 'Isquiotibiales': 0.5, 'Gemelos': 0.6, 'Glúteos': 0.4 },
       bici:     { 'Cuádriceps': 0.7, 'Isquiotibiales': 0.3, 'Gemelos': 0.4, 'Glúteos': 0.3 },
     },
+    // Applied as a LAYER on top of cardioMuscleMap's per-muscle units (never
+    // baked into the map itself, so previously-saved user configs keep the
+    // map's shape). Curve is deliberately non-linear — level 3 is the
+    // neutral baseline (1.0, matches pre-intensity behavior exactly), level
+    // 5 tops out at 1.75x (a hard sparring session is meaningfully harder
+    // than a light one, but not "5x" hard), level 1 is a regenerative
+    // session at 0.6x. Read by computeMuscleFatigue below AND by
+    // GymDomain.computeSessionLoad (gymDomain.js) — defined once here so
+    // both stay in sync; a session with no/invalid difficulty (legacy
+    // running/bici entries included) falls back to 1.0, i.e. unchanged.
+    intensityMultiplier: { 1: 0.6, 2: 0.8, 3: 1.0, 4: 1.35, 5: 1.75 },
     // Daily multiplier (>=1.0), applied EQUALLY to every muscle's
     // recoveryHours for sessions logged on a given date — never
     // differentiated per muscle. Each signal contributes 1.0 (neutral)
@@ -98,6 +112,14 @@
     }
 
     const cardioMuscleMap = config.cardioMuscleMap || {};
+    // Difficulty is 1-5 informational input on boxeo/muaythai sessions only;
+    // any other/missing value (running, bici, legacy entries) is a no-op
+    // multiplier so behavior for those stays exactly as before.
+    function intensityFactorFor(difficulty) {
+      const table = config.intensityMultiplier;
+      const v = table && table[difficulty];
+      return (typeof v === 'number' && v > 0) ? v : 1;
+    }
     (sessions || []).forEach(function (w) {
       const sessionDate = new Date(w.date);
       if (isNaN(sessionDate.getTime())) return;
@@ -106,8 +128,9 @@
 
       if (w.cardio) {
         const map = cardioMuscleMap[w.cardio.subtype] || {};
+        const intensityFactor = intensityFactorFor(w.cardio.difficulty);
         Object.keys(map).forEach(function (muscle) {
-          addLoad(muscle, (w.cardio.duration || 0) * map[muscle], hoursAgo, w.date);
+          addLoad(muscle, (w.cardio.duration || 0) * map[muscle] * intensityFactor, hoursAgo, w.date);
         });
       } else {
         (w.exercises || []).forEach(function (ex) {

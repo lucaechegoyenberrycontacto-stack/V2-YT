@@ -1522,6 +1522,27 @@ img, video, canvas, svg { max-width: 100%; }
 .cht-delta-pos { fill: var(--success); }
 .cht-delta-neg { fill: var(--danger); }
 
+/* Session-load ring (renderLoadRing, gymCharts.js) — Boxeo/Muay Thai only.
+   Track/label sizing mirrors .tr-home-stat-val/-label (hero-number
+   convention) scaled up since the ring is this card's sole focus. Arc color
+   is a severity signal by load threshold, same green->amber->red logic as
+   the rest of the module's status colors. */
+.tr-load-ring-wrap { display: flex; justify-content: center; padding: 8px 0 4px; }
+.tr-load-ring-svg { width: 160px; height: 160px; display: block; }
+.tr-load-ring-track { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 10; }
+.tr-load-ring-arc { fill: none; stroke-width: 10; stroke-linecap: round; }
+.tr-load-ring-arc-low { stroke: var(--text-tertiary); }
+.tr-load-ring-arc-mid { stroke: var(--success); }
+.tr-load-ring-arc-high { stroke: var(--warning); }
+.tr-load-ring-arc-veryhigh { stroke: var(--danger); }
+.tr-load-ring-val { font-size: 28px; font-weight: 800; fill: var(--text-primary); font-family: var(--font-mono); }
+.tr-load-ring-label { font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; fill: var(--text-tertiary); font-family: var(--font-mono); }
+
+/* HR estimate line under the load ring — deliberately muted/small so it
+   never reads as a measured value (it's derived from `difficulty` only,
+   see gymEcosystem.js estimateHrRange). */
+.tr-hr-estimate { font-size: 11.5px; color: var(--text-tertiary); margin-top: 8px; text-align: center; }
+
 /* ----- Unified chart tooltip (cht-) — same recipe as habits.html's
    .hb-week-tooltip, reused here for a consistent look. Any chart wrap
    that wants one just needs position:relative (.wh-freq-wrap already has
@@ -2075,6 +2096,28 @@ img, video, canvas, svg { max-width: 100%; }
         <div class="wh-freq-wrap">
           <div class="po-empty" id="trDistanceEmpty">Registrá una sesión de Running o Bici con distancia para ver esto.</div>
           <svg class="wh-freq-svg hidden" id="trDistanceSvg" viewBox="0 0 700 220"></svg>
+        </div>
+      </div>
+
+      <!-- Boxeo/Muay Thai — session load ring + cosmetic HR estimate for the
+           most recent session (window.GymDomain.computeSessionLoad /
+           window.GymEcosystem.estimateHrRange). The HR line is informational
+           only and never feeds the muscle map. -->
+      <div class="wh-block">
+        <div class="wh-block-title">Boxeo / Muay Thai — última sesión</div>
+        <div class="po-empty" id="trBoxeoLastEmpty">Registrá una sesión de Boxeo/Muay Thai para ver esto.</div>
+        <div class="tr-load-ring-wrap hidden" id="trBoxeoLastWrap">
+          <div style="text-align:center;">
+            <svg class="tr-load-ring-svg" id="trBoxeoLoadRingSvg"></svg>
+            <div class="tr-hr-estimate" id="trBoxeoHrEstimate"></div>
+          </div>
+        </div>
+      </div>
+      <div class="wh-block">
+        <div class="wh-block-title">Carga semanal (Boxeo/Muay Thai)</div>
+        <div class="wh-freq-wrap">
+          <div class="po-empty" id="trBoxeoLoadTrendEmpty">Registrá sesiones de Boxeo/Muay Thai para ver la tendencia semanal.</div>
+          <svg class="wh-freq-svg hidden" id="trBoxeoLoadTrendSvg" viewBox="0 0 700 220"></svg>
         </div>
       </div>
 

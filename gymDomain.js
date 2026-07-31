@@ -126,11 +126,52 @@
     return streak;
   }
 
+  // Same lookup gymMuscleFatigue.js's computeMuscleFatigue uses, reimplemented
+  // here rather than imported so this module stays independently loadable —
+  // same reasoning gymEcosystem.js documents for its own reimplemented
+  // helpers. The CURVE itself (the actual multiplier numbers) is defined
+  // exactly once, in gymMuscleFatigue.js's DEFAULT_MUSCLE_FATIGUE_CONFIG —
+  // both this and the fatigue engine just read config.intensityMultiplier.
+  function intensityFactorFor(config, difficulty) {
+    const table = config && config.intensityMultiplier;
+    const v = table && table[difficulty];
+    return (typeof v === 'number' && v > 0) ? v : 1;
+  }
+
+  // 0-25 Baja / 26-50 Media / 51-75 Alta / 76-100 Muy alta.
+  function loadLabelFor(score) {
+    if (score <= 25) return 'Baja';
+    if (score <= 50) return 'Media';
+    if (score <= 75) return 'Alta';
+    return 'Muy alta';
+  }
+
+  // K calibrated so a typical boxeo/muaythai session (45 min, difficulty 3
+  // -> intensityFactor 1.0) lands at ~60: 45 * 1.0 * 1.33 ≈ 60, inside the
+  // requested 55-65 band for a "typical" session.
+  const SESSION_LOAD_K = 1.33;
+
+  // Meant for boxeo/muaythai sessions (the only discipline with a difficulty
+  // input) — non-cardio (pesas) sessions score 0/Baja. Cardio sessions
+  // without a difficulty (running/bici, or legacy entries) fall back to
+  // intensityFactor 1, i.e. a plain duration-based score.
+  // @param {Object} session  a normalized workout_history entry
+  // @param {Object} config   muscleFatigueConfig (reads config.intensityMultiplier)
+  // @returns {{score:number, label:string}} score clamped 0-100
+  function computeSessionLoad(session, config) {
+    if (!session || !session.cardio) return { score: 0, label: loadLabelFor(0) };
+    const duration = session.cardio.duration || 0;
+    const factor = intensityFactorFor(config, session.cardio.difficulty);
+    const score = Math.max(0, Math.min(100, Math.round(duration * factor * SESSION_LOAD_K)));
+    return { score: score, label: loadLabelFor(score) };
+  }
+
   window.GymDomain = {
     checkWeightPR: checkWeightPR,
     checkVolumePR: checkVolumePR,
     computeWeekOverWeek: computeWeekOverWeek,
     computeWeeklySetsByMuscle: computeWeeklySetsByMuscle,
     computeTrainingStreak: computeTrainingStreak,
+    computeSessionLoad: computeSessionLoad,
   };
 })();

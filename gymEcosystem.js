@@ -135,6 +135,28 @@
     return getEcosystemBreakdown(date, config, overrides).modifier;
   }
 
+  // Fixed HR zones per boxeo/muaythai difficulty (1-5) — generic effort-zone
+  // estimates for martial-arts cardio, NOT personalized (no age/resting-HR
+  // input) and NOT a measured value. Purely informational for the session
+  // detail view: this function is never called by computeMuscleFatigue or
+  // any load/fatigue math, and must stay that way — deriving fatigue load
+  // from difficulty AND from an HR estimate that is itself derived from the
+  // same difficulty would double-count the same signal.
+  const HR_RANGE_BY_DIFFICULTY = {
+    1: { low: 110, high: 130 },
+    2: { low: 125, high: 145 },
+    3: { low: 140, high: 160 },
+    4: { low: 155, high: 175 },
+    5: { low: 165, high: 185 },
+  };
+
+  // @param {number} difficulty  1-5
+  // @returns {{low:number, high:number}|null} null when difficulty isn't a known 1-5 value
+  function estimateHrRange(difficulty) {
+    const r = HR_RANGE_BY_DIFFICULTY[difficulty];
+    return r ? { low: r.low, high: r.high } : null;
+  }
+
   function joinEs(items) {
     if (items.length <= 1) return items.join('');
     if (items.length === 2) return items.join(' y ');
@@ -157,5 +179,6 @@
     getEcosystemBreakdown: getEcosystemBreakdown,
     computeEcosystemModifier: computeEcosystemModifier,
     describeEcosystemModifier: describeEcosystemModifier,
+    estimateHrRange: estimateHrRange,
   };
 })();
