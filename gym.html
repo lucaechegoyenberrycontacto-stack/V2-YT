@@ -292,6 +292,28 @@ img, video, canvas, svg { max-width: 100%; }
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' stroke='%2387847B' stroke-width='1.5' fill='none' stroke-linecap='round'/></svg>");
   background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px;
   text-overflow: ellipsis; overflow: hidden;
+  color-scheme: dark;
+}
+/* Closed control is themed above, but the native <option> popup ignores
+   those rules in some browsers (Edge/Chrome on Windows) and falls back to
+   a light popup with our light text color — unreadable except on hover.
+   color-scheme:dark fixes most; this covers the rest with an explicit
+   opaque dark background (native popups don't honor translucent fills). */
+.po-ex-select option,
+.po-ex-select optgroup {
+  background-color: #16161A;
+  color: var(--text-primary);
+}
+/* #trProgressionExSelect (gymUI.js renderExerciseProgression — the actual
+   live "choose exercise to see its progress" picker; .po-ex-select above is
+   dead CSS per UI_AUDIT.md, no HTML/JS ever applies that class) has the
+   same dark-closed/unstyled-popup problem, styled inline rather than via a
+   class — targeted by id here since that id is stable in the JS template. */
+#trProgressionExSelect { color-scheme: dark; }
+#trProgressionExSelect option,
+#trProgressionExSelect optgroup {
+  background-color: #16161A;
+  color: var(--text-primary);
 }
 .po-ex-select:focus {
   outline: none; border-color: rgba(255,255,255,0.40);
@@ -1619,6 +1641,14 @@ img, video, canvas, svg { max-width: 100%; }
   appearance: none; -webkit-appearance: none;
   padding-right: 4px; text-align: center; text-align-last: center;
   cursor: pointer;
+  color-scheme: dark;
+}
+/* Same dark-closed/unstyled-popup problem as the exercise pickers above —
+   this is the RIR/failure <select> in each logged set row. */
+.tr-pesas-set-rir option,
+.tr-pesas-set-rir optgroup {
+  background-color: #16161A;
+  color: var(--text-primary);
 }
 
 /* Home strip (streak / weekly volume / muscle teaser) + 4 discipline cards. */
