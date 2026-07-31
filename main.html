@@ -567,78 +567,6 @@ body::after {
   .gm-card { padding: 16px; }
   .gm-progress-num { font-size: 36px; }
 }
-
-/* ===== Component 5: "Pienso en ella" daily counter ===== */
-.gf-count-row {
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
-  margin-bottom: 16px; text-align: center;
-}
-.gf-count-num {
-  font-size: 48px; font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.03em;
-  color: var(--text-primary);
-  line-height: 1;
-}
-.gf-count-label {
-  font-size: 11px; font-weight: 600;
-  letter-spacing: 0.10em; text-transform: uppercase;
-  color: var(--text-tertiary);
-}
-.gf-plus-btn {
-  display: block; width: 100%;
-  padding: 18px;
-  border: 0; border-radius: 16px;
-  background: linear-gradient(180deg, #FFFFFF 0%, #E8E5DD 100%);
-  color: #0A0A0B;
-  font-family: inherit; font-size: 20px; font-weight: 800;
-  cursor: pointer;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.9),
-    0 2px 8px rgba(0,0,0,0.35),
-    0 8px 22px rgba(0,0,0,0.25);
-  transition: transform 0.1s, filter 0.15s;
-  margin-bottom: 14px;
-}
-.gf-plus-btn:hover { filter: brightness(1.06); transform: translateY(-1px); }
-.gf-plus-btn:active { transform: scale(0.97); }
-.gf-note-row { margin-bottom: 14px; }
-.gf-list { list-style: none; margin: 0; padding: 0; max-height: 280px; overflow-y: auto; }
-.gf-row {
-  display: flex; align-items: center; gap: 10px;
-  padding: 9px 12px; margin-bottom: 6px;
-  background: rgba(255,255,255,0.035);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 10px;
-}
-.gf-row-time {
-  font-family: var(--font-mono); font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-tertiary);
-  flex-shrink: 0; width: 42px;
-}
-.gf-row-note {
-  flex: 1; min-width: 0;
-  font-size: 13px; color: var(--text-primary);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.gf-row-del {
-  border: 0; background: transparent;
-  color: var(--text-tertiary);
-  font-size: 16px; cursor: pointer;
-  padding: 0 4px; opacity: 0.5; flex-shrink: 0;
-  transition: opacity 0.2s, color 0.2s;
-}
-.gf-row:hover .gf-row-del { opacity: 1; }
-.gf-row-del:hover { color: var(--danger); }
-.gf-empty {
-  text-align: center; font-size: 12.5px; font-style: italic;
-  color: var(--text-tertiary); padding: 14px 0;
-}
-@media (max-width: 480px) {
-  .gf-count-num { font-size: 40px; }
-  .gf-plus-btn { padding: 16px; font-size: 18px; }
-}
 </style>
 </head>
 <body>
@@ -719,22 +647,6 @@ body::after {
         <button type="button" id="tomorrowPolishBtn" class="gm-polish">✨ Polish</button>
         <div class="gm-status" id="tomorrowStatus"></div>
       </div>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">Pienso en ella</div>
-    <div class="gm-card" id="gfCard">
-      <div class="gf-count-row">
-        <span class="gf-count-num" id="gfCountNum">0</span>
-        <span class="gf-count-label">veces hoy</span>
-      </div>
-      <button type="button" id="gfPlusBtn" class="gf-plus-btn">＋1</button>
-      <div class="gf-note-row">
-        <input type="text" id="gfNoteInput" class="gm-input" placeholder="Nota opcional…" autocomplete="off" maxlength="200">
-      </div>
-      <ul id="gfList" class="gf-list"></ul>
-      <div id="gfEmpty" class="gf-empty">Todavía no hoy… pero seguro que sí 💭</div>
     </div>
   </div>
 
@@ -1312,97 +1224,6 @@ body::after {
     loadTomorrow
   );
 
-  // ============================================================
-  // "Pienso en ella" daily counter — own tiny collection
-  // (girlfriend_thoughts, id = today's date), no history/rollover
-  // concept like goals: only "today" is ever read or shown, so the
-  // generic storeGet/storeSet/goals:-prefix plumbing above doesn't
-  // apply here — a plain date-keyed map is enough. Persists through
-  // the same dlReady flag the goals DataLayer bridge below flips,
-  // rather than calling DataLayer.init() a second time.
-  // ============================================================
-  let dlGirlfriendByDate = {}; // 'YYYY-MM-DD' -> [{id, at, note}], only ever holds "today"
-
-  // Plain calendar day (midnight rollover) — deliberately NOT
-  // getActiveDateString()'s 6am-shifted "active date", which is a
-  // goals-specific business rule (Plan Tomorrow locked until 6 AM)
-  // that has nothing to do with this counter.
-  function gfTodayKey() { return dateToKey(new Date()); }
-
-  function gfGetToday() {
-    const list = dlGirlfriendByDate[gfTodayKey()];
-    return Array.isArray(list) ? list : [];
-  }
-  function gfSetToday(list) {
-    const key = gfTodayKey();
-    dlGirlfriendByDate = {}; // only "today" is ever kept in memory
-    dlGirlfriendByDate[key] = list;
-    if (dlReady) DataLayer.put('girlfriend_thoughts', key, { entries: list });
-  }
-  function gfFormatTime(ts) {
-    const d = new Date(ts);
-    return pad2(d.getHours()) + ':' + pad2(d.getMinutes());
-  }
-
-  function gfRender() {
-    const entries = gfGetToday();
-    document.getElementById('gfCountNum').textContent = entries.length;
-
-    const listEl = document.getElementById('gfList');
-    const emptyEl = document.getElementById('gfEmpty');
-    listEl.innerHTML = '';
-    emptyEl.style.display = entries.length === 0 ? 'block' : 'none';
-
-    entries.slice().sort((a, b) => b.at - a.at).forEach((entry) => {
-      const li = document.createElement('li');
-      li.className = 'gf-row';
-
-      const timeEl = document.createElement('span');
-      timeEl.className = 'gf-row-time';
-      timeEl.textContent = gfFormatTime(entry.at);
-      li.appendChild(timeEl);
-
-      const noteEl = document.createElement('span');
-      noteEl.className = 'gf-row-note';
-      // textContent only — never innerHTML with the raw user-typed note.
-      if (entry.note) noteEl.textContent = entry.note;
-      li.appendChild(noteEl);
-
-      const del = document.createElement('button');
-      del.type = 'button';
-      del.className = 'gf-row-del';
-      del.setAttribute('aria-label', 'Eliminar');
-      del.textContent = '×';
-      del.addEventListener('click', () => {
-        gfSetToday(gfGetToday().filter((e) => e.id !== entry.id));
-        gfRender();
-      });
-      li.appendChild(del);
-
-      listEl.appendChild(li);
-    });
-  }
-
-  document.getElementById('gfPlusBtn').addEventListener('click', () => {
-    const noteInput = document.getElementById('gfNoteInput');
-    const note = noteInput.value.trim();
-    const list = gfGetToday();
-    list.push({ id: crypto.randomUUID(), at: Date.now(), note: note });
-    gfSetToday(list);
-    noteInput.value = '';
-    gfRender();
-  });
-  document.getElementById('gfNoteInput').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('gfPlusBtn').click(); }
-  });
-
-  async function refreshGirlfriendCache() {
-    const key = gfTodayKey();
-    const row = await DataLayer.get('girlfriend_thoughts', key);
-    dlGirlfriendByDate = {};
-    dlGirlfriendByDate[key] = (row && Array.isArray(row.entries)) ? row.entries : [];
-  }
-
   // ---------- Boot ----------
   rollover();
   processStreak();
@@ -1410,7 +1231,6 @@ body::after {
   loadTomorrow();
   renderStreak();
   renderSleepSummary();
-  gfRender();
   startTicker();
 
   // Re-render when storage changes from another tab (or our bridged parent).
@@ -1476,16 +1296,6 @@ body::after {
     DataLayer.subscribe('goals_streak', async () => {
       await refreshGoalsCaches();
       renderStreak();
-    });
-
-    // "Pienso en ella" — independent of the goals bridge above, but
-    // shares this same DOMContentLoaded/DataLayer.init() call (and the
-    // dlReady flag it just flipped) rather than initializing twice.
-    await refreshGirlfriendCache();
-    gfRender();
-    DataLayer.subscribe('girlfriend_thoughts', async () => {
-      await refreshGirlfriendCache();
-      gfRender();
     });
   });
 })();
