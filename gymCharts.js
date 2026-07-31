@@ -14,7 +14,7 @@
 
   /**
    * @param {SVGElement|string} target    An <svg> element, or its id.
-   * @param {{thisPeriod:number, lastPeriod:number, unit?:string, thisLabel?:string, lastLabel?:string}} opts
+   * @param {{thisPeriod:number, lastPeriod:number, unit?:string, thisLabel?:string, lastLabel?:string, deltaPct?:number|null}} opts
    */
   function renderPeriodComparisonChart(target, opts) {
     const svg = typeof target === 'string' ? document.getElementById(target) : target;
@@ -25,13 +25,17 @@
     const unit = opts.unit || '';
     const thisLabel = opts.thisLabel || 'Esta semana';
     const lastLabel = opts.lastLabel || 'Semana pasada';
+    const deltaPct = (opts.deltaPct == null || isNaN(opts.deltaPct)) ? null : opts.deltaPct;
 
     // W matches the SVG's actual rendered pixel width (not a fixed unit) so
     // the internal coordinate system is always 1:1 with its on-screen size —
     // same technique as health.html's renderWeekChart. Avoids the squashed-
     // on-mobile distortion that preserveAspectRatio="none" used to paper over.
     const W = svg.getBoundingClientRect().width || 700, H = 220;
-    const padLeft = 40, padRight = 10, padTop = 22, padBottom = 30;
+    // padTop has room for both the value label AND (when present) the
+    // delta-% micro-label stacked above it, even when the current bar
+    // reaches all the way up to niceMax.
+    const padLeft = 40, padRight = 10, padTop = 32, padBottom = 30;
     const plotW = W - padLeft - padRight;
     const plotH = H - padTop - padBottom;
     const baseY = padTop + plotH;
@@ -58,13 +62,19 @@
     ];
 
     let barsHtml = '';
-    bars.forEach(function (b) {
+    bars.forEach(function (b, i) {
       const h = b.value > 0 ? Math.max(4, plotH * (b.value / niceMax)) : 0;
       const y = baseY - h;
       const valText = (Number.isInteger(b.value) ? b.value : b.value.toFixed(1)) + (unit ? ' ' + unit : '');
       barsHtml += '<rect class="tr-cmp-bar ' + b.cls + '" x="' + b.x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + barW.toFixed(1) + '" height="' + h.toFixed(1) + '" rx="4"></rect>';
       barsHtml += '<text class="wh-freq-val" x="' + (b.x + barW / 2).toFixed(1) + '" y="' + (y - 8).toFixed(1) + '" text-anchor="middle">' + escapeHtml(valText) + '</text>';
       barsHtml += '<text class="wh-freq-label" x="' + (b.x + barW / 2).toFixed(1) + '" y="' + (baseY + 20) + '" text-anchor="middle">' + escapeHtml(b.label) + '</text>';
+      // Delta-% micro-label, current bar only (i===1), stacked above its value.
+      if (i === 1 && deltaPct != null) {
+        const sign = deltaPct >= 0 ? '+' : '';
+        const cls = deltaPct >= 0 ? 'cht-delta-pos' : 'cht-delta-neg';
+        barsHtml += '<text class="cht-delta ' + cls + '" x="' + (b.x + barW / 2).toFixed(1) + '" y="' + (y - 21).toFixed(1) + '" text-anchor="middle">' + sign + Math.round(deltaPct) + '%</text>';
+      }
     });
 
     svg.setAttribute('viewBox', '0 0 ' + W.toFixed(1) + ' ' + H);
@@ -144,6 +154,17 @@
     });
 
     svg.setAttribute('viewBox', '0 0 ' + W.toFixed(1) + ' ' + H.toFixed(1));
+    // The shared .wh-freq-svg class fixes height at 220px for the OTHER 3
+    // charts in this module (which always have a fixed-height viewBox), but
+    // this one's viewBox height grows with the muscle-group row count (n
+    // can be well past what fits in 220px). Without this override, the
+    // default preserveAspectRatio="xMidYMid meet" uniformly downscales the
+    // whole chart to fit inside that fixed 220px box — every row and label
+    // shrinking to a fraction of its nominal size (measured: ~11px text
+    // rendering at ~6px, i.e. exactly the "texto microscópico" bug). Setting
+    // the actual rendered height to match H keeps the 1:1 scale the other
+    // charts already get from their matched viewBox/CSS dimensions.
+    svg.style.height = H.toFixed(1) + 'px';
     svg.innerHTML = svgHtml;
   }
 

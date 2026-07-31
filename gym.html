@@ -1517,6 +1517,41 @@ img, video, canvas, svg { max-width: 100%; }
 .tr-mvol-band { fill: rgba(255,255,255,0.05); }
 .tr-mvol-band-label { font-size: 10px; fill: var(--text-tertiary); font-family: var(--font-mono); }
 
+/* Delta micro-label on the period-comparison charts (renderPeriodComparisonChart) */
+.cht-delta { font-size: 10px; font-weight: 700; font-family: var(--font-mono); }
+.cht-delta-pos { fill: var(--success); }
+.cht-delta-neg { fill: var(--danger); }
+
+/* ----- Unified chart tooltip (cht-) — same recipe as habits.html's
+   .hb-week-tooltip, reused here for a consistent look. Any chart wrap
+   that wants one just needs position:relative (.wh-freq-wrap already has
+   it) and a .cht-tooltip child div. ----- */
+.cht-tooltip {
+  position: absolute; display: none; pointer-events: none;
+  transform: translate(-50%, calc(-100% - 10px));
+  background: rgba(20,20,24,0.97); border: 1px solid rgba(255,255,255,0.14);
+  color: var(--text-primary); font-size: 11px; font-weight: 700;
+  font-family: var(--font-mono); padding: 5px 9px; border-radius: 8px;
+  white-space: nowrap; box-shadow: 0 6px 18px rgba(0,0,0,0.45); z-index: 5;
+}
+
+/* ----- Progression chart (gymUI.js drawProgressionSvg) -----
+   Replaces the old min/max-normalized zigzag ("ECG spike" look) with a
+   proper axis+grid+area-fill line chart, one point per SESSION (not per
+   set — see aggregateSessionsForChart in gymUI.js). */
+.tr-progression-select {
+  width: 100%; margin-bottom: 10px; padding: 10px 12px;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: rgba(0,0,0,0.28); color: var(--text-primary);
+  font-family: inherit; font-size: 13px;
+}
+.cht-line { fill: none; stroke: var(--good); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.cht-area { fill: url(#trProgressionAreaGradient); }
+.cht-dot { fill: var(--good); stroke: var(--bg-card); stroke-width: 1.5; cursor: pointer; transition: r 0.15s; }
+.cht-dot-hit { fill: rgba(0,0,0,0.001); pointer-events: all; cursor: pointer; }
+.cht-dot-hit:hover + .cht-dot, .cht-dot:hover { r: 5; }
+.cht-point-label { font-size: 10px; font-weight: 700; fill: var(--text-secondary); font-family: var(--font-mono); }
+
 /* One-tap effort/difficulty selector (RIR/Fallo, Boxeo-MuayThai
    difficulty) — same visual language as .po-seg-btn but sized as
    individually-clickable pills instead of a single connected track,
@@ -2596,16 +2631,39 @@ img, video, canvas, svg { max-width: 100%; }
         + '<text class="wh-freq-yaxis-label" x="' + (padLeft - 8) + '" y="' + (y + 3).toFixed(1) + '" text-anchor="end">' + v + '</text>';
     }
 
+    // Thin out X-axis date labels rather than let them collide at narrow
+    // widths — same "estimate label width vs. available slot" technique
+    // used for the progression chart's date labels (gymUI.js). Always
+    // keeps the first and last (current week, already bar-highlighted).
+    const labels = data.map(d => d.weekStart ? (WH_MONTHS_SHORT[d.weekStart.getMonth()] + ' ' + d.weekStart.getDate()) : '');
+    const CHAR_W = 6.6; // calibrated in gymCharts.js's truncateLabel comment
+    const maxLabelW = Math.max.apply(null, labels.map(l => l.length * CHAR_W).concat([0]));
+    const slotW = barW + gap;
+    const showEvery = maxLabelW > slotW ? Math.ceil(maxLabelW / slotW) : 1;
+    // Building the shown-index set explicitly (rather than "i % showEvery
+    // === 0 || isCurrent") avoids the last bar's forced label landing
+    // *adjacent* to whichever modulo-selected label happens to fall just
+    // before it — e.g. n=8/showEvery=2 naively shows index 6 (modulo) AND
+    // 7 (forced-last), one slot apart, recreating the exact overlap this
+    // was meant to fix. Drop any modulo pick within showEvery of the end.
+    const shownIdx = {};
+    for (let i = 0; i < n; i += showEvery) shownIdx[i] = true;
+    shownIdx[n - 1] = true;
+    if (showEvery > 1) {
+      for (let i = 0; i < n - 1; i++) { if ((n - 1 - i) < showEvery) delete shownIdx[i]; }
+    }
+
     let bars = '';
     data.forEach((d, i) => {
       const x = padLeft + i * (barW + gap);
       const h = d.count > 0 ? Math.max(4, plotH * (d.count / niceMax)) : 0;
       const y = baseY - h;
       const isCurrent = i === data.length - 1;
-      const label = d.weekStart ? (WH_MONTHS_SHORT[d.weekStart.getMonth()] + ' ' + d.weekStart.getDate()) : '';
       bars += '<rect class="wh-freq-bar' + (isCurrent ? ' wh-freq-bar-current' : '') + '" x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + barW.toFixed(1) + '" height="' + h.toFixed(1) + '" rx="4"></rect>';
       bars += '<text class="wh-freq-val" x="' + (x + barW / 2).toFixed(1) + '" y="' + (y - 8).toFixed(1) + '" text-anchor="middle">' + d.count + '</text>';
-      bars += '<text class="wh-freq-label" x="' + (x + barW / 2).toFixed(1) + '" y="' + (baseY + 20) + '" text-anchor="middle">' + label + '</text>';
+      if (shownIdx[i]) {
+        bars += '<text class="wh-freq-label" x="' + (x + barW / 2).toFixed(1) + '" y="' + (baseY + 20) + '" text-anchor="middle">' + labels[i] + '</text>';
+      }
     });
     svg.setAttribute('viewBox', '0 0 ' + W.toFixed(1) + ' ' + H);
     svg.innerHTML = grid + bars;
