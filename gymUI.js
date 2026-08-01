@@ -72,71 +72,125 @@
   // behavior for every call site below.
 
   // ============================================================
-  // MUSCLE MAP — simplified anatomical front/back body diagram (Fitbod-
-  // style geometric silhouette: plain ellipses/rects, not medical
-  // accuracy). Every region shape lives on one shared 240×450 coordinate
-  // system so toggling Frente/Espalda never jumps the figure around.
-  // Hombros and Cuello are intentionally duplicated across both views
-  // (visible from front and back, same score/color in both) — union the
-  // front-only + back-only + shared regions and it's exactly the 13-entry
-  // window.MUSCLE_GROUPS enum, once each. Region shapes never hardcode a
-  // muscle list of their own beyond what's already in that enum.
+  // MUSCLE MAP — anatomical front/back body silhouette (Lyfta-style: a
+  // continuous human outline with muscles as shapes cut out inside it,
+  // not floating primitives). Every region shape lives on one shared
+  // coordinate system so toggling Frente/Espalda never jumps the figure
+  // around. Hombros and Cuello are intentionally duplicated across both
+  // views (visible from front and back, same score/color in both) —
+  // union the front-only + back-only + shared regions and it's exactly
+  // the 13-entry window.MUSCLE_GROUPS enum, once each. Region shapes
+  // never hardcode a muscle list of their own beyond what's already in
+  // that enum.
+  //
+  // Shape data origin: polygon coordinates adapted from
+  // react-body-highlighter (github.com/giavinh79/react-body-highlighter),
+  // MIT License, Copyright (c) 2020 GV79 — itself built from the SVG
+  // polygons of react-native-body-highlighter. Points were copied as-is
+  // (rounded to 2 decimals) from that library's `anteriorData`/
+  // `posteriorData` and its own "0 0 100 200" viewBox, then regrouped
+  // under our 13 Spanish muscle names below. Three adaptations from the
+  // source library, since its muscle set doesn't line up 1:1 with ours:
+  //   - Its separate "abductors" (front outer-thigh) and "adductor" (back
+  //     inner-thigh) shapes have no equivalent in MUSCLE_GROUPS, so they're
+  //     folded into the adjacent group they visually belong to (front outer
+  //     thigh → Cuádriceps, back inner thigh → Isquiotibiales) rather than
+  //     invented as new categories or left as unpainted gaps.
+  //   - It has no dedicated posterior neck polygon, so Cuello's back-view
+  //     shape reuses its anterior neck polygon verbatim (same coordinate
+  //     system, and the neck reads about the same width/position from
+  //     front or back in this flat illustration style).
+  //   - "head", "knees" and the front-view triceps sliver/calves shapes
+  //     don't correspond to any of our 13 groups either; they're kept as
+  //     non-interactive BODY_*_DECO fill so the silhouette still reads as
+  //     a complete body, same role the old ellipse-based head/hands/feet
+  //     deco shapes played.
   // ============================================================
-  const BODY_VIEWBOX = '0 0 240 450';
+  const BODY_VIEWBOX = '-4 -4 108 230';
 
   // Non-interactive shapes that exist purely so the figure reads as a
   // continuous human silhouette instead of floating disconnected blobs —
   // never tied to a muscle, never focusable.
-  const BODY_DECO_HEAD = { tag: 'ellipse', attrs: { cx: 120, cy: 32, rx: 24, ry: 28 } };
-  const BODY_DECO_HANDS = [
-    { tag: 'ellipse', attrs: { cx: 46, cy: 254, rx: 10, ry: 14 } },
-    { tag: 'ellipse', attrs: { cx: 194, cy: 254, rx: 10, ry: 14 } },
-  ];
-  const BODY_DECO_FEET = [
-    { tag: 'ellipse', attrs: { cx: 100, cy: 420, rx: 16, ry: 9 } },
-    { tag: 'ellipse', attrs: { cx: 140, cy: 420, rx: 16, ry: 9 } },
-  ];
-
   const BODY_FRONT_DECO = [
-    BODY_DECO_HEAD,
-    { tag: 'rect', attrs: { x: 90, y: 196, width: 60, height: 20, rx: 10 } }, // hip connector — front has no Glúteos region
-    { tag: 'ellipse', attrs: { cx: 100, cy: 368, rx: 14, ry: 42 } }, // lower legs — Gemelos is back-only
-    { tag: 'ellipse', attrs: { cx: 140, cy: 368, rx: 14, ry: 42 } },
-  ].concat(BODY_DECO_HANDS, BODY_DECO_FEET);
+    { tag: 'polygon', attrs: { points: '42.45 2.86 40 11.84 42.04 19.59 46.12 23.27 49.8 25.31 54.69 22.45 57.55 19.18 59.18 10.2 57.14 2.45 49.8 0' } }, // head
+    { tag: 'polygon', attrs: { points: '69.39 55.51 69.39 61.63 75.92 72.65 77.55 70.2 75.51 67.35' } }, // triceps sliver — Tríceps is back-only
+    { tag: 'polygon', attrs: { points: '22.45 69.39 29.8 55.51 29.8 60.82 22.86 73.06' } },
+    { tag: 'polygon', attrs: { points: '33.88 140 34.69 143.27 35.51 147.35 36.33 151.02 35.1 156.73 29.8 156.73 27.35 152.65 27.35 147.35 30.2 144.08' } }, // knees
+    { tag: 'polygon', attrs: { points: '65.71 140 72.24 147.76 72.24 152.24 69.8 157.14 64.9 156.73 62.86 151.02' } },
+    { tag: 'polygon', attrs: { points: '71.43 160.41 73.47 153.47 76.73 161.22 79.59 167.76 78.37 187.76 79.59 195.51 74.69 195.51' } }, // lower legs — Gemelos is back-only
+    { tag: 'polygon', attrs: { points: '24.9 194.69 27.76 164.9 28.16 160.41 26.12 154.29 24.9 157.55 22.45 161.63 20.82 167.76 22.04 188.16 20.82 195.51' } },
+    { tag: 'polygon', attrs: { points: '72.65 195.1 69.8 159.18 65.31 158.37 64.08 162.45 64.08 165.31 65.71 177.14' } },
+    { tag: 'polygon', attrs: { points: '35.51 158.37 35.92 162.45 35.92 166.94 35.1 172.24 35.1 176.73 32.24 182.04 30.61 187.35 26.94 194.69 27.35 187.76 28.16 180.41 28.57 175.51 28.98 169.8 29.8 164.08 30.2 158.78' } },
+  ];
 
   const BODY_FRONT_REGIONS = [
-    { muscle: 'Cuello', tag: 'rect', attrs: { x: 108, y: 56, width: 24, height: 18, rx: 6 } },
-    { muscle: 'Hombros', tag: 'ellipse', attrs: { cx: 72, cy: 92, rx: 24, ry: 20 } },
-    { muscle: 'Hombros', tag: 'ellipse', attrs: { cx: 168, cy: 92, rx: 24, ry: 20 } },
-    { muscle: 'Pecho', tag: 'rect', attrs: { x: 90, y: 74, width: 60, height: 64, rx: 18 } },
-    { muscle: 'Bíceps', tag: 'ellipse', attrs: { cx: 58, cy: 140, rx: 16, ry: 42 } },
-    { muscle: 'Bíceps', tag: 'ellipse', attrs: { cx: 182, cy: 140, rx: 16, ry: 42 } },
-    { muscle: 'Antebrazos', tag: 'ellipse', attrs: { cx: 50, cy: 210, rx: 13, ry: 36 } },
-    { muscle: 'Antebrazos', tag: 'ellipse', attrs: { cx: 190, cy: 210, rx: 13, ry: 36 } },
-    { muscle: 'Abdominales/Core', tag: 'rect', attrs: { x: 94, y: 140, width: 52, height: 58, rx: 14 } },
-    { muscle: 'Cuádriceps', tag: 'ellipse', attrs: { cx: 100, cy: 270, rx: 20, ry: 58 } },
-    { muscle: 'Cuádriceps', tag: 'ellipse', attrs: { cx: 140, cy: 270, rx: 20, ry: 58 } },
+    { muscle: 'Cuello', tag: 'polygon', attrs: { points: '55.51 23.67 50.61 33.47 50.61 39.18 61.63 40 70.61 44.9 69.39 36.73 63.27 35.1 58.37 30.61' } },
+    { muscle: 'Cuello', tag: 'polygon', attrs: { points: '28.98 44.9 30.2 37.14 36.33 35.1 41.22 30.2 44.49 24.49 48.98 33.88 48.57 39.18 37.96 39.59' } },
+    { muscle: 'Hombros', tag: 'polygon', attrs: { points: '78.37 53.06 79.59 47.76 79.18 41.22 75.92 37.96 71.02 36.33 72.24 42.86 71.43 47.35' } },
+    { muscle: 'Hombros', tag: 'polygon', attrs: { points: '28.16 47.35 21.22 53.06 20 47.76 20.41 40.82 24.49 37.14 28.57 37.14 26.94 43.27' } },
+    { muscle: 'Pecho', tag: 'polygon', attrs: { points: '51.84 41.63 51.02 55.1 57.96 57.96 67.76 55.51 70.61 47.35 62.04 41.63' } },
+    { muscle: 'Pecho', tag: 'polygon', attrs: { points: '29.8 46.53 31.43 55.51 40.82 57.96 48.16 55.1 47.76 42.04 37.55 42.04' } },
+    { muscle: 'Bíceps', tag: 'polygon', attrs: { points: '16.73 68.16 17.96 71.43 22.86 66.12 28.98 53.88 27.76 49.39 20.41 55.92' } },
+    { muscle: 'Bíceps', tag: 'polygon', attrs: { points: '71.43 49.39 70.2 54.69 76.33 66.12 81.63 71.84 82.86 68.98 78.78 55.51' } },
+    { muscle: 'Antebrazos', tag: 'polygon', attrs: { points: '6.12 88.57 10.2 75.1 14.69 70.2 16.33 74.29 19.18 73.47 4.49 97.55 0 100' } },
+    { muscle: 'Antebrazos', tag: 'polygon', attrs: { points: '84.49 69.8 83.27 73.47 80 73.06 95.1 98.37 100 100.41 93.47 89.39 89.8 76.33' } },
+    { muscle: 'Antebrazos', tag: 'polygon', attrs: { points: '77.55 72.24 77.55 77.55 80.41 84.08 85.31 89.8 92.24 101.22 94.69 99.59' } },
+    { muscle: 'Antebrazos', tag: 'polygon', attrs: { points: '6.94 101.22 13.47 90.61 18.78 84.08 21.63 77.14 21.22 71.84 4.9 98.78' } },
+    { muscle: 'Abdominales/Core', tag: 'polygon', attrs: { points: '56.33 59.18 57.96 64.08 58.37 77.96 58.37 92.65 56.33 98.37 55.1 104.08 51.43 107.76 51.02 84.49 50.61 67.35 51.02 57.14' } },
+    { muscle: 'Abdominales/Core', tag: 'polygon', attrs: { points: '43.67 58.78 48.57 57.14 48.98 67.35 48.57 84.49 48.16 107.35 44.49 103.67 40.82 91.43 40.82 78.37 41.22 64.49' } },
+    { muscle: 'Abdominales/Core', tag: 'polygon', attrs: { points: '68.57 63.27 67.35 57.14 58.78 59.59 60 64.08 60.41 83.27 65.71 78.78 66.53 69.8' } },
+    { muscle: 'Abdominales/Core', tag: 'polygon', attrs: { points: '33.88 78.37 33.06 71.84 31.02 63.27 32.24 57.14 40.82 59.18 39.18 63.27 39.18 83.67' } },
+    { muscle: 'Cuádriceps', tag: 'polygon', attrs: { points: '34.69 98.78 37.14 108.16 37.14 127.76 34.29 137.14 31.02 132.65 29.39 120 28.16 111.43 29.39 100.82 32.24 94.69' } },
+    { muscle: 'Cuádriceps', tag: 'polygon', attrs: { points: '63.27 105.71 64.49 100 66.94 94.69 70.2 101.22 71.02 111.84 68.16 133.06 65.31 137.55 62.45 128.57 62.04 111.43' } },
+    { muscle: 'Cuádriceps', tag: 'polygon', attrs: { points: '38.78 129.39 38.37 112.24 41.22 118.37 44.49 129.39 42.86 135.1 40 146.12 36.33 146.53 35.51 140' } },
+    { muscle: 'Cuádriceps', tag: 'polygon', attrs: { points: '59.59 145.71 55.51 128.98 60.82 113.88 61.22 130.2 64.08 139.59 62.86 146.53' } },
+    { muscle: 'Cuádriceps', tag: 'polygon', attrs: { points: '32.65 138.37 26.53 145.71 25.71 136.73 25.71 127.35 26.94 114.29 29.39 133.47' } },
+    { muscle: 'Cuádriceps', tag: 'polygon', attrs: { points: '71.84 113.06 73.88 124.08 73.88 140.41 72.65 145.71 66.53 138.37 70.2 133.47' } },
+    { muscle: 'Cuádriceps', tag: 'polygon', attrs: { points: '52.65 110.2 54.29 124.9 60 110.2 62.04 100 64.9 94.29 60 92.65 56.73 104.49' } }, // outer thigh (source lib's "abductors") folded in — no matching group of its own
+    { muscle: 'Cuádriceps', tag: 'polygon', attrs: { points: '47.76 110.61 44.9 125.31 42.04 115.92 40.41 113.06 39.59 107.35 37.96 102.45 34.69 93.88 39.59 92.24 41.63 99.18 43.67 105.31' } },
   ];
 
   const BODY_BACK_DECO = [
-    BODY_DECO_HEAD,
-    { tag: 'ellipse', attrs: { cx: 50, cy: 210, rx: 13, ry: 36 } }, // forearms — Antebrazos is front-only
-    { tag: 'ellipse', attrs: { cx: 190, cy: 210, rx: 13, ry: 36 } },
-  ].concat(BODY_DECO_HANDS, BODY_DECO_FEET);
+    { tag: 'polygon', attrs: { points: '50.64 0 45.96 0.85 40.85 5.53 40.43 12.77 45.11 20 55.74 20 59.15 13.62 59.57 4.68 55.74 1.28' } }, // head
+    { tag: 'polygon', attrs: { points: '34.47 153.19 31.06 159.15 33.62 166.38 37.45 162.55' } }, // knees
+    { tag: 'polygon', attrs: { points: '66.38 153.62 62.98 162.98 66.81 166.38 69.36 159.15' } },
+    { tag: 'polygon', attrs: { points: '86.38 75.74 91.06 83.4 93.19 94.04 100 106.38 96.17 104.26 88.09 89.36 84.26 83.83' } }, // forearms — Antebrazos is front-only
+    { tag: 'polygon', attrs: { points: '13.62 75.74 8.94 83.83 6.81 93.62 0 106.38 3.83 104.26 12.34 88.51 15.74 82.98' } },
+    { tag: 'polygon', attrs: { points: '81.28 79.57 77.45 77.87 79.15 84.68 91.06 103.83 93.19 108.94 94.47 104.68' } },
+    { tag: 'polygon', attrs: { points: '18.72 79.57 22.13 77.87 20.85 84.26 9.36 102.98 6.81 108.51 5.11 104.68' } },
+  ];
 
   const BODY_BACK_REGIONS = [
-    { muscle: 'Cuello', tag: 'rect', attrs: { x: 108, y: 56, width: 24, height: 18, rx: 6 } },
-    { muscle: 'Hombros', tag: 'ellipse', attrs: { cx: 72, cy: 92, rx: 24, ry: 20 } },
-    { muscle: 'Hombros', tag: 'ellipse', attrs: { cx: 168, cy: 92, rx: 24, ry: 20 } },
-    { muscle: 'Espalda alta', tag: 'rect', attrs: { x: 84, y: 74, width: 72, height: 54, rx: 16 } },
-    { muscle: 'Espalda baja', tag: 'rect', attrs: { x: 90, y: 130, width: 60, height: 46, rx: 14 } },
-    { muscle: 'Tríceps', tag: 'ellipse', attrs: { cx: 58, cy: 140, rx: 16, ry: 42 } },
-    { muscle: 'Tríceps', tag: 'ellipse', attrs: { cx: 182, cy: 140, rx: 16, ry: 42 } },
-    { muscle: 'Glúteos', tag: 'rect', attrs: { x: 88, y: 178, width: 64, height: 42, rx: 18 } },
-    { muscle: 'Isquiotibiales', tag: 'ellipse', attrs: { cx: 100, cy: 270, rx: 20, ry: 58 } },
-    { muscle: 'Isquiotibiales', tag: 'ellipse', attrs: { cx: 140, cy: 270, rx: 20, ry: 58 } },
-    { muscle: 'Gemelos', tag: 'ellipse', attrs: { cx: 100, cy: 368, rx: 14, ry: 42 } },
-    { muscle: 'Gemelos', tag: 'ellipse', attrs: { cx: 140, cy: 368, rx: 14, ry: 42 } },
+    // Reused from the anterior NECK shape verbatim — see the origin note
+    // above the BODY_VIEWBOX comment block.
+    { muscle: 'Cuello', tag: 'polygon', attrs: { points: '55.51 23.67 50.61 33.47 50.61 39.18 61.63 40 70.61 44.9 69.39 36.73 63.27 35.1 58.37 30.61' } },
+    { muscle: 'Cuello', tag: 'polygon', attrs: { points: '28.98 44.9 30.2 37.14 36.33 35.1 41.22 30.2 44.49 24.49 48.98 33.88 48.57 39.18 37.96 39.59' } },
+    { muscle: 'Espalda alta', tag: 'polygon', attrs: { points: '44.68 21.7 47.66 21.7 47.23 38.3 47.66 64.68 38.3 53.19 35.32 40.85 31.06 36.6 39.15 33.19 43.83 27.23' } },
+    { muscle: 'Espalda alta', tag: 'polygon', attrs: { points: '52.34 21.7 55.74 21.7 56.6 27.23 60.85 32.77 68.94 36.6 64.68 40.43 61.7 53.19 52.34 64.68 53.19 38.3' } },
+    { muscle: 'Espalda alta', tag: 'polygon', attrs: { points: '31.06 38.72 28.09 48.94 28.51 55.32 34.04 75.32 47.23 71.06 47.23 66.38 36.6 54.04 33.62 41.28' } },
+    { muscle: 'Espalda alta', tag: 'polygon', attrs: { points: '68.94 38.72 71.91 49.36 71.49 56.17 65.96 75.32 52.77 71.06 52.77 66.38 63.4 54.47 66.38 41.7' } },
+    { muscle: 'Hombros', tag: 'polygon', attrs: { points: '29.36 37.02 22.98 39.15 17.45 44.26 18.3 53.62 24.26 49.36 27.23 46.38' } },
+    { muscle: 'Hombros', tag: 'polygon', attrs: { points: '71.06 37.02 78.3 39.57 82.55 44.68 81.7 53.62 74.89 48.94 72.34 45.11' } },
+    { muscle: 'Espalda baja', tag: 'polygon', attrs: { points: '47.66 72.77 34.47 77.02 35.32 83.4 49.36 102.13 46.81 82.98' } },
+    { muscle: 'Espalda baja', tag: 'polygon', attrs: { points: '52.34 72.77 65.53 77.02 64.68 83.4 50.64 102.13 53.19 83.83' } },
+    { muscle: 'Tríceps', tag: 'polygon', attrs: { points: '26.81 49.79 17.87 55.74 14.47 72.34 16.6 81.7 21.7 63.83 26.81 55.74' } },
+    { muscle: 'Tríceps', tag: 'polygon', attrs: { points: '73.62 50.21 82.13 55.74 85.96 73.19 83.4 82.13 77.87 62.98 73.19 55.74' } },
+    { muscle: 'Tríceps', tag: 'polygon', attrs: { points: '26.81 58.3 26.81 68.51 22.98 75.32 19.15 77.45 22.55 65.53' } },
+    { muscle: 'Tríceps', tag: 'polygon', attrs: { points: '72.77 58.3 77.02 64.68 80.43 77.45 76.6 75.32 72.77 68.94' } },
+    { muscle: 'Glúteos', tag: 'polygon', attrs: { points: '44.68 99.57 30.21 108.51 29.79 118.72 31.49 125.96 47.23 121.28 49.36 114.89' } },
+    { muscle: 'Glúteos', tag: 'polygon', attrs: { points: '55.32 99.15 51.06 114.47 52.34 120.85 68.09 125.96 69.79 119.15 69.36 108.51' } },
+    { muscle: 'Isquiotibiales', tag: 'polygon', attrs: { points: '28.94 122.13 31.06 129.36 36.6 125.96 35.32 135.32 34.47 150.21 29.36 158.3 28.94 146.81 27.66 141.28 27.23 131.49' } },
+    { muscle: 'Isquiotibiales', tag: 'polygon', attrs: { points: '71.49 121.7 69.36 128.94 63.83 125.96 65.53 136.6 66.38 150.21 71.06 158.3 71.49 147.66 72.77 142.13 73.62 131.91' } },
+    { muscle: 'Isquiotibiales', tag: 'polygon', attrs: { points: '38.72 125.53 44.26 145.96 40.43 166.81 36.17 152.77 37.02 135.32' } },
+    { muscle: 'Isquiotibiales', tag: 'polygon', attrs: { points: '61.7 125.53 63.4 136.17 64.26 153.19 60 166.81 56.17 146.38' } },
+    { muscle: 'Isquiotibiales', tag: 'polygon', attrs: { points: '48.09 122.98 44.68 122.98 41.28 125.53 45.11 144.26 48.51 135.74 48.94 129.36' } }, // inner thigh (source lib's "adductor") folded in — no matching group of its own
+    { muscle: 'Isquiotibiales', tag: 'polygon', attrs: { points: '51.91 122.55 55.74 123.4 59.15 125.96 54.89 144.26 51.91 136.17 51.06 129.36' } },
+    { muscle: 'Gemelos', tag: 'polygon', attrs: { points: '29.36 160.43 28.51 167.23 24.68 179.57 23.83 192.77 25.53 197.02 28.51 193.19 29.79 180 31.91 171.06 31.91 166.81' } },
+    { muscle: 'Gemelos', tag: 'polygon', attrs: { points: '37.45 165.11 35.32 167.66 33.19 171.91 31.06 180.43 30.21 191.91 34.04 200 38.72 190.64 39.15 168.94' } },
+    { muscle: 'Gemelos', tag: 'polygon', attrs: { points: '62.98 165.11 61.28 168.51 61.7 190.64 66.38 199.57 70.64 191.91 68.94 179.57 66.81 170.21' } },
+    { muscle: 'Gemelos', tag: 'polygon', attrs: { points: '70.64 160.43 72.34 168.51 75.74 179.15 76.6 192.77 74.47 196.6 72.34 193.62 70.64 179.57 68.09 168.09' } },
+    { muscle: 'Gemelos', tag: 'polygon', attrs: { points: '28.51 195.74 30.21 195.74 33.62 201.7 30.64 220 28.51 213.62 26.81 198.3' } }, // soleus, grouped under Gemelos (colloquial "pantorrillas/gemelos" covers both)
+    { muscle: 'Gemelos', tag: 'polygon', attrs: { points: '69.79 195.74 71.91 195.74 73.62 198.3 71.91 213.19 70.21 219.57 67.23 202.13' } },
   ];
 
   function svgTag(tag, attrs) {
@@ -159,6 +213,27 @@
     }).join('');
   }
 
+  // Legend chips mirror fatigueBodyFill's 4 outcomes one-to-one — colors
+  // come from the CSS classes below (same --text-tertiary/--success/
+  // --warning/--danger tokens fatigueBodyFill uses), never from a second
+  // copy of the score thresholds, so legend and body can't drift apart.
+  const MUSCLE_LEGEND_ITEMS = [
+    { cls: 'tr-legend-none', label: 'Sin entrenar' },
+    { cls: 'tr-legend-rest', label: 'Descansado' },
+    { cls: 'tr-legend-mid', label: 'Medio' },
+    { cls: 'tr-legend-high', label: 'Fatigado' },
+  ];
+
+  function muscleLegendHtml() {
+    return '<div class="tr-body-legend" role="list" aria-label="Referencia de colores del mapa muscular">'
+      + MUSCLE_LEGEND_ITEMS.map(function (item) {
+          return '<span class="tr-body-legend-item" role="listitem">'
+            + '<span class="tr-body-legend-dot ' + item.cls + '" aria-hidden="true"></span>' + escapeHtml(item.label)
+            + '</span>';
+        }).join('')
+      + '</div>';
+  }
+
   function buildMuscleMapShell() {
     return ''
       + '<div class="po-seg-control tr-body-toggle" role="group" aria-label="Vista del mapa muscular">'
@@ -172,7 +247,8 @@
       +   '<svg class="tr-body-svg" data-view="back" viewBox="' + BODY_VIEWBOX + '" aria-hidden="true">'
       +     bodyDecoHtml(BODY_BACK_DECO) + bodyRegionsHtml(BODY_BACK_REGIONS)
       +   '</svg>'
-      + '</div>';
+      + '</div>'
+      + muscleLegendHtml();
   }
 
   // Toggle is purely presentational — swaps which <g>/<svg> is visible,
@@ -241,6 +317,27 @@
     });
   }
 
+  // Last fatigue result computed by renderMuscleMap, kept around purely so
+  // a later tap on the body (openMuscleDetailModal) can show "which muscle,
+  // what state" without recomputing anything or touching the fatigue
+  // pipeline itself.
+  let lastMuscleFatigueResult = null;
+
+  // Text for the fatigue state a tapped muscle is currently in — derived
+  // from fatigueBodyFill's own color token (never a second copy of its
+  // score thresholds), so this label can't fall out of sync with what the
+  // body/legend are actually showing.
+  const MUSCLE_STATUS_LABELS = {
+    'var(--text-tertiary)': 'Sin entrenar',
+    'var(--success)': 'Descansado',
+    'var(--warning)': 'Medio',
+    'var(--danger)': 'Fatigado',
+  };
+  function muscleStatusLabel(muscle) {
+    const info = lastMuscleFatigueResult && lastMuscleFatigueResult.muscles[muscle];
+    return MUSCLE_STATUS_LABELS[fatigueBodyFill(info).color] || null;
+  }
+
   function renderMuscleMap() {
     const wrap = $('trMuscleMapWrap');
     if (!wrap) return;
@@ -257,6 +354,7 @@
     const result = window.computeMuscleFatigue
       ? window.computeMuscleFatigue(sessions, config, undefined, ecosystemOverrides)
       : { isPlaceholder: true, muscles: {} };
+    lastMuscleFatigueResult = result;
 
     if (result.isPlaceholder) {
       // The config is now always seeded in Supabase — reaching this means
@@ -321,7 +419,8 @@
   }
 
   function openMuscleDetailModal(muscle) {
-    $('trMuscleDetailTitle').textContent = muscle;
+    const status = muscleStatusLabel(muscle);
+    $('trMuscleDetailTitle').textContent = status ? muscle + ' — ' + status : muscle;
     const exercises = window.GymPesasStore.getExercisesByMuscle(muscle);
     const wrap = $('trMuscleDetailList');
     wrap.innerHTML = exercises.length

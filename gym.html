@@ -1632,14 +1632,15 @@ img, video, canvas, svg { max-width: 100%; }
   box-shadow: 0 12px 32px rgba(0,0,0,0.45), 0 0 0 1px rgba(110,231,183,0.25);
 }
 
-/* Anatomical front/back muscle map — geometric silhouette (ellipses/rects,
-   not a medical atlas), colored by fatigue score. Toggle reuses the
-   .po-seg-control/.po-seg-btn pattern (same as Steps' Hoy/Ayer/Elegir
-   fecha and Semana/Mes selectors) instead of a new component. */
+/* Anatomical front/back muscle map — real body-silhouette polygons (see
+   gymUI.js's BODY_VIEWBOX comment for the shape data's origin/license),
+   colored by fatigue score. Toggle reuses the .po-seg-control/.po-seg-btn
+   pattern (same as Steps' Hoy/Ayer/Elegir fecha and Semana/Mes selectors)
+   instead of a new component. */
 .tr-body-toggle { margin-bottom: 14px; }
 .tr-body-map {
   position: relative; width: 100%; max-width: 300px; margin: 0 auto;
-  aspect-ratio: 240 / 450;
+  aspect-ratio: 108 / 230;
 }
 .tr-body-svg {
   position: absolute; inset: 0; width: 100%; height: 100%;
@@ -1647,19 +1648,39 @@ img, video, canvas, svg { max-width: 100%; }
   transition: opacity 0.2s ease;
 }
 .tr-body-svg.active { opacity: 1; pointer-events: auto; }
-/* Decorative parts (head, hands, feet, off-view limb segments) exist only
-   so the figure reads as a continuous human silhouette — never a muscle,
-   never focusable. */
-.tr-body-deco { fill: rgba(255,255,255,0.05); }
+/* Decorative parts (head, knees, off-view limb segments) exist only so the
+   figure reads as a continuous human silhouette — never a muscle, never
+   focusable. */
+.tr-body-deco { fill: var(--border); }
 .tr-body-region {
   cursor: pointer;
-  stroke: rgba(255,255,255,0.14); stroke-width: 1;
+  stroke: var(--border-strong); stroke-width: 0.45;
   transition: fill 0.18s ease, fill-opacity 0.18s ease, stroke 0.18s ease, stroke-width 0.18s ease;
   outline: none;
 }
 .tr-body-region:hover, .tr-body-region:focus-visible {
-  stroke: rgba(255,255,255,0.65); stroke-width: 2.5;
+  stroke: var(--text-primary); stroke-width: 1.1;
 }
+/* Fixed color-key legend under the body — always visible (not a hover
+   tooltip) so the fill colors are self-explanatory at a glance. Chip dot
+   colors are the exact same tokens fatigueBodyFill (gymUI.js) paints the
+   body with. */
+.tr-body-legend {
+  display: flex; flex-wrap: wrap; justify-content: center;
+  gap: 6px 16px; margin-top: 16px; padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.tr-body-legend-item {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11.5px; font-weight: 600; color: var(--text-secondary);
+}
+.tr-body-legend-dot {
+  width: 10px; height: 10px; border-radius: 50%; flex: none;
+}
+.tr-body-legend-dot.tr-legend-none { background: var(--text-tertiary); }
+.tr-body-legend-dot.tr-legend-rest { background: var(--success); }
+.tr-body-legend-dot.tr-legend-mid { background: var(--warning); }
+.tr-body-legend-dot.tr-legend-high { background: var(--danger); }
 /* Discreet ecosystem-modifier note — a line of context, not a new
    section; only rendered when the modifier isn't neutral. */
 .tr-eco-note {
