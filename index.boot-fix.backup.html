@@ -120,7 +120,7 @@ body::after {
 }
 /* Pause switch — toggled on visibilitychange so idle loops don't burn
    CPU/battery while the tab is hidden. Scoped to the specific elements
-   that actually loop; one-shot animations (boot cascade, klog entrance,
+   that actually loop; one-shot animations (boot flicker, klog entrance,
    count-up) are timer/rAF-driven and already stop themselves via JS. */
 body.rice-paused::before,
 body.rice-paused .rice-sweep,
@@ -214,16 +214,19 @@ body.rice-paused .verse-cursor { animation-play-state: paused; }
 .proc-body { padding: 12px; flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 
 /* ==========================================================================
-   BOOT / STAGGER — cascading power-on, one smooth fade+rise per panel.
+   BOOT / STAGGER — cascading power-on with a brief flicker per panel.
    One-shot (`forwards`), never loops, so it's cheap regardless of count.
-   Monotonic opacity ramp only — no mid-animation flicker, so staggered
-   panels never overlap into a whole-screen strobe.
    ========================================================================== */
 .rice-stagger { opacity: 0; transform: translateY(8px); }
-.rice-stagger.rice-boot { animation: rice-boot-in 0.48s var(--ease-rice) forwards; }
+.rice-stagger.rice-boot { animation: rice-boot-in 0.6s var(--ease-rice) forwards; }
 @keyframes rice-boot-in {
-  0%   { opacity: 0; transform: translateY(8px); }
-  100% { opacity: 1; transform: translateY(0); }
+  0%   { opacity: 0;    transform: translateY(8px); }
+  8%   { opacity: 0.7;  transform: translateY(0); }
+  14%  { opacity: 0.15; }
+  20%  { opacity: 0.85; }
+  27%  { opacity: 0.35; }
+  36%  { opacity: 1; }
+  100% { opacity: 1;    transform: translateY(0); }
 }
 @media (prefers-reduced-motion: reduce) {
   .rice-stagger { opacity: 1; transform: none; }
@@ -1893,11 +1896,9 @@ body.rice-paused .verse-cursor { animation-play-state: paused; }
   applyPausedState();
 
   /* ============================================================
-     BOOT CASCADE — panels power on in sequence, one smooth fade+rise
-     each (no flicker). One-shot per panel (`animation-fill-mode:
-     forwards`), so cost is bounded regardless of how many panels
-     exist, and it never re-runs on later data updates — only this
-     initial pass ever adds `.rice-boot`. Skipped under reduced
+     BOOT CASCADE — panels power on in sequence with a brief flicker.
+     One-shot per panel (`animation-fill-mode: forwards`), so cost is
+     bounded regardless of how many panels exist. Skipped under reduced
      motion — the .rice-stagger CSS rule already shows them at full
      opacity in that case.
      ============================================================ */

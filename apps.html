@@ -6,7 +6,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#050506">
-<title>Dashboard</title>
+<title>Apps · Dashboard</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="syncStatus.js" defer></script>
@@ -14,296 +14,425 @@
 <script src="topbar.js" defer></script>
 
 <style>
-/* ===== Shared design tokens (same as the rest of the dashboard) ===== */
+/* ==========================================================================
+   RICE DESKTOP — apps.html reskin. Same tokens/chrome family as index.html
+   (tiling-WM launcher: black + blood-red, monospace, terminal-style panel
+   headers). Presentation only — the settings-modal logic further down is
+   untouched; this file only changes markup/classes it consumes, never IDs.
+   ========================================================================== */
 :root {
-  --text-primary: #FAFAFA;
-  --text-secondary: #B8B6B0;
-  --text-tertiary: #76746E;
-  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --rice-black:      #050506;
+  --rice-black-2:    #0A0A0B;
+  --rice-panel:         rgba(255,255,255,0.028);
+  --rice-border:     rgba(255,255,255,0.08);
+
+  --rice-red:        #B4121A;
+  --rice-red-dim:    #7A1016;
+  --rice-red-glow:   rgba(180,18,26,0.35);
+  --rice-red-border: rgba(180,18,26,0.28);
+  --rice-red-border-strong: rgba(180,18,26,0.5);
+
+  --text-primary:   #EDEDED;
+  --text-secondary: #9A9A9E;
+  --text-tertiary:  #5C5C60;
+
+  --success: #4FAE7C;
+
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --ease-rice: cubic-bezier(0.16, 1, 0.3, 1);
+  --rice-radius: 2px;
 }
 * { box-sizing: border-box; }
 html, body {
   margin: 0; padding: 0;
-  background: #050506;
+  background: var(--rice-black);
   color: var(--text-secondary);
-  font-family: var(--font);
+  font-family: var(--font-mono);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 body {
   min-height: 100vh; position: relative; overflow-x: hidden;
-  padding: max(28px, env(safe-area-inset-top)) 20px 60px;
+  padding: max(16px, env(safe-area-inset-top)) 14px 56px;
 }
-/* Soft drifting glow + dot texture (matches the other pages). */
+
+/* ==========================================================================
+   AMBIENT HUD CHROME — same recipe as index.html (drift glow + blueprint
+   grid + scanline texture + vignette), toned down: no moving sweep-line
+   here, the launcher stays calmer/quicker-to-scan than the home. Only
+   `transform`/`opacity` ever animate; the blur radius itself is static.
+   ========================================================================== */
 body::before {
-  content: ''; position: fixed; inset: 0;
+  content: '';
+  position: fixed; inset: -10%;
   background:
-    radial-gradient(circle at 82% 14%, rgba(224,118,88,0.16), transparent 45%),
-    radial-gradient(circle at 18% 90%, rgba(180,180,200,0.06), transparent 50%);
-  filter: blur(40px); pointer-events: none; z-index: -2;
-  animation: drift 36s ease-in-out infinite alternate;
+    radial-gradient(circle at 82% 6%, rgba(180,18,26,0.12), transparent 42%),
+    radial-gradient(circle at 10% 94%, rgba(180,18,26,0.05), transparent 48%);
+  filter: blur(60px);
+  pointer-events: none;
+  z-index: -3;
+  animation: rice-drift 42s ease-in-out infinite alternate;
+  will-change: transform;
 }
 body::after {
-  content: ''; position: fixed; inset: 0;
-  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
-  background-size: 3px 3px; pointer-events: none; z-index: -1;
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    repeating-linear-gradient(rgba(255,255,255,0.014) 0px, rgba(255,255,255,0.014) 1px, transparent 1px, transparent 3px),
+    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px),
+    radial-gradient(ellipse 90% 75% at 50% 25%, transparent 55%, rgba(0,0,0,0.6) 100%);
+  background-size: auto, 32px 32px, 32px 32px, 100% 100%;
+  pointer-events: none;
+  z-index: -2;
 }
-@keyframes drift { 0%{transform:translate3d(0,0,0)} 100%{transform:translate3d(-22px,14px,0)} }
-
-.page { max-width: 1100px; margin: 0 auto; }
-.dash-title {
-  margin: 0 0 18px; font-size: 28px; font-weight: 700; letter-spacing: -0.025em;
-  background: linear-gradient(180deg, #FFFFFF 0%, #C7C4BC 120%);
-  -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent; color: transparent;
+@keyframes rice-drift {
+  0%   { transform: translate3d(0,0,0); }
+  100% { transform: translate3d(-24px, 16px, 0); }
 }
-@media (max-width: 480px) { .dash-title { font-size: 22px; } }
+@media (prefers-reduced-motion: reduce) { body::before { animation: none; } }
+/* Pause the ambient loops while the tab is hidden (toggled by the motion
+   script below on visibilitychange). */
+body.rice-paused::before, body.rice-paused .hud-led::after { animation-play-state: paused; }
 
-/* ===== BENTO GRID ===== */
+.page { max-width: 1160px; margin: 0 auto; }
+
+/* ==========================================================================
+   HUD PRIMITIVES — LED / blink cursor / corner brackets, same as index.html
+   ========================================================================== */
+.hud-led {
+  position: relative; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  background: var(--rice-red);
+  box-shadow: 0 0 5px var(--rice-red-glow), 0 0 1px var(--rice-red);
+}
+.hud-led::after {
+  content: ''; position: absolute; inset: -4px; border-radius: 50%;
+  border: 1px solid var(--rice-red); opacity: 0;
+  animation: hud-led-ring 2.2s ease-out infinite;
+  will-change: transform, opacity;
+}
+@keyframes hud-led-ring { 0% { transform: scale(0.5); opacity: 0.55; } 100% { transform: scale(2.1); opacity: 0; } }
+
+.hud-cursor { display: inline-block; color: var(--rice-red); animation: hud-blink 1s steps(1, end) infinite; }
+@keyframes hud-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+
+.hud-corner { position: absolute; width: 12px; height: 12px; pointer-events: none; opacity: 0.4; transition: opacity 0.2s var(--ease-rice); z-index: 2; }
+.hud-corner::before, .hud-corner::after { content: ''; position: absolute; background: var(--rice-red); }
+.hud-corner::before { width: 100%; height: 1px; }
+.hud-corner::after  { width: 1px; height: 100%; }
+.hud-corner.tl { top: -1px; left: -1px; } .hud-corner.tl::before, .hud-corner.tl::after { top: 0; left: 0; }
+.hud-corner.tr { top: -1px; right: -1px; } .hud-corner.tr::before, .hud-corner.tr::after { top: 0; right: 0; }
+.hud-corner.bl { bottom: -1px; left: -1px; } .hud-corner.bl::before, .hud-corner.bl::after { bottom: 0; left: 0; }
+.hud-corner.br { bottom: -1px; right: -1px; } .hud-corner.br::before, .hud-corner.br::after { bottom: 0; right: 0; }
+.tile:hover .hud-corner { opacity: 1; }
+
+/* ==========================================================================
+   BOOT CASCADE — one-shot fade+rise per panel, staggered purely via each
+   element's `--i` custom property (no per-element timers). `body.rice-boot`
+   is added exactly once by the motion script; re-adding it is a no-op
+   (classList.add is idempotent) so later interaction never re-triggers it.
+   Monotonic opacity ramp only — no flicker.
+   ========================================================================== */
+.rice-stagger { opacity: 0; transform: translateY(8px); }
+body.rice-boot .rice-stagger {
+  animation: rice-boot-in 0.48s var(--ease-rice) forwards;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+@keyframes rice-boot-in {
+  0%   { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rice-stagger { opacity: 1; transform: none; }
+  body.rice-boot .rice-stagger { animation: none; }
+}
+
+/* ==========================================================================
+   HEADER ROW — sysline-style title + settings button
+   ========================================================================== */
+.hub-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; padding: 0 2px; }
+.hub-id { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.hub-title { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: 0.04em; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hub-title-dim { color: var(--text-tertiary); font-weight: 500; }
+.hub-id-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.hub-meta { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-tertiary); white-space: nowrap; }
+@media (max-width: 560px) { .hub-meta { display: none; } }
+
+.gear-btn {
+  width: 36px; height: 36px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--rice-radius); border: 1px solid var(--rice-border);
+  background: var(--rice-panel); color: var(--text-secondary);
+  cursor: pointer; transition: border-color 0.15s, color 0.15s, background 0.15s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+.gear-btn:hover { border-color: var(--rice-red-border-strong); color: var(--text-primary); background: rgba(180,18,26,0.08); }
+.gear-btn:active { transform: scale(0.94); }
+.gear-btn svg { width: 18px; height: 18px; }
+
+/* ==========================================================================
+   BENTO — tiles reskinned as "process windows": terminal header (LED +
+   process name + PID) on top, corner brackets on the big/wide tiles only.
+   ========================================================================== */
 .bento {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   grid-auto-rows: 168px;
   grid-auto-flow: dense;
-  gap: 14px;
+  gap: 8px;
 }
 .tile {
-  --accent: #6BE3A4;                 /* each tile overrides this */
   position: relative; overflow: hidden;
   display: flex; flex-direction: column;
-  padding: 20px;
-  border-radius: 18px;
   text-decoration: none;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.06);
-  backdrop-filter: blur(24px) saturate(1.2);
-  -webkit-backdrop-filter: blur(24px) saturate(1.2);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
-  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
-}
-/* The "its own style" bit — a faint accent glow per tile. */
-.tile::before {
-  content: ''; position: absolute; inset: 0; pointer-events: none;
-  background: radial-gradient(circle at 78% 18%,
-              color-mix(in srgb, var(--accent) 22%, transparent), transparent 55%);
-  opacity: 0.7; transition: opacity 0.18s ease;
+  background: var(--rice-panel);
+  border: 1px solid var(--rice-border);
+  border-radius: var(--rice-radius);
+  transition: transform 0.18s var(--ease-rice), border-color 0.18s var(--ease-rice), box-shadow 0.18s var(--ease-rice);
 }
 .tile:hover {
-  transform: translateY(-3px);
-  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
-  box-shadow: 0 16px 48px rgba(0,0,0,0.55);
+  transform: translateY(-2px);
+  border-color: var(--rice-red-border-strong);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 0 0 1px var(--rice-red-border);
 }
-.tile:hover::before { opacity: 1; }
-
-/* Tile sizes */
 .tile.big  { grid-column: span 2; grid-row: span 2; }
 .tile.wide { grid-column: span 2; }
 
-/* Tile contents */
-.tile-top { display: flex; align-items: flex-start; justify-content: space-between; }
-.tile-num {
-  font-family: var(--font-mono); font-size: 12px; font-weight: 600;
-  letter-spacing: 0.08em; color: var(--text-tertiary);
-}
-.tile-emoji {
-  font-size: 26px; line-height: 1;
-  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--accent) 60%, transparent));
-}
+.tile-head { display: flex; align-items: center; gap: 7px; padding: 6px 9px; border-bottom: 1px solid var(--rice-border); background: rgba(255,255,255,0.022); font-size: 9.5px; letter-spacing: 0.06em; flex-shrink: 0; }
+.tile-proc { min-width: 0; color: var(--text-secondary); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile-glyph { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; letter-spacing: 0.3em; color: var(--rice-red-dim); opacity: 0.7; }
+.tile-meta { flex-shrink: 0; margin-left: auto; color: var(--text-tertiary); white-space: nowrap; font-size: 8.5px; }
+
+.tile-body { padding: 16px; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.tile-emoji { font-size: 24px; line-height: 1; filter: drop-shadow(0 0 8px var(--rice-red-glow)); }
 .tile-spacer { flex: 1; }
-.tile-title {
-  font-size: 22px; font-weight: 700; letter-spacing: -0.02em;
-  color: var(--text-primary); margin: 0 0 4px;
-}
-.tile.big .tile-title { font-size: 28px; }
+.tile-title { font-family: var(--font-mono); font-size: 19px; font-weight: 700; letter-spacing: -0.01em; color: var(--text-primary); margin: 0 0 4px; }
+.tile.big .tile-title { font-size: 25px; }
 .tile-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.tile-sub {
-  font-size: 13px; color: var(--text-tertiary);
-}
-.tile-arrow {
-  font-size: 18px; color: var(--accent);
-  transition: transform 0.18s ease; flex-shrink: 0;
-}
+.tile-sub { font-size: 11px; color: var(--text-tertiary); }
+.tile-arrow { font-size: 16px; color: var(--rice-red); transition: transform 0.18s var(--ease-rice); flex-shrink: 0; }
 .tile:hover .tile-arrow { transform: translateX(4px); }
 
 /* ===== Responsive: collapse the bento on small screens ===== */
 @media (max-width: 720px) {
   .bento { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 150px; }
   .tile.big { grid-column: span 2; grid-row: span 1; }
-  .tile.big .tile-title { font-size: 22px; }
+  .tile.big .tile-title { font-size: 20px; }
 }
 @media (max-width: 440px) {
-  body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
-  .bento { grid-template-columns: 1fr; grid-auto-rows: 132px; }
+  body { padding: max(14px, env(safe-area-inset-top)) 10px 50px; }
+  .bento { grid-template-columns: 1fr; grid-auto-rows: 126px; gap: 8px; }
   .tile.big, .tile.wide { grid-column: span 1; }
 }
 
-/* ===== Header row + gear ===== */
-.hub-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
-.hub-head .dash-title { margin: 0; }
-.gear-btn {
-  width: 42px; height: 42px; flex-shrink: 0;
-  display: inline-flex; align-items: center; justify-content: center;
-  border-radius: 12px; border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(255,255,255,0.04); color: var(--text-secondary);
-  cursor: pointer; transition: background 0.15s, color 0.15s, transform 0.1s;
-  -webkit-tap-highlight-color: transparent;
-}
-.gear-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
-.gear-btn:active { transform: scale(0.94) rotate(35deg); }
-.gear-btn svg { width: 22px; height: 22px; }
-
-/* ===== Settings modal ===== */
+/* ==========================================================================
+   SETTINGS MODAL → "profile.conf" terminal config panel. Structure/IDs the
+   inline script relies on (`.show`, `.on`, ids, data-u/data-s, inputs) are
+   unchanged — only markup wrapping and styling below.
+   ========================================================================== */
 .modal-bg {
   position: fixed; inset: 0; z-index: 120; display: none;
   align-items: center; justify-content: center; padding: 20px;
-  background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  background: rgba(0,0,0,0.65); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
 }
 .modal-bg.show { display: flex; }
 .modal {
-  width: 100%; max-width: 460px; max-height: 88vh; overflow-y: auto;
-  background: #0e0e10; border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 18px; padding: 22px; box-shadow: 0 24px 70px rgba(0,0,0,0.6);
+  width: 100%; max-width: 440px; max-height: 88vh; overflow-y: auto;
+  background: var(--rice-black-2); border: 1px solid var(--rice-border);
+  border-radius: var(--rice-radius); box-shadow: 0 24px 70px rgba(0,0,0,0.6);
 }
-.modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
-.modal-title { font-size: 18px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em; }
-.modal-close { border: 0; background: transparent; color: var(--text-tertiary); font-size: 26px; line-height: 1; cursor: pointer; padding: 0 4px; }
-.modal-close:hover { color: var(--text-primary); }
+.modal-head { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--rice-border); background: rgba(255,255,255,0.022); }
+.modal-title { flex: 1; min-width: 0; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.modal-meta { flex-shrink: 0; font-size: 8.5px; letter-spacing: 0.08em; color: var(--text-tertiary); }
+.modal-close { border: 1px solid var(--rice-border); background: transparent; color: var(--text-tertiary); font-family: var(--font-mono); font-size: 11px; line-height: 1; cursor: pointer; padding: 4px 8px; border-radius: var(--rice-radius); transition: border-color 0.15s, color 0.15s; }
+.modal-close:hover { border-color: var(--rice-red-border-strong); color: var(--text-primary); }
+.modal-body { padding: 16px; }
+
 .field { margin-bottom: 14px; }
-.field-label { font-size: 11px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 7px; display: block; }
+.field-label { font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 7px; display: block; }
+.field-label::before { content: '// '; color: var(--rice-red-dim); }
 .field-row { display: flex; gap: 8px; align-items: center; }
 .set-input {
-  flex: 1; min-width: 0; padding: 11px 13px;
-  border: 1px solid rgba(255,255,255,0.08); border-radius: 11px;
-  background: rgba(0,0,0,0.3); color: var(--text-primary);
-  font-family: inherit; font-size: 14px; outline: none; transition: border-color 0.2s;
+  flex: 1; min-width: 0; padding: 10px 12px;
+  border: 1px solid var(--rice-border); border-radius: var(--rice-radius);
+  background: rgba(0,0,0,0.35); color: var(--text-primary);
+  font-family: var(--font-mono); font-size: 13px; outline: none; transition: border-color 0.2s;
 }
-.set-input:focus { border-color: rgba(255,255,255,0.28); }
-.seg { display: inline-flex; border: 1px solid rgba(255,255,255,0.10); border-radius: 11px; overflow: hidden; flex-shrink: 0; }
-.seg button { border: 0; background: transparent; color: var(--text-tertiary); font-family: inherit; font-size: 13px; font-weight: 600; padding: 11px 14px; cursor: pointer; transition: background 0.15s, color 0.15s; }
-.seg button.on { background: rgba(255,255,255,0.12); color: var(--text-primary); }
+.set-input:focus { border-color: var(--rice-red-border-strong); }
+.seg { display: inline-flex; border: 1px solid var(--rice-border); border-radius: var(--rice-radius); overflow: hidden; flex-shrink: 0; }
+.seg button { border: 0; background: transparent; color: var(--text-tertiary); font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.04em; padding: 10px 13px; cursor: pointer; transition: background 0.15s, color 0.15s; }
+.seg button.on { background: rgba(180,18,26,0.18); color: var(--text-primary); }
 .set-save {
-  width: 100%; margin-top: 6px; padding: 13px; border: 0; border-radius: 12px;
-  background: linear-gradient(180deg,#FFFFFF,#E8E5DD); color: #0A0A0B;
-  font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 8px 22px rgba(0,0,0,0.25);
-  transition: filter 0.15s, transform 0.1s;
+  width: 100%; margin-top: 6px; padding: 12px;
+  border: 1px solid var(--rice-red-border-strong); border-radius: var(--rice-radius);
+  background: rgba(180,18,26,0.12); color: var(--text-primary);
+  font-family: var(--font-mono); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  cursor: pointer; transition: background 0.15s, transform 0.1s;
 }
-.set-save:hover { filter: brightness(1.05); }
+.set-save:hover { background: rgba(180,18,26,0.24); }
 .set-save:active { transform: translateY(1px); }
-.set-status { text-align: center; font-size: 12px; color: var(--success); min-height: 16px; margin-top: 8px; }
+.set-status { text-align: center; font-size: 11px; color: var(--success); min-height: 16px; margin-top: 8px; }
 </style>
 </head>
 <body>
 <div class="page">
 
-  <div class="hub-head">
-    <h1 class="dash-title">Luca Dashboard</h1>
-    <button class="gear-btn" id="settingsOpen" type="button" aria-label="Settings">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="3"/>
-        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-      </svg>
-    </button>
+  <div class="hub-head rice-stagger" style="--i:0">
+    <div class="hub-id">
+      <span class="hud-led" aria-hidden="true"></span>
+      <h1 class="hub-title">&gt; APPS <span class="hub-title-dim">// LUCA</span> <span class="hud-cursor" aria-hidden="true">▋</span></h1>
+    </div>
+    <div class="hub-id-right">
+      <span class="hub-meta">launcher.sh · 7 proc</span>
+      <button class="gear-btn" id="settingsOpen" type="button" aria-label="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+    </div>
   </div>
 
   <div class="bento">
 
-    <!-- Big tile -->
-    <a class="tile big" href="main.html" style="--accent:#6BE3A4">
-      <div class="tile-top">
-        <span class="tile-num">·01</span>
+    <!-- main.sh -->
+    <a class="tile big rice-stagger" href="main.html" style="--i:1">
+      <div class="tile-head">
+        <span class="hud-led" aria-hidden="true"></span>
+        <span class="tile-proc">main.sh</span>
+        <span class="tile-glyph" aria-hidden="true">╺━━━━━━━━━━</span>
+        <span class="tile-meta">PID 0x01</span>
+      </div>
+      <span class="hud-corner tl" aria-hidden="true"></span>
+      <span class="hud-corner tr" aria-hidden="true"></span>
+      <span class="hud-corner bl" aria-hidden="true"></span>
+      <span class="hud-corner br" aria-hidden="true"></span>
+      <div class="tile-body">
         <span class="tile-emoji">🏠</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Main</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Goals & daily plan</span>
-        <span class="tile-arrow">→</span>
+        <div class="tile-spacer"></div>
+        <h2 class="tile-title">Main</h2>
+        <div class="tile-foot">
+          <span class="tile-sub">Goals & daily plan</span>
+          <span class="tile-arrow">→</span>
+        </div>
       </div>
     </a>
 
-    <!-- Wide tile -->
-    <a class="tile wide" href="gym.html" style="--accent:#7DD3FC">
-      <div class="tile-top">
-        <span class="tile-num">·02</span>
+    <!-- gym.service -->
+    <a class="tile wide rice-stagger" href="gym.html" style="--i:2">
+      <div class="tile-head">
+        <span class="hud-led" aria-hidden="true"></span>
+        <span class="tile-proc">gym.service</span>
+        <span class="tile-glyph" aria-hidden="true">╺━━━━━━━━━━</span>
+        <span class="tile-meta">PID 0x02</span>
+      </div>
+      <span class="hud-corner tl" aria-hidden="true"></span>
+      <span class="hud-corner tr" aria-hidden="true"></span>
+      <span class="hud-corner bl" aria-hidden="true"></span>
+      <span class="hud-corner br" aria-hidden="true"></span>
+      <div class="tile-body">
         <span class="tile-emoji">💪</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Fitness</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Workouts, splits, sessions</span>
-        <span class="tile-arrow">→</span>
+        <div class="tile-spacer"></div>
+        <h2 class="tile-title">Fitness</h2>
+        <div class="tile-foot">
+          <span class="tile-sub">Workouts, splits, sessions</span>
+          <span class="tile-arrow">→</span>
+        </div>
       </div>
     </a>
 
-    <!-- Small tile -->
-    <a class="tile" href="health.html" style="--accent:#A7F3D0">
-      <div class="tile-top">
-        <span class="tile-num">·03</span>
+    <!-- health.d -->
+    <a class="tile rice-stagger" href="health.html" style="--i:3">
+      <div class="tile-head">
+        <span class="hud-led" aria-hidden="true"></span>
+        <span class="tile-proc">health.d</span>
+        <span class="tile-meta">PID 0x03</span>
+      </div>
+      <div class="tile-body">
         <span class="tile-emoji">💊</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Health</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Supplements & vitals</span>
-        <span class="tile-arrow">→</span>
+        <div class="tile-spacer"></div>
+        <h2 class="tile-title">Health</h2>
+        <div class="tile-foot">
+          <span class="tile-sub">Supplements & vitals</span>
+          <span class="tile-arrow">→</span>
+        </div>
       </div>
     </a>
 
-    <!-- Small tile -->
-    <a class="tile" href="po-water.html" style="--accent:#60A5FA">
-      <div class="tile-top">
-        <span class="tile-num">·04</span>
+    <!-- hydrate.daemon -->
+    <a class="tile rice-stagger" href="po-water.html" style="--i:4">
+      <div class="tile-head">
+        <span class="hud-led" aria-hidden="true"></span>
+        <span class="tile-proc">hydrate.daemon</span>
+        <span class="tile-meta">PID 0x04</span>
+      </div>
+      <div class="tile-body">
         <span class="tile-emoji">💧</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Water</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Hydration</span>
-        <span class="tile-arrow">→</span>
+        <div class="tile-spacer"></div>
+        <h2 class="tile-title">Water</h2>
+        <div class="tile-foot">
+          <span class="tile-sub">Hydration</span>
+          <span class="tile-arrow">→</span>
+        </div>
       </div>
     </a>
 
-    <!-- Wide tile -->
-    <a class="tile wide" href="finance.html" style="--accent:#F2C063">
-      <div class="tile-top">
-        <span class="tile-num">·05</span>
+    <!-- ledger.service -->
+    <a class="tile wide rice-stagger" href="finance.html" style="--i:5">
+      <div class="tile-head">
+        <span class="hud-led" aria-hidden="true"></span>
+        <span class="tile-proc">ledger.service</span>
+        <span class="tile-glyph" aria-hidden="true">╺━━━━━━━━━━</span>
+        <span class="tile-meta">PID 0x05</span>
+      </div>
+      <span class="hud-corner tl" aria-hidden="true"></span>
+      <span class="hud-corner tr" aria-hidden="true"></span>
+      <span class="hud-corner bl" aria-hidden="true"></span>
+      <span class="hud-corner br" aria-hidden="true"></span>
+      <div class="tile-body">
         <span class="tile-emoji">📊</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Finance</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Net worth & spending</span>
-        <span class="tile-arrow">→</span>
+        <div class="tile-spacer"></div>
+        <h2 class="tile-title">Finance</h2>
+        <div class="tile-foot">
+          <span class="tile-sub">Net worth & spending</span>
+          <span class="tile-arrow">→</span>
+        </div>
       </div>
     </a>
 
-    <!-- Small tile -->
-    <a class="tile" href="nutrition.html" style="--accent:#FF9F6B">
-      <div class="tile-top">
-        <span class="tile-num">·06</span>
+    <!-- macros.log -->
+    <a class="tile rice-stagger" href="nutrition.html" style="--i:6">
+      <div class="tile-head">
+        <span class="hud-led" aria-hidden="true"></span>
+        <span class="tile-proc">macros.log</span>
+        <span class="tile-meta">PID 0x06</span>
+      </div>
+      <div class="tile-body">
         <span class="tile-emoji">🥗</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Nutrition</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Macros & meals</span>
-        <span class="tile-arrow">→</span>
+        <div class="tile-spacer"></div>
+        <h2 class="tile-title">Nutrition</h2>
+        <div class="tile-foot">
+          <span class="tile-sub">Macros & meals</span>
+          <span class="tile-arrow">→</span>
+        </div>
       </div>
     </a>
 
-    <!-- Small tile -->
-    <a class="tile" href="habits.html" style="--accent:#FB7185">
-      <div class="tile-top">
-        <span class="tile-num">·07</span>
-        <span class="tile-emoji">🔥</span>
+    <!-- streak.service -->
+    <a class="tile rice-stagger" href="habits.html" style="--i:7">
+      <div class="tile-head">
+        <span class="hud-led" aria-hidden="true"></span>
+        <span class="tile-proc">streak.service</span>
+        <span class="tile-meta">PID 0x07</span>
       </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Habits</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Streaks & screen time</span>
-        <span class="tile-arrow">→</span>
+      <div class="tile-body">
+        <span class="tile-emoji">🔥</span>
+        <div class="tile-spacer"></div>
+        <h2 class="tile-title">Habits</h2>
+        <div class="tile-foot">
+          <span class="tile-sub">Streaks & screen time</span>
+          <span class="tile-arrow">→</span>
+        </div>
       </div>
     </a>
 
@@ -314,53 +443,57 @@ body::after {
 <div class="modal-bg" id="settingsBg">
   <div class="modal" role="dialog" aria-label="Your data">
     <div class="modal-head">
-      <span class="modal-title">Your Data</span>
-      <button class="modal-close" id="settingsClose" type="button" aria-label="Close">×</button>
+      <span class="hud-led" aria-hidden="true"></span>
+      <span class="modal-title">profile.conf</span>
+      <span class="modal-meta">RW</span>
+      <button class="modal-close" id="settingsClose" type="button" aria-label="Close">[x]</button>
     </div>
 
-    <div class="field">
-      <label class="field-label">Height</label>
-      <div class="field-row">
-        <input class="set-input" id="heightA" type="number" min="0" inputmode="decimal" placeholder="cm">
-        <input class="set-input" id="heightB" type="number" min="0" inputmode="decimal" placeholder="in" style="display:none">
-        <div class="seg" id="heightUnitSeg">
-          <button type="button" data-u="cm" class="on">cm</button>
-          <button type="button" data-u="ft">ft/in</button>
+    <div class="modal-body">
+      <div class="field">
+        <label class="field-label">Height</label>
+        <div class="field-row">
+          <input class="set-input" id="heightA" type="number" min="0" inputmode="decimal" placeholder="cm">
+          <input class="set-input" id="heightB" type="number" min="0" inputmode="decimal" placeholder="in" style="display:none">
+          <div class="seg" id="heightUnitSeg">
+            <button type="button" data-u="cm" class="on">cm</button>
+            <button type="button" data-u="ft">ft/in</button>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="field">
-      <label class="field-label">Weight</label>
-      <div class="field-row">
-        <input class="set-input" id="weight" type="number" min="0" inputmode="decimal" placeholder="weight">
-        <div class="seg" id="weightUnitSeg">
-          <button type="button" data-u="kg" class="on">kg</button>
-          <button type="button" data-u="lb">lb</button>
+      <div class="field">
+        <label class="field-label">Weight</label>
+        <div class="field-row">
+          <input class="set-input" id="weight" type="number" min="0" inputmode="decimal" placeholder="weight">
+          <div class="seg" id="weightUnitSeg">
+            <button type="button" data-u="kg" class="on">kg</button>
+            <button type="button" data-u="lb">lb</button>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="field">
-      <label class="field-label">Age</label>
-      <input class="set-input" id="age" type="number" min="0" inputmode="numeric" placeholder="years">
-    </div>
-
-    <div class="field">
-      <label class="field-label">Sex</label>
-      <div class="seg" id="sexSeg" style="width:100%;display:flex">
-        <button type="button" data-s="m" style="flex:1">Male</button>
-        <button type="button" data-s="f" style="flex:1">Female</button>
+      <div class="field">
+        <label class="field-label">Age</label>
+        <input class="set-input" id="age" type="number" min="0" inputmode="numeric" placeholder="years">
       </div>
-    </div>
 
-    <div class="field">
-      <label class="field-label">Active hours / week</label>
-      <input class="set-input" id="activity" type="number" min="0" inputmode="decimal" placeholder="e.g. 5">
-    </div>
+      <div class="field">
+        <label class="field-label">Sex</label>
+        <div class="seg" id="sexSeg" style="width:100%;display:flex">
+          <button type="button" data-s="m" style="flex:1">Male</button>
+          <button type="button" data-s="f" style="flex:1">Female</button>
+        </div>
+      </div>
 
-    <button class="set-save" id="settingsSave" type="button">Save</button>
-    <div class="set-status" id="settingsStatus"></div>
+      <div class="field">
+        <label class="field-label">Active hours / week</label>
+        <input class="set-input" id="activity" type="number" min="0" inputmode="decimal" placeholder="e.g. 5">
+      </div>
+
+      <button class="set-save" id="settingsSave" type="button">Save</button>
+      <div class="set-status" id="settingsStatus"></div>
+    </div>
   </div>
 </div>
 
@@ -484,6 +617,27 @@ body::after {
     if (kg) $('weight').value = weightUnit === 'lb' ? Math.round(kg * 2.20462) : Math.round(kg);
   }));
   $('sexSeg').querySelectorAll('button').forEach(b => b.addEventListener('click', () => setSex(b.dataset.s)));
+})();
+</script>
+
+<script>
+/* ==========================================================================
+   RICE MOTION LAYER — apps.html. Presentation-only: never reads/writes the
+   profile data the script above owns. Own IIFE, separate from that logic.
+   - Boot cascade: adds `.rice-boot` to <body> exactly once; the CSS above
+     does the actual per-tile stagger via each element's `--i`, so no
+     per-element timers are needed here.
+   - Pauses the ambient LED-ring/drift-glow loops while the tab is hidden.
+   ========================================================================== */
+(function () {
+  'use strict';
+  var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function applyPaused() { document.body.classList.toggle('rice-paused', document.hidden); }
+  document.addEventListener('visibilitychange', applyPaused);
+  applyPaused();
+
+  if (!reduceMotion) document.body.classList.add('rice-boot');
 })();
 </script>
 </body>
