@@ -353,16 +353,13 @@ body.rice-paused .verse-cursor { animation-play-state: paused; }
 @keyframes hud-weather-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 .home-weather-chart-svg { width: 100%; height: 72px; display: block; margin-top: 10px; overflow: visible; flex: 1; }
 .home-weather-chart-svg.hidden { display: none; }
-.home-weather-chart-hour { font-size: 8.5px; font-family: var(--font-mono); fill: var(--text-tertiary); opacity: 0.85; }
+.home-weather-chart-hour { font-size: 8.5px; font-family: var(--font-mono); fill: var(--text-tertiary); }
 .home-weather-chart-value { font-size: 10px; font-weight: 700; font-family: var(--font-mono); fill: var(--text-primary); }
-.home-weather-chart-value.now { fill: var(--rice-red); font-size: 11.5px; }
-.home-weather-chart-precip { font-size: 8.5px; font-family: var(--font-mono); fill: var(--text-tertiary); opacity: 0.85; }
-.home-weather-chart-line { fill: none; stroke: var(--rice-red-dim); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; opacity: 0.9; }
+.home-weather-chart-value.now { fill: var(--rice-red); }
+.home-weather-chart-precip { font-size: 8.5px; font-family: var(--font-mono); fill: var(--text-tertiary); }
+.home-weather-chart-line { fill: none; stroke: var(--rice-red-dim); stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; opacity: 0.85; }
 .home-weather-chart-dot { fill: var(--rice-red-dim); opacity: 0.85; }
-/* Static filter (not animated — same "set once, never re-evaluated per
-   frame" rule as the ambient background glows) for a subtle red halo on
-   the precise "now" marker. */
-.home-weather-chart-dot.now { fill: var(--rice-red); opacity: 1; filter: drop-shadow(0 0 3px var(--rice-red-glow)); }
+.home-weather-chart-dot.now { fill: var(--rice-red); opacity: 1; }
 
 /* ==========================================================================
    VERSE.DAEMON — #homeQuoteText/Author + #homeBibleText/Ref stay in the DOM
@@ -465,30 +462,18 @@ body.rice-paused .verse-cursor { animation-play-state: paused; }
 .hud-corr-disclaimer { margin-top: 12px; font-size: 9.5px; color: var(--text-tertiary); }
 
 /* ==========================================================================
-   SIGIL — ambient ASCII glitch mark (original "A" silhouette, dithered
-   texture, not a reproduction of any real logo). Flicker + a tiny
-   horizontal jitter, transform/opacity only, same idle-loop rules as
-   every other decorative panel (paused via body.rice-paused, degraded
-   under reduced motion).
+   SIGIL — ambient ASCII emblem, slow tasteful flicker (opacity only).
    ========================================================================== */
 .sigil-art {
-  margin: 0; font-size: 11px; line-height: 1.05; color: var(--rice-red-dim);
-  text-align: center; white-space: pre; display: inline-block; max-width: 100%;
-  animation: sigil-flicker 5.5s ease-in-out infinite;
+  margin: 0; font-size: 9.5px; line-height: 1.15; color: var(--rice-red-dim);
+  text-align: center; white-space: pre; animation: sigil-flicker 5.5s ease-in-out infinite;
 }
 .sigil-caption { margin-top: 8px; text-align: center; font-size: 8.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-ambient); }
 @keyframes sigil-flicker {
-  0%, 100% { opacity: 0.85; transform: translateX(0); }
-  42%      { opacity: 0.85; transform: translateX(0); }
-  44%      { opacity: 0.4;  transform: translateX(-1px); }
-  45%      { opacity: 0.7;  transform: translateX(1px); }
-  46%      { opacity: 0.85; transform: translateX(0); }
-  80%      { opacity: 0.85; transform: translateX(0); }
-  82%      { opacity: 0.5;  transform: translateX(1px); }
-  84%      { opacity: 0.85; transform: translateX(0); }
+  0%, 100% { opacity: 0.85; } 42% { opacity: 0.85; } 44% { opacity: 0.45; }
+  46% { opacity: 0.85; } 80% { opacity: 0.85; } 82% { opacity: 0.55; } 84% { opacity: 0.85; }
 }
 @media (prefers-reduced-motion: reduce) { .sigil-art { animation: none; opacity: 0.85; } }
-@media (max-width: 900px) { .sigil-art { font-size: 9px; } }
 
 /* ==========================================================================
    WAVEFORM.OSC — <canvas> oscilloscope, drawn by the shared rAF loop.
@@ -660,17 +645,12 @@ body.rice-paused .verse-cursor { animation-play-state: paused; }
       <span class="hud-corner bl" aria-hidden="true"></span>
       <span class="hud-corner br" aria-hidden="true"></span>
       <div class="proc-body">
-        <pre class="sigil-art" aria-hidden="true">⠀⠀⠀⠀⢀⣤⣴⠶⠶⠷⠶⠶⣦⣤⡀⠀⠀⠀⠀
-⠀⠀⢠⡶⠟⠉⠀⠀⠀⠀⠀⠀⠀⠉⠻⢶⡄⠀⠀
-⠀⣴⡟⣥⣤⣤⣤⣤⣤⣤⣤⣤⡀⠀⠀⠈⢻⣦⠀
-⢰⡟⠀⠻⠿⠿⠟⠁⣼⣿⣿⣿⣷⡀⠀⠀⠀⢻⡆
-⣿⠃⠀⠀⠀⠀⠀⣼⣿⡏⠙⣿⣿⣇⠀⠀⠀⠘⣿
-⣿⡄⠀⠀⠀⠀⣴⣿⠟⠃⠀⠙⣿⣿⡆⠀⠀⢠⣿
-⠹⣧⠀⠀⠀⢸⡟⠁⠀⠀⠀⠀⠘⢿⣷⡀⠀⣼⠏
-⠀⠻⣦⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠻⠃⣴⠟⠀
-⠀⠀⠙⢷⣤⣀⠀⠀⠀⠀⠀⠀⠀⣀⣤⡾⠋⠀⠀
-⠀⠀⠀⠀⠈⠛⠻⠶⠶⠶⠶⠶⠟⠛⠁⠀⠀⠀⠀</pre>
-        <div class="sigil-caption">IDM // LUCA</div>
+        <pre class="sigil-art" aria-hidden="true">   ◢▚▚▚▚▚◣
+  ◢▚▚▚▚▚▚▚◣
+ ▐▚▚▚ ◉ ▚▚▚▌
+  ◥▚▚▚▚▚▚▚◤
+   ◥▚▚▚▚▚◤</pre>
+        <div class="sigil-caption">SYS // LUCA</div>
       </div>
     </div>
 
@@ -1107,112 +1087,49 @@ body.rice-paused .verse-cursor { animation-play-state: paused; }
     renderWeatherChart(data.hourly);
   }
 
-  // Hourly strip: hour label on top, temp value + smooth curve in the
-  // middle, precipitation chance on the bottom — same idea as a phone
-  // weather app's hourly row, hand-drawn as one small SVG (no chart
-  // library). The window is centered on "now" (not always midnight→20:00)
-  // and densely sampled so the curve actually has shape instead of looking
-  // stretched; see renderWeatherChart below for the sampling/curve math.
-  const WEATHER_CHART_STEP_HOURS = 2; // hours between samples
-  const WEATHER_CHART_POINTS = 10;    // ~18h of coverage at the step above
+  // Hourly strip: hour label on top, temp value + line in the middle,
+  // precipitation chance on the bottom — same idea as a phone weather
+  // app's hourly row, hand-drawn as one small SVG (no chart library).
+  // Only a handful of hours are sampled (not all 24) so the labels have
+  // room to breathe; the sampled hour closest to right now is highlighted.
+  const WEATHER_CHART_HOURS = [0, 4, 8, 12, 16, 20];
 
   function renderWeatherChart(hourly) {
     const svg = $('weatherChartSvg');
     if (!hourly || !hourly.temps || hourly.temps.length < 2) { svg.classList.add('hidden'); svg.innerHTML = ''; return; }
     svg.classList.remove('hidden');
 
-    const total = hourly.temps.length;
-    const step = WEATHER_CHART_STEP_HOURS;
-    const points = Math.max(2, Math.min(WEATHER_CHART_POINTS, Math.floor((total - 1) / step) + 1));
-    const nowIdx = Math.max(0, Math.min(total - 1, hourly.nowIndex));
-
-    // Window starts ~1h before "now" (a little trailing context) and runs
-    // forward; shifted back if it would run past the end of the available
-    // (single-day) hourly data so it's never short a point at the tail.
-    const span = (points - 1) * step;
-    let start = Math.max(0, nowIdx - 1);
-    if (start + span > total - 1) start = Math.max(0, total - 1 - span);
-
-    const idxs = [];
-    for (let k = 0; k < points; k++) idxs.push(Math.min(total - 1, start + k * step));
+    const idxs = WEATHER_CHART_HOURS.filter(i => i < hourly.temps.length);
     const temps = idxs.map(i => hourly.temps[i]);
     const precip = idxs.map(i => (hourly.precip ? hourly.precip[i] : null));
     const n = idxs.length;
+    const nowIdx = Math.max(0, Math.min(hourly.temps.length - 1, hourly.nowIndex));
+    // Which SAMPLED point is closest to the real current hour.
+    let nowSample = 0, bestDiff = Infinity;
+    idxs.forEach((hourIdx, i) => { const d = Math.abs(hourIdx - nowIdx); if (d < bestDiff) { bestDiff = d; nowSample = i; } });
 
     const W = svg.getBoundingClientRect().width || 300, H = 94;
     svg.setAttribute('viewBox', '0 0 ' + W.toFixed(1) + ' ' + H);
-    const hourY = 9, valueY = 26, curveTop = 33, curveBottom = 64, precipY = 86;
-
-    // A little vertical padding around min/max so the curve breathes
-    // instead of touching the top/bottom of its band.
+    const hourY = 9, valueY = 26, curveTop = 32, curveBottom = 64, precipY = 86;
     const min = Math.min.apply(null, temps), max = Math.max.apply(null, temps);
-    const range = (max - min) || 2;
-    const pad = range * 0.22;
-    const vMin = min - pad, vRange = (range + pad * 2) || 1;
-
+    const range = (max - min) || 1;
     const xAt = (i) => n === 1 ? W / 2 : (W * i) / (n - 1);
-    const yAt = (v) => curveTop + (curveBottom - curveTop) * (1 - (v - vMin) / vRange);
-    const pts = temps.map((v, i) => ({ x: xAt(i), y: yAt(v) }));
+    const yAt = (v) => curveTop + (curveBottom - curveTop) * (1 - (v - min) / range);
 
-    // Catmull-Rom → cubic Bézier per segment, clamped at the ends (the
-    // first/last point stands in for its own missing neighbor) so the
-    // curve passes exactly through every sample with no overshoot past
-    // the first/last point.
-    const segs = [];
-    let d = 'M ' + pts[0].x.toFixed(1) + ' ' + pts[0].y.toFixed(1);
-    for (let i = 0; i < n - 1; i++) {
-      const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || pts[i + 1];
-      const c1 = { x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6 };
-      const c2 = { x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6 };
-      segs.push({ p1, c1, c2, p2 });
-      d += ' C ' + c1.x.toFixed(1) + ' ' + c1.y.toFixed(1) + ', ' + c2.x.toFixed(1) + ' ' + c2.y.toFixed(1) + ', ' + p2.x.toFixed(1) + ' ' + p2.y.toFixed(1);
-    }
-
-    // Locate "now" precisely — which segment it falls in and how far
-    // along (0–1) — then evaluate that exact cubic Bézier at that t so the
-    // marker sits exactly on the drawn curve instead of snapping to
-    // whichever sample happens to be closest.
-    let seg = 0, t = 0;
-    if (n < 2) { seg = 0; t = 0; }
-    else if (nowIdx <= idxs[0]) { seg = 0; t = 0; }
-    else if (nowIdx >= idxs[n - 1]) { seg = n - 2; t = 1; }
-    else {
-      for (let i = 0; i < n - 1; i++) {
-        if (nowIdx >= idxs[i] && nowIdx <= idxs[i + 1]) { seg = i; t = (nowIdx - idxs[i]) / step; break; }
-      }
-    }
-    const s = segs[seg];
-    const mt = 1 - t;
-    const nowX = mt*mt*mt*s.p1.x + 3*mt*mt*t*s.c1.x + 3*mt*t*t*s.c2.x + t*t*t*s.p2.x;
-    const nowY = mt*mt*mt*s.p1.y + 3*mt*mt*t*s.c1.y + 3*mt*t*t*s.c2.y + t*t*t*s.p2.y;
-    const nowTemp = temps[seg] + (temps[seg + 1] - temps[seg]) * t;
-    const nowNearestSample = t < 0.5 ? seg : seg + 1;
-
+    let d = '';
+    temps.forEach((v, i) => { d += (i === 0 ? 'M ' : ' L ') + xAt(i).toFixed(1) + ' ' + yAt(v).toFixed(1); });
     let html = '<path class="home-weather-chart-line" d="' + d + '"></path>';
 
-    // Thin the hour/temp/precip labels so they don't crowd with this many
-    // points, but keep a dot on every single sample. The sample nearest
-    // "now" is skipped here — the dedicated now-marker below covers it,
-    // so it doesn't get a second, near-overlapping label right next to it.
-    const LABEL_EVERY = 2;
     idxs.forEach((hourIdx, i) => {
       const x = xAt(i).toFixed(1);
-      const showLabel = (i % LABEL_EVERY === 0 || i === n - 1) && i !== nowNearestSample;
-      if (showLabel) {
-        html += '<text class="home-weather-chart-hour" x="' + x + '" y="' + hourY + '" text-anchor="middle">' + String(hourIdx % 24).padStart(2, '0') + ':00</text>';
-        html += '<text class="home-weather-chart-value" x="' + x + '" y="' + valueY + '" text-anchor="middle">' + Math.round(temps[i]) + '°</text>';
-        if (precip[i] != null) {
-          html += '<text class="home-weather-chart-precip" x="' + x + '" y="' + precipY + '" text-anchor="middle">' + Math.round(precip[i]) + '%</text>';
-        }
+      const isNow = i === nowSample;
+      html += '<text class="home-weather-chart-hour" x="' + x + '" y="' + hourY + '" text-anchor="middle">' + String(hourIdx).padStart(2, '0') + ':00</text>';
+      html += '<text class="home-weather-chart-value' + (isNow ? ' now' : '') + '" x="' + x + '" y="' + valueY + '" text-anchor="middle">' + Math.round(temps[i]) + '°</text>';
+      html += '<circle class="home-weather-chart-dot' + (isNow ? ' now' : '') + '" cx="' + x + '" cy="' + yAt(temps[i]).toFixed(1) + '" r="' + (isNow ? 3.2 : 2.2) + '"></circle>';
+      if (precip[i] != null) {
+        html += '<text class="home-weather-chart-precip" x="' + x + '" y="' + precipY + '" text-anchor="middle">' + Math.round(precip[i]) + '%</text>';
       }
-      html += '<circle class="home-weather-chart-dot" cx="' + x + '" cy="' + pts[i].y.toFixed(1) + '" r="2"></circle>';
     });
-
-    // "Now" marker — precise interpolated position + interpolated reading,
-    // always shown regardless of the label-thinning cadence above.
-    html += '<circle class="home-weather-chart-dot now" cx="' + nowX.toFixed(1) + '" cy="' + nowY.toFixed(1) + '" r="3.2"></circle>';
-    html += '<text class="home-weather-chart-value now" x="' + nowX.toFixed(1) + '" y="' + valueY + '" text-anchor="middle">' + Math.round(nowTemp) + '°</text>';
-
     svg.innerHTML = html;
   }
 
