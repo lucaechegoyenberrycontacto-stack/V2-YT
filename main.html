@@ -212,7 +212,7 @@ body::after {
   .sleep-summary-value { font-size: 19px; }
 }
 
-/* ===== Component 4: section + To Do List ===== */
+/* ===== Component 4: section + Tasks ===== */
 .section { margin-top: 8px; }
 .section-title {
   font-size: 10.5px; font-weight: 700;
@@ -229,6 +229,8 @@ body::after {
   content: ''; flex: 1; height: 1px;
   background: linear-gradient(90deg, rgba(255,255,255,0.08), transparent);
 }
+
+.hidden { display: none !important; }
 
 .gm-card {
   position: relative;
@@ -248,151 +250,151 @@ body::after {
   background: radial-gradient(circle at 50% 0%, rgba(107,227,164,0.10), transparent 60%);
   pointer-events: none;
 }
-.gm-card.gm-all-done .gm-progress-num,
-.gm-card.gm-all-done .gm-progress-label { color: var(--success); }
 
 .gm-header {
-  display: flex; align-items: flex-start; justify-content: space-between;
+  display: flex; align-items: center; justify-content: space-between;
   flex-wrap: wrap; gap: 12px;
-  margin-bottom: 14px;
-  position: relative;
+  margin-bottom: 16px;
 }
-.gm-header-left { display: flex; flex-direction: column; }
 .gm-eyebrow {
   font-size: 10.5px; font-weight: 700;
   letter-spacing: 0.18em; text-transform: uppercase;
   color: var(--text-tertiary);
-  margin-bottom: 6px;
 }
-.gm-progress-row { display: flex; align-items: baseline; gap: 6px; }
-.gm-progress-num {
-  font-size: 42px; font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.045em;
-  color: var(--text-primary);
-  line-height: 1;
-}
-.gm-progress-total {
+.tk-pending-pill {
   font-family: var(--font-mono);
-  font-size: 18px;
-  color: var(--text-tertiary);
-}
-.gm-progress-label {
-  font-size: 11px; font-weight: 600;
-  letter-spacing: 0.10em; text-transform: uppercase;
-  color: var(--text-tertiary);
-  margin-left: 4px;
-}
-.gm-tomorrow-sub { font-size: 12px; color: var(--text-tertiary); margin-top: 4px; }
-.gm-tomorrow-count {
-  font-family: var(--font-mono);
-  font-size: 11px; font-weight: 600;
+  font-size: 11px; font-weight: 700;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.04em; text-transform: uppercase;
-  color: var(--text-tertiary);
-}
-.gm-card-tomorrow .gm-progress-row { display: none; }
-
-.gm-streak {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 8px 12px;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.06);
-  color: var(--text-tertiary);
-  font-size: 11px; font-weight: 600;
-  letter-spacing: 0.10em; text-transform: uppercase;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.07);
   transition: background 0.25s, color 0.25s, border-color 0.25s;
 }
-.gm-streak-icon { font-size: 13px; }
-.gm-streak-num {
-  font-family: var(--font-mono);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-.gm-streak.gm-streak-active {
-  background: rgba(242,192,99,0.10);
-  color: #F2C063;
-  border-color: rgba(242,192,99,0.32);
-}
-.gm-streak.gm-streak-active .gm-streak-icon {
-  filter: drop-shadow(0 0 6px rgba(242,192,99,0.6));
+.gm-all-done .tk-pending-pill {
+  background: rgba(107,227,164,0.10);
+  color: var(--success);
+  border-color: rgba(107,227,164,0.28);
 }
 
-.gm-bar {
-  display: flex; gap: 4px;
-  height: 6px;
-  margin-bottom: 16px;
+/* ---- add task ---- */
+.tk-add {
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
 }
-.gm-bar:empty { display: none; }
-.gm-bar-seg {
-  flex: 1;
-  background: rgba(255,255,255,0.06);
-  border-radius: 3px;
-  transition: background 0.3s, box-shadow 0.3s;
+.tk-add-main { display: flex; gap: 8px; align-items: center; }
+.tk-input {
+  flex: 1; min-width: 0;
+  padding: 11px 14px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  background: rgba(0,0,0,0.28);
+  color: var(--text-primary);
+  font-family: inherit; font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s;
 }
-.gm-bar-seg-done {
-  background: #6BE3A4;
-  box-shadow: 0 0 6px rgba(107,227,164,0.40);
+.tk-input::placeholder { color: var(--text-tertiary); }
+.tk-input:focus { border-color: rgba(255,255,255,0.28); background: rgba(0,0,0,0.36); }
+.tk-add-extra {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+  overflow: hidden;
+  transition: max-height 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.22s ease, margin-top 0.28s ease;
 }
+.tk-add.tk-expanded .tk-add-extra {
+  max-height: 60px;
+  opacity: 1;
+  margin-top: 10px;
+}
+.tk-input-date {
+  color-scheme: dark;
+  min-width: 0;
+  font-size: 13px;
+  padding: 10px 12px;
+}
+.gm-add {
+  flex-shrink: 0;
+  padding: 11px 20px;
+  border: 0; border-radius: 12px;
+  background: linear-gradient(180deg, #FFFFFF 0%, #E8E5DD 100%);
+  color: #0A0A0B;
+  font-family: inherit; font-size: 13px; font-weight: 700;
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.9),
+    0 2px 8px rgba(0,0,0,0.35),
+    0 8px 22px rgba(0,0,0,0.25);
+  transition: transform 0.1s, filter 0.15s;
+}
+.gm-add:hover { filter: brightness(1.06); transform: translateY(-1px); }
+.gm-add:active { transform: translateY(0); }
+
+/* ---- groups + rows ---- */
+.tk-groups { display: flex; flex-direction: column; gap: 18px; }
+.tk-group-label {
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+  display: flex; align-items: center; gap: 6px;
+}
+.tk-group-overdue .tk-group-label { color: var(--danger); }
+.tk-group-today .tk-group-label { color: var(--warning); }
+.tk-group-count { font-family: var(--font-mono); font-weight: 600; color: inherit; opacity: 0.75; }
 
 .goal-list { list-style: none; margin: 0; padding: 0; }
 .empty-state {
   text-align: center;
-  font-size: 12px; font-style: italic;
+  font-size: 12.5px; font-style: italic;
   color: var(--text-tertiary);
-  padding: 14px 0;
+  padding: 26px 0;
 }
 
 .gm-row {
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: flex-start; gap: 12px;
   padding: 12px 14px;
   margin-bottom: 6px;
   background: rgba(255,255,255,0.035);
   border: 1px solid rgba(255,255,255,0.06);
   border-radius: 12px;
-  transition: background 0.2s, opacity 0.3s;
+  transition: background 0.2s, opacity 0.3s ease, max-height 0.32s ease, margin 0.32s ease, padding 0.32s ease, border-width 0.32s ease;
   position: relative;
+  overflow: hidden;
+  max-height: 140px;
 }
 .gm-row:hover { background: rgba(255,255,255,0.06); }
-.gm-row.gm-row-done {
-  opacity: 0.45;
-  background: rgba(107,227,164,0.04);
-}
-.gm-row.gm-row-done .gm-text {
+.gm-row.tk-completing .tk-text-main {
   text-decoration: line-through;
   text-decoration-color: rgba(255,255,255,0.4);
+  opacity: 0.55;
+  transition: opacity 0.3s ease, text-decoration-color 0.3s ease;
 }
-.gm-row.gm-row-queued {
-  background: rgba(242,192,99,0.10);
-  box-shadow: inset 3px 0 0 0 #F2C063;
-}
-.gm-row.gm-row-queued .gm-text { color: #FFE2A8; }
-.gm-row.is-drag-over { border-top: 2px solid #6BE3A4; }
-.gm-row.is-queue-flashing { animation: gm-queue-flash 0.48s ease-out; }
-@keyframes gm-queue-flash {
-  0%   { background: rgba(255,255,255,0.035); transform: scale(1); }
-  40%  { background: rgba(242,192,99,0.32); transform: scale(1.015); }
-  100% { background: rgba(255,255,255,0.035); transform: scale(1); }
-}
-
-.gm-handle {
-  width: 14px; flex-shrink: 0;
-  color: var(--text-tertiary);
-  font-weight: 700; font-size: 14px;
-  letter-spacing: -2px;
-  cursor: grab;
+.gm-row.tk-completing .tk-text-sub { opacity: 0.35; transition: opacity 0.3s ease; }
+.gm-row.tk-collapsing {
   opacity: 0;
-  transition: opacity 0.2s;
-  user-select: none;
+  max-height: 0;
+  margin-bottom: 0;
+  padding-top: 0; padding-bottom: 0;
+  border-width: 0;
 }
-.gm-row:hover .gm-handle { opacity: 1; }
-.gm-handle:active { cursor: grabbing; }
+.gm-row.tk-entering { animation: tk-row-in 0.3s cubic-bezier(0.34,1.2,0.64,1); }
+@keyframes tk-row-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
 
 .gm-check {
   appearance: none; -webkit-appearance: none;
   width: 22px; height: 22px; flex-shrink: 0;
-  margin: 0;
+  margin: 1px 0 0;
   border: 1.5px solid rgba(255,255,255,0.18);
   background: rgba(0,0,0,0.28);
   border-radius: 7px;
@@ -418,53 +420,46 @@ body::after {
   from { transform: rotate(45deg) scale(0); }
   to   { transform: rotate(45deg) scale(1); }
 }
-.gm-check:disabled { cursor: not-allowed; opacity: 0.55; }
 
-.gm-text {
-  flex: 1;
-  font-size: 14px;
-  color: var(--text-primary);
-  cursor: text;
-  outline: none;
-  border-radius: 4px;
-  padding: 2px 4px;
-  margin: -2px -4px;
+.tk-body { flex: 1; min-width: 0; }
+.tk-text-main { font-size: 14px; color: var(--text-primary); }
+.tk-text-sub { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+.tk-text-date {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 10.5px; font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--text-tertiary);
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.04);
+  margin-top: 1px;
+  white-space: nowrap;
 }
-.gm-text[contenteditable="true"] {
-  outline: 1px solid rgba(255,255,255,0.18);
-  background: rgba(0,0,0,0.28);
-}
+.tk-group-overdue .tk-text-date { color: var(--danger); background: rgba(255,107,107,0.10); }
 
-.gm-queue-btn {
+.tk-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; opacity: 0; transition: opacity 0.2s; }
+.gm-row:hover .tk-actions { opacity: 1; }
+.tk-icon-btn {
   border: 0; background: transparent;
   color: var(--text-tertiary);
   font-size: 14px;
   cursor: pointer;
-  padding: 4px 6px;
+  width: 26px; height: 26px;
+  display: inline-flex; align-items: center; justify-content: center;
   border-radius: 6px;
-  opacity: 0.55;
-  transition: opacity 0.2s, color 0.2s, transform 0.1s;
+  transition: color 0.2s, background 0.2s;
 }
-.gm-queue-btn:hover { opacity: 1; }
-.gm-queue-btn.gm-queue-active {
-  color: #F2C063;
-  opacity: 1;
-  filter: drop-shadow(0 0 4px rgba(242,192,99,0.65));
-}
-.gm-queue-btn:disabled { cursor: not-allowed; opacity: 0.3; }
+.tk-icon-btn:hover { color: var(--text-primary); background: rgba(255,255,255,0.06); }
+.tk-icon-btn.tk-delete:hover { color: var(--danger); }
 
-.goal-delete {
-  border: 0; background: transparent;
-  color: var(--text-tertiary);
-  font-size: 18px;
-  cursor: pointer;
-  padding: 0 4px;
-  opacity: 0.5;
-  transition: opacity 0.2s, color 0.2s;
-}
-.gm-row:hover .goal-delete { opacity: 1; }
-.goal-delete:hover { color: var(--danger); }
+/* ---- inline edit ---- */
+.tk-edit-form { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.tk-edit-row { display: flex; gap: 6px; }
+.tk-edit-form .tk-input { padding: 8px 10px; font-size: 13px; border-radius: 8px; }
+.tk-edit-actions { display: flex; gap: 4px; flex-shrink: 0; align-self: flex-start; }
 
+/* ---- completed (collapsible) ---- */
 .gm-show-toggle {
   width: 100%;
   margin: 6px 0 0;
@@ -480,92 +475,34 @@ body::after {
   transition: color 0.2s, border-color 0.2s;
 }
 .gm-show-toggle:hover { color: var(--text-primary); border-color: rgba(255,255,255,0.22); }
-
-.gm-push-btn {
-  width: 100%;
-  margin-top: 14px;
-  padding: 11px;
-  border: 1px dashed rgba(255,255,255,0.16);
-  border-radius: 12px;
-  background: transparent;
-  color: var(--text-tertiary);
-  font-family: inherit;
-  font-size: 11px; font-weight: 700;
-  letter-spacing: 0.10em; text-transform: uppercase;
-  cursor: pointer;
-  transition: color 0.2s, border-color 0.2s, background 0.2s;
+.tk-completed-list { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+.tk-completed-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.02);
+  font-size: 13px;
 }
-.gm-push-btn:hover {
-  color: var(--text-primary);
-  border-color: rgba(255,255,255,0.30);
-  border-style: solid;
-  background: rgba(255,255,255,0.04);
-}
-
-.goal-input-wrap.gm-input-wrap {
-  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid rgba(255,255,255,0.06);
-}
-.gm-input {
+.tk-completed-text {
   flex: 1; min-width: 0;
-  padding: 11px 14px;
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 12px;
-  background: rgba(0,0,0,0.28);
-  color: var(--text-primary);
-  font-family: inherit; font-size: 14px;
-  outline: none;
-  transition: border-color 0.2s, background 0.2s;
-}
-.gm-input::placeholder { color: var(--text-tertiary); }
-.gm-input:focus { border-color: rgba(255,255,255,0.28); background: rgba(0,0,0,0.36); }
-
-.gm-add {
-  padding: 11px 20px;
-  border: 0; border-radius: 12px;
-  background: linear-gradient(180deg, #FFFFFF 0%, #E8E5DD 100%);
-  color: #0A0A0B;
-  font-family: inherit; font-size: 13px; font-weight: 700;
-  cursor: pointer;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.9),
-    0 2px 8px rgba(0,0,0,0.35),
-    0 8px 22px rgba(0,0,0,0.25);
-  transition: transform 0.1s, filter 0.15s;
-}
-.gm-add:hover { filter: brightness(1.06); transform: translateY(-1px); }
-.gm-add:active { transform: translateY(0); }
-
-.gm-polish {
-  padding: 11px 18px;
-  border: 1px solid rgba(255,255,255,0.10);
-  border-radius: 12px;
-  background: rgba(255,255,255,0.04);
-  color: var(--text-primary);
-  font-family: inherit; font-size: 13px; font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-}
-.gm-polish:hover {
-  background: rgba(255,255,255,0.07);
-  border-color: rgba(255,255,255,0.18);
-}
-
-.gm-status {
-  flex-basis: 100%;
-  font-size: 11px;
   color: var(--text-tertiary);
-  min-height: 14px;
-  margin-top: 4px;
+  text-decoration: line-through;
+  text-decoration-color: rgba(255,255,255,0.25);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.gm-status.gm-status-error { color: var(--danger); }
+.tk-undo-btn {
+  border: 0; background: transparent;
+  color: var(--text-tertiary);
+  font-size: 13px; cursor: pointer;
+  padding: 4px 6px; border-radius: 6px;
+  opacity: 0.7; transition: opacity 0.2s, color 0.2s;
+}
+.tk-undo-btn:hover { opacity: 1; color: var(--text-primary); }
 
 @media (max-width: 480px) {
   body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
   .gm-card { padding: 16px; }
-  .gm-progress-num { font-size: 36px; }
+  .tk-add-extra { grid-template-columns: 1fr; }
 }
 </style>
 </head>
@@ -599,54 +536,31 @@ body::after {
   </div>
 
   <div class="section">
-    <div class="section-title">To Do List</div>
+    <div class="section-title">Tasks</div>
 
-    <!-- TODAY -->
-    <div class="gm-card" id="gmCardToday">
+    <div class="gm-card" id="taskCard">
       <div class="gm-header">
-        <div class="gm-header-left">
-          <div class="gm-eyebrow" id="todayLabel">Today —</div>
-          <div class="gm-progress-row">
-            <span class="gm-progress-num"   id="gmProgressNum">0</span>
-            <span class="gm-progress-total" id="gmProgressTotal">/ 0</span>
-            <span class="gm-progress-label" id="gmProgressLabel">no goals yet</span>
-          </div>
-        </div>
-        <div class="gm-streak" id="gmStreak">
-          <span class="gm-streak-icon">⚡</span>
-          <span class="gm-streak-num" id="gmStreakNum">0</span>
-          <span>day streak</span>
-        </div>
+        <div class="gm-eyebrow">Tasks</div>
+        <div class="tk-pending-pill" id="tkPendingPill">0 pending</div>
       </div>
-      <div class="gm-bar" id="gmBar"></div>
-      <ul id="goalList" class="goal-list gm-list"></ul>
-      <div id="emptyState" class="empty-state">No goals for today yet — add one below.</div>
-      <button type="button" id="gmPushBtn" class="gm-push-btn" style="display:none;">Push remaining to tomorrow</button>
-      <div class="goal-input-wrap gm-input-wrap">
-        <input id="goalInput" class="gm-input" type="text" placeholder="Add a goal for today…" autocomplete="off">
-        <button type="button" id="goalAddBtn"    class="gm-add">+ Add</button>
-        <button type="button" id="goalPolishBtn" class="gm-polish">✨ Polish</button>
-        <div class="gm-status" id="polishStatus"></div>
-      </div>
-    </div>
 
-    <!-- PLAN TOMORROW -->
-    <div class="gm-card gm-card-tomorrow" id="gmCardTomorrow">
-      <div class="gm-header">
-        <div class="gm-header-left">
-          <div class="gm-eyebrow" id="tomorrowLabel">Plan tomorrow —</div>
-          <div class="gm-tomorrow-sub">Write tonight, locked until 6 AM.</div>
+      <div class="tk-add" id="tkAdd">
+        <div class="tk-add-main">
+          <input id="tkTextInput" class="tk-input" type="text" placeholder="New task…" autocomplete="off">
+          <button type="button" id="tkAddBtn" class="gm-add">+ Add</button>
         </div>
-        <div class="gm-tomorrow-count" id="gmTomorrowCount">0 planned</div>
+        <div class="tk-add-extra" id="tkAddExtra">
+          <input id="tkSubtitleInput" class="tk-input" type="text" placeholder="Subtitle (optional)" autocomplete="off">
+          <input id="tkDateInput" class="tk-input tk-input-date" type="date">
+        </div>
       </div>
-      <ul id="tomorrowList" class="goal-list gm-list"></ul>
-      <div id="tomorrowEmpty" class="empty-state">Nothing planned for tomorrow yet</div>
-      <div class="goal-input-wrap gm-input-wrap">
-        <input id="tomorrowInput" class="gm-input" type="text" placeholder="Add a goal for tomorrow…" autocomplete="off">
-        <button type="button" id="tomorrowAddBtn"    class="gm-add">+ Add</button>
-        <button type="button" id="tomorrowPolishBtn" class="gm-polish">✨ Polish</button>
-        <div class="gm-status" id="tomorrowStatus"></div>
-      </div>
+
+      <div id="tkLoading" class="empty-state">Cargando tareas…</div>
+      <div id="tkEmpty" class="empty-state hidden">Nada pendiente — agregá una tarea.</div>
+      <div id="tkGroups" class="tk-groups"></div>
+
+      <button type="button" id="tkCompletedToggle" class="gm-show-toggle hidden">Completed</button>
+      <div id="tkCompletedList" class="tk-completed-list hidden"></div>
     </div>
   </div>
 
@@ -656,169 +570,397 @@ body::after {
 (function () {
   'use strict';
 
-  // Paste your Anthropic key here to enable ✨ Polish. Empty = falls back to plain add.
-  const ANTHROPIC_API_KEY = '';
+  // ---------- DataLayer-backed state ----------
+  // dlReady flips true once initTasksDataLayer (bottom) resolves; tasksCache
+  // holds every row from the 'tasks' collection (both pending and done —
+  // done rows are kept locally too so the ticker/legacy mirror below can
+  // compute "done today" without a second round-trip).
+  let dlReady = false;
+  let tasksCache = [];
+  let animating = 0; // >0 while a row's complete/delete animation owns the DOM
+  const newlyAddedIds = new Set(); // rows created locally this session — play entrance animation once
 
-  // ---------- storage helpers ----------
-  // Backed by DataLayer (records: goals_daily id=date, goals_streak
-  // singleton) instead of raw localStorage for the 'goals:*' key family
-  // and 'goal_streak_v1' — everything else (none, today) still falls
-  // through to plain localStorage. Kept behind the SAME key-based
-  // interface (storeGet/storeSet/storeDelete/storeListKeys) the rest of
-  // this file already used, so rollover()/processStreak()/getGoals()/
-  // setGoals()/loadStreak()/saveStreak() and every render/mutation
-  // function below needed zero changes — only this boundary did.
-  let dlReady = false; // flips true once initGoalsDataLayer (bottom) resolves
-  let dlGoalsByDate = {}; // 'YYYY-MM-DD' -> [{text,done,...}]
-  let dlStreak = { count: 0, lastProcessedDate: '' };
+  const MIGRATION_LS_FLAG = 'tasks_migrated_v1';
 
-  function mirrorGoalsDate(dateStr) {
-    try { localStorage.setItem('goals:' + dateStr, JSON.stringify(dlGoalsByDate[dateStr] || [])); } catch (e) {}
-  }
-  function mirrorAllGoalsDates() {
-    Object.keys(dlGoalsByDate).forEach(mirrorGoalsDate);
-  }
-
-  function storeGet(key) {
-    if (typeof key === 'string' && key.indexOf('goals:') === 0) {
-      const dateStr = key.slice('goals:'.length);
-      return (dlGoalsByDate[dateStr] || []).map((g) => Object.assign({}, g));
-    }
-    if (key === 'goal_streak_v1') return Object.assign({}, dlStreak);
-    try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; }
-  }
-  function storeSet(key, value) {
-    if (typeof key === 'string' && key.indexOf('goals:') === 0) {
-      const dateStr = key.slice('goals:'.length);
-      dlGoalsByDate[dateStr] = Array.isArray(value) ? value : [];
-      mirrorGoalsDate(dateStr);
-      if (dlReady) DataLayer.put('goals_daily', dateStr, { items: dlGoalsByDate[dateStr] });
-      window.dispatchEvent(new CustomEvent('goals-changed'));
-      return;
-    }
-    if (key === 'goal_streak_v1') {
-      dlStreak = (value && typeof value === 'object') ? value : { count: 0, lastProcessedDate: '' };
-      if (dlReady) DataLayer.putSingleton('goals_streak', dlStreak);
-      return;
-    }
-    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
-  }
-  function storeDelete(key) {
-    if (typeof key === 'string' && key.indexOf('goals:') === 0) {
-      const dateStr = key.slice('goals:'.length);
-      delete dlGoalsByDate[dateStr];
-      try { localStorage.removeItem(key); } catch (e) {}
-      if (dlReady) DataLayer.remove('goals_daily', dateStr);
-      return;
-    }
-    try { localStorage.removeItem(key); } catch (e) {}
-  }
-  function storeListKeys(prefix) {
-    if (prefix === 'goals:') return Object.keys(dlGoalsByDate).map((d) => 'goals:' + d);
-    const out = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && k.indexOf(prefix) === 0) out.push(k);
-    }
-    return out;
-  }
-
-  // ---------- date helpers ----------
+  // ---------- date helpers (new model: plain calendar dates, no 6 AM rollover) ----------
   function pad2(n) { return String(n).padStart(2, '0'); }
   function dateToKey(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
-  function getActiveDateString() {
+  function todayStr() { return dateToKey(new Date()); }
+  function tomorrowStr() { const d = new Date(); d.setDate(d.getDate() + 1); return dateToKey(d); }
+
+  const DOW_ES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+  const MON_ES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+  function humanDate(dueDate) {
+    if (!dueDate) return '—';
+    if (dueDate === todayStr()) return 'Hoy';
+    if (dueDate === tomorrowStr()) return 'Mañana';
+    const parts = dueDate.split('-').map(Number);
+    const d = new Date(parts[0], parts[1] - 1, parts[2]);
+    return DOW_ES[d.getDay()] + ' ' + d.getDate() + ' ' + MON_ES[d.getMonth()];
+  }
+
+  // Legacy compat shim (main.html and topbar.js are the only two places
+  // that ever wrote/read this key — see project memory on app_state/
+  // appKey mapping): topbar.js's nav badge AND index.html's read-only
+  // "Goals" stat tile both read localStorage['goals:' + <6AM-rollover
+  // date>] directly, never via DataLayer, and can't be edited in this
+  // task (topbar.js is off-limits). We keep feeding that exact key from
+  // the new tasks data so both keep working unchanged; the initCloudSync
+  // bridge at the bottom of this file (untouched) keeps relaying it
+  // cross-device exactly as it already did before this migration.
+  function legacyActiveDateKey() {
     const now = new Date();
-    if (now.getHours() < 6) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - 1);
-      return dateToKey(d);
-    }
+    if (now.getHours() < 6) { const d = new Date(now); d.setDate(d.getDate() - 1); return dateToKey(d); }
     return dateToKey(now);
   }
-  function getTomorrowDateString() {
-    const now = new Date();
-    const d = new Date(now);
-    if (now.getHours() >= 6) d.setDate(d.getDate() + 1);
-    return dateToKey(d);
-  }
-  function formatDate(yyyy_mm_dd) {
-    const parts = yyyy_mm_dd.split('-').map(Number);
-    const d = new Date(parts[0], parts[1] - 1, parts[2]);
-    const wk = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()];
-    const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
-    return wk + ', ' + mo + ' ' + d.getDate();
+  function refreshLegacyGoalsMirror() {
+    try {
+      const key = legacyActiveDateKey();
+      const todays = tasksCache.filter((t) => t.dueDate === key).map((t) => ({ text: t.text, done: !!t.done }));
+      localStorage.setItem('goals:' + key, JSON.stringify(todays));
+    } catch (e) {}
   }
 
-  function todayKey()    { return 'goals:' + getActiveDateString(); }
-  function tomorrowKey() { return 'goals:' + getTomorrowDateString(); }
+  function genTaskId() { return 't_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8); }
 
-  function getGoals(key) {
-    const g = storeGet(key);
-    return Array.isArray(g) ? g : [];
-  }
-  function setGoals(key, list) { storeSet(key, list); }
+  // ---------- migration: goals_daily -> tasks (one-shot, idempotent, defensive) ----------
+  async function migrateGoalsToTasksIfNeeded() {
+    try {
+      if (localStorage.getItem(MIGRATION_LS_FLAG) === '1') return;
+      const flag = await DataLayer.getSingleton('tasks_migration');
+      if (flag && flag.done) { localStorage.setItem(MIGRATION_LS_FLAG, '1'); return; }
 
-  // ---------- rollover: pull undone older goals into today ----------
-  function rollover() {
-    const todayDateStr = getActiveDateString();
-    const todayK = 'goals:' + todayDateStr;
-    let today = getGoals(todayK);
-    const texts = new Set(today.map(g => g.text));
+      const dailyRows = await DataLayer.list('goals_daily');
+      const existingTasks = await DataLayer.list('tasks');
+      const seen = new Set(existingTasks.map((t) => (t.text || '') + '|' + (t.dueDate || '')));
+      let migrated = 0;
 
-    storeListKeys('goals:').forEach(k => {
-      const dateStr = k.slice('goals:'.length);
-      if (dateStr >= todayDateStr) return;
-      const old = getGoals(k);
-      old.forEach(g => {
-        if (!g.done && g.text && !texts.has(g.text)) {
-          today.push({ text: g.text, done: false });
-          texts.add(g.text);
+      if (Array.isArray(dailyRows)) {
+        for (const row of dailyRows) {
+          const dateStr = row.id;
+          const items = Array.isArray(row.items) ? row.items : [];
+          let dayTs = Date.now();
+          try {
+            const parts = String(dateStr).split('-').map(Number);
+            const ts = new Date(parts[0], parts[1] - 1, parts[2]).getTime();
+            if (!isNaN(ts)) dayTs = ts;
+          } catch (e) {}
+
+          for (const item of items) {
+            if (!item || !item.text) continue;
+            const dedupeKey = item.text + '|' + dateStr;
+            if (seen.has(dedupeKey)) continue;
+            seen.add(dedupeKey);
+            const done = !!item.done;
+            const id = genTaskId();
+            await DataLayer.put('tasks', id, {
+              text: item.text,
+              subtitle: '',
+              dueDate: dateStr,
+              done: done,
+              createdAt: dayTs,
+              completedAt: done ? dayTs : null,
+            });
+            migrated++;
+          }
         }
-      });
-      storeDelete(k);
+      }
+
+      await DataLayer.putSingleton('tasks_migration', { done: true, at: Date.now() });
+      localStorage.setItem(MIGRATION_LS_FLAG, '1');
+      console.log('[tasks migration] migrated ' + migrated + ' task(s) from goals_daily.');
+    } catch (e) {
+      console.warn('[tasks migration] failed — will retry next load', e);
+    }
+  }
+
+  // ---------- CRUD ----------
+  function taskPayload(t) {
+    return { text: t.text, subtitle: t.subtitle || '', dueDate: t.dueDate || null, done: !!t.done, createdAt: t.createdAt, completedAt: t.completedAt || null };
+  }
+  function upsertLocal(id, payload) {
+    const idx = tasksCache.findIndex((t) => t.id === id);
+    const row = Object.assign({ id: id }, payload);
+    if (idx >= 0) tasksCache[idx] = row; else tasksCache.push(row);
+  }
+
+  function scheduleRender() {
+    if (animating > 0) return;
+    renderAll();
+  }
+
+  async function createTask(text, subtitle, dueDate) {
+    const id = genTaskId();
+    const payload = { text: text, subtitle: subtitle || '', dueDate: dueDate || null, done: false, createdAt: Date.now(), completedAt: null };
+    upsertLocal(id, payload);
+    newlyAddedIds.add(id);
+    refreshLegacyGoalsMirror();
+    scheduleRender();
+    if (dlReady) await DataLayer.put('tasks', id, payload);
+  }
+
+  function completeTaskAnimated(task, rowEl) {
+    animating++;
+    rowEl.classList.add('tk-completing');
+    const completedAt = Date.now();
+    const payload = taskPayload(Object.assign({}, task, { done: true, completedAt: completedAt }));
+    upsertLocal(task.id, payload);
+    refreshLegacyGoalsMirror();
+    if (dlReady) DataLayer.put('tasks', task.id, payload);
+    setTimeout(() => {
+      rowEl.classList.add('tk-collapsing');
+      setTimeout(() => { animating--; if (animating === 0) renderAll(); }, 320);
+    }, 300);
+  }
+
+  async function uncompleteTask(task) {
+    const payload = taskPayload(Object.assign({}, task, { done: false, completedAt: null }));
+    upsertLocal(task.id, payload);
+    refreshLegacyGoalsMirror();
+    renderAll();
+    if (dlReady) await DataLayer.put('tasks', task.id, payload);
+  }
+
+  async function saveTaskEdit(task, text, subtitle, dueDate) {
+    const payload = taskPayload(Object.assign({}, task, { text: text, subtitle: subtitle || '', dueDate: dueDate || null }));
+    upsertLocal(task.id, payload);
+    refreshLegacyGoalsMirror();
+    renderAll();
+    if (dlReady) await DataLayer.put('tasks', task.id, payload);
+  }
+
+  function deleteTaskAnimated(task, rowEl) {
+    animating++;
+    rowEl.classList.add('tk-collapsing');
+    setTimeout(() => {
+      tasksCache = tasksCache.filter((t) => t.id !== task.id);
+      refreshLegacyGoalsMirror();
+      animating--;
+      if (animating === 0) renderAll();
+      if (dlReady) DataLayer.remove('tasks', task.id);
+    }, 300);
+  }
+
+  // ---------- grouping ----------
+  function groupPending(list) {
+    const today = todayStr();
+    const pending = list.filter((t) => !t.done);
+    const overdue  = pending.filter((t) => t.dueDate && t.dueDate < today).sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.createdAt - b.createdAt);
+    const todayG   = pending.filter((t) => t.dueDate === today).sort((a, b) => a.createdAt - b.createdAt);
+    const upcoming = pending.filter((t) => t.dueDate && t.dueDate > today).sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.createdAt - b.createdAt);
+    const someday  = pending.filter((t) => !t.dueDate).sort((a, b) => a.createdAt - b.createdAt);
+    return [
+      { key: 'overdue',  label: 'Overdue',  items: overdue },
+      { key: 'today',    label: 'Today',    items: todayG },
+      { key: 'upcoming', label: 'Upcoming', items: upcoming },
+      { key: 'someday',  label: 'Someday',  items: someday },
+    ].filter((g) => g.items.length);
+  }
+
+  // ---------- row building ----------
+  function enterEditMode(task, li) {
+    li.innerHTML = '';
+    const form = document.createElement('div');
+    form.className = 'tk-edit-form';
+
+    const textInput = document.createElement('input');
+    textInput.className = 'tk-input'; textInput.type = 'text'; textInput.value = task.text;
+    form.appendChild(textInput);
+
+    const row2 = document.createElement('div');
+    row2.className = 'tk-edit-row';
+    const subInput = document.createElement('input');
+    subInput.className = 'tk-input'; subInput.type = 'text'; subInput.placeholder = 'Subtitle (optional)'; subInput.value = task.subtitle || '';
+    const dateInput = document.createElement('input');
+    dateInput.className = 'tk-input tk-input-date'; dateInput.type = 'date'; dateInput.value = task.dueDate || '';
+    row2.appendChild(subInput); row2.appendChild(dateInput);
+    form.appendChild(row2);
+    li.appendChild(form);
+
+    const actions = document.createElement('div');
+    actions.className = 'tk-edit-actions';
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'button'; saveBtn.className = 'tk-icon-btn'; saveBtn.title = 'Guardar'; saveBtn.textContent = '✓';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button'; cancelBtn.className = 'tk-icon-btn'; cancelBtn.title = 'Cancelar'; cancelBtn.textContent = '×';
+
+    function commit() {
+      const t = textInput.value.trim();
+      if (!t) return;
+      saveTaskEdit(task, t, subInput.value.trim(), dateInput.value || null);
+    }
+    saveBtn.addEventListener('click', commit);
+    cancelBtn.addEventListener('click', () => renderAll());
+    textInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); commit(); }
+      else if (e.key === 'Escape') { e.preventDefault(); renderAll(); }
     });
-    setGoals(todayK, today);
+
+    actions.appendChild(saveBtn); actions.appendChild(cancelBtn);
+    li.appendChild(actions);
+    textInput.focus();
   }
 
-  // ---------- streak ----------
-  function loadStreak() {
-    const s = storeGet('goal_streak_v1');
-    if (s && typeof s.count === 'number') return s;
-    return { count: 0, lastProcessedDate: '' };
-  }
-  function saveStreak(s) { storeSet('goal_streak_v1', s); }
+  function buildTaskRow(task, groupKey) {
+    const li = document.createElement('li');
+    li.className = 'gm-row';
+    if (newlyAddedIds.has(task.id)) { li.classList.add('tk-entering'); newlyAddedIds.delete(task.id); }
 
-  function processStreak() {
-    const s = loadStreak();
-    const todayDateStr = getActiveDateString();
-    const keys = storeListKeys('goals:')
-      .map(k => k.slice('goals:'.length))
-      .filter(d => d < todayDateStr)
-      .sort();
-    keys.forEach(dateStr => {
-      if (s.lastProcessedDate && dateStr <= s.lastProcessedDate) return;
-      const list = getGoals('goals:' + dateStr);
-      if (list.length === 0) { /* don't break the streak on empty days */ }
-      else if (list.every(g => g.done)) s.count += 1;
-      else s.count = 0;
-      s.lastProcessedDate = dateStr;
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.className = 'gm-check';
+    cb.checked = false;
+    cb.addEventListener('change', () => { if (cb.checked) completeTaskAnimated(task, li); });
+    li.appendChild(cb);
+
+    const body = document.createElement('div');
+    body.className = 'tk-body';
+    const main = document.createElement('div');
+    main.className = 'tk-text-main';
+    main.textContent = task.text;
+    body.appendChild(main);
+    if (task.subtitle) {
+      const sub = document.createElement('div');
+      sub.className = 'tk-text-sub';
+      sub.textContent = task.subtitle;
+      body.appendChild(sub);
+    }
+    li.appendChild(body);
+
+    const dateBadge = document.createElement('div');
+    dateBadge.className = 'tk-text-date';
+    dateBadge.textContent = humanDate(task.dueDate);
+    li.appendChild(dateBadge);
+
+    const actions = document.createElement('div');
+    actions.className = 'tk-actions';
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button'; editBtn.className = 'tk-icon-btn'; editBtn.title = 'Editar'; editBtn.setAttribute('aria-label', 'Editar tarea');
+    editBtn.textContent = '✎';
+    editBtn.addEventListener('click', () => enterEditMode(task, li));
+    actions.appendChild(editBtn);
+
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button'; delBtn.className = 'tk-icon-btn tk-delete'; delBtn.title = 'Borrar'; delBtn.setAttribute('aria-label', 'Borrar tarea');
+    delBtn.textContent = '×';
+    delBtn.addEventListener('click', () => deleteTaskAnimated(task, li));
+    actions.appendChild(delBtn);
+
+    li.appendChild(actions);
+    return li;
+  }
+
+  // ---------- renderers ----------
+  function renderGroups() {
+    const wrap = document.getElementById('tkGroups');
+    wrap.innerHTML = '';
+    const groups = groupPending(tasksCache);
+
+    document.getElementById('tkEmpty').classList.toggle('hidden', groups.length > 0);
+    document.getElementById('taskCard').classList.toggle('gm-all-done', tasksCache.length > 0 && groups.length === 0);
+
+    groups.forEach((g) => {
+      const section = document.createElement('div');
+      section.className = 'tk-group tk-group-' + g.key;
+
+      const label = document.createElement('div');
+      label.className = 'tk-group-label';
+      label.textContent = g.label + ' ';
+      const count = document.createElement('span');
+      count.className = 'tk-group-count';
+      count.textContent = String(g.items.length);
+      label.appendChild(count);
+      section.appendChild(label);
+
+      const ul = document.createElement('ul');
+      ul.className = 'goal-list';
+      g.items.forEach((t) => ul.appendChild(buildTaskRow(t, g.key)));
+      section.appendChild(ul);
+
+      wrap.appendChild(section);
     });
-    saveStreak(s);
+
+    const pendingCount = tasksCache.filter((t) => !t.done).length;
+    document.getElementById('tkPendingPill').textContent = pendingCount + ' pending';
   }
 
-  // ---------- Goal Ticker ----------
+  function renderCompleted() {
+    const done = tasksCache.filter((t) => t.done).sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
+    const toggle = document.getElementById('tkCompletedToggle');
+    const list = document.getElementById('tkCompletedList');
+    if (!done.length) { toggle.classList.add('hidden'); list.classList.add('hidden'); list.innerHTML = ''; return; }
+    toggle.classList.remove('hidden');
+    const isOpen = !list.classList.contains('hidden');
+    toggle.textContent = 'Completed (' + done.length + ')' + (isOpen ? ' ▴' : ' ▾');
+    if (!isOpen) return;
+    list.innerHTML = '';
+    done.slice(0, 30).forEach((t) => {
+      const row = document.createElement('div');
+      row.className = 'tk-completed-row';
+      const text = document.createElement('span');
+      text.className = 'tk-completed-text';
+      text.textContent = t.text;
+      row.appendChild(text);
+      const undo = document.createElement('button');
+      undo.type = 'button'; undo.className = 'tk-undo-btn'; undo.title = 'Marcar como pendiente'; undo.setAttribute('aria-label', 'Marcar como pendiente');
+      undo.textContent = '↺';
+      undo.addEventListener('click', () => uncompleteTask(t));
+      row.appendChild(undo);
+      list.appendChild(row);
+    });
+  }
+  document.getElementById('tkCompletedToggle').addEventListener('click', () => {
+    document.getElementById('tkCompletedList').classList.toggle('hidden');
+    renderCompleted();
+  });
+
+  function renderAll() {
+    document.getElementById('tkLoading').classList.add('hidden');
+    renderGroups();
+    renderCompleted();
+  }
+
+  // ---------- Add task form ----------
+  const tkAdd = document.getElementById('tkAdd');
+  const tkTextInput = document.getElementById('tkTextInput');
+  const tkSubtitleInput = document.getElementById('tkSubtitleInput');
+  const tkDateInput = document.getElementById('tkDateInput');
+  const tkAddBtn = document.getElementById('tkAddBtn');
+
+  tkTextInput.addEventListener('focus', () => tkAdd.classList.add('tk-expanded'));
+  document.addEventListener('click', (e) => {
+    if (tkAdd.contains(e.target)) return;
+    if (!tkSubtitleInput.value.trim() && !tkDateInput.value) tkAdd.classList.remove('tk-expanded');
+  });
+
+  function submitAdd() {
+    const text = tkTextInput.value.trim();
+    if (!text) return;
+    const subtitle = tkSubtitleInput.value.trim();
+    const dueDate = tkDateInput.value || null;
+    tkTextInput.value = ''; tkSubtitleInput.value = ''; tkDateInput.value = '';
+    tkAdd.classList.remove('tk-expanded');
+    createTask(text, subtitle, dueDate);
+    tkTextInput.focus();
+  }
+  tkAddBtn.addEventListener('click', submitAdd);
+  tkTextInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submitAdd(); } });
+  tkSubtitleInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submitAdd(); } });
+
+  // ---------- Goal Ticker (re-derived from tasksCache: "today" = tasks due today) ----------
   const tickerStage = document.getElementById('goalTickerStage');
   const tickerMeta  = document.getElementById('goalTickerMeta');
   let cycleIdx = 0;
   let tickerTimer = null;
 
   function buildTickerItems() {
-    const goals = getGoals(todayKey());
-    const total = goals.length;
-    const done  = goals.filter(g => g.done).length;
-    if (total === 0) return { items: [{ status: 'empty',   text: 'No goals set for today — add one to get rolling.' }], done, total };
+    const today = todayStr();
+    const todays = tasksCache.filter((t) => t.dueDate === today);
+    const total = todays.length;
+    const done  = todays.filter((t) => t.done).length;
+    if (total === 0) return { items: [{ status: 'empty', text: 'No goals set for today — add one to get rolling.' }], done, total };
     if (done === total) return { items: [{ status: 'done', text: '✓ All goals done — solid day.' }], done, total };
-    const items = goals.filter(g => !g.done).map(g => ({ status: 'pending', text: g.text }));
+    const items = todays.filter((t) => !t.done).map((t) => ({ status: 'pending', text: t.text }));
     return { items, done, total };
   }
 
@@ -828,8 +970,6 @@ body::after {
     return '·';
   }
 
-  // Single-row crossfade: keep one row in the DOM, fade it out, swap
-  // its text, fade it back in. No overlap, no orphaned animation states.
   let firstTick = true;
   function tick() {
     const { items, done, total } = buildTickerItems();
@@ -869,11 +1009,6 @@ body::after {
     tickerTimer = setInterval(tick, 5000);
   }
 
-  window.addEventListener('goals-changed', () => {
-    cycleIdx = 0;
-    tick();
-  });
-
   // ---------- Sleep Summary (reads sleepEntries saved by health.html#sleep) ----------
   function sleepDurationHours(bedTime, wakeTime) {
     if (!bedTime || !wakeTime) return null;
@@ -887,6 +1022,13 @@ body::after {
   function loadSleepEntries() {
     try { const v = JSON.parse(localStorage.getItem('sleepEntries')); return Array.isArray(v) ? v : []; }
     catch (e) { return []; }
+  }
+  function formatDate(yyyy_mm_dd) {
+    const parts = yyyy_mm_dd.split('-').map(Number);
+    const d = new Date(parts[0], parts[1] - 1, parts[2]);
+    const wk = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()];
+    const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
+    return wk + ', ' + mo + ' ' + d.getDate();
   }
   function renderSleepSummary() {
     const entries = loadSleepEntries();
@@ -902,400 +1044,32 @@ body::after {
     valueEl.textContent = hours != null ? hours.toFixed(1) + 'h' : '—';
     subEl.textContent = formatDate(last.date);
   }
-
-  // ---------- Row building ----------
-  function makeInlineEdit(textEl, goals, idx, key, reload) {
-    textEl.addEventListener('click', () => {
-      if (textEl.getAttribute('contenteditable') === 'true') return;
-      const original = textEl.textContent;
-      textEl.setAttribute('contenteditable', 'true');
-      textEl.focus();
-      const range = document.createRange();
-      range.selectNodeContents(textEl);
-      range.collapse(false);
-      const sel = window.getSelection();
-      sel.removeAllRanges(); sel.addRange(range);
-
-      function commit() {
-        const next = textEl.textContent.trim();
-        textEl.removeAttribute('contenteditable');
-        if (next && next !== original) {
-          const list = getGoals(key);
-          if (list[idx]) { list[idx].text = next; setGoals(key, list); }
-          reload();
-        } else {
-          textEl.textContent = original;
-        }
-      }
-      function cancel() {
-        textEl.removeAttribute('contenteditable');
-        textEl.textContent = original;
-      }
-      textEl.addEventListener('blur', commit, { once: true });
-      textEl.addEventListener('keydown', function onKey(e) {
-        if (e.key === 'Enter') { e.preventDefault(); textEl.removeEventListener('keydown', onKey); textEl.blur(); }
-        else if (e.key === 'Escape') { e.preventDefault(); textEl.removeEventListener('keydown', onKey); cancel(); }
-      });
-    });
-  }
-
-  function wireDragReorder(row, listEl, key, reload) {
-    row.setAttribute('draggable', 'true');
-    row.addEventListener('dragstart', (e) => {
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', row.dataset.idx);
-    });
-    row.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      row.classList.add('is-drag-over');
-    });
-    row.addEventListener('dragleave', () => row.classList.remove('is-drag-over'));
-    row.addEventListener('drop', (e) => {
-      e.preventDefault();
-      row.classList.remove('is-drag-over');
-      const from = parseInt(e.dataTransfer.getData('text/plain'), 10);
-      const to   = parseInt(row.dataset.idx, 10);
-      if (isNaN(from) || isNaN(to) || from === to) return;
-      const list = getGoals(key);
-      const [moved] = list.splice(from, 1);
-      list.splice(to, 0, moved);
-      setGoals(key, list);
-      reload();
-    });
-  }
-
-  function buildGoalRow(goal, idx, key, readOnly, reload) {
-    const li = document.createElement('li');
-    li.className = 'gm-row';
-    li.dataset.idx = String(idx);
-    if (goal.done) li.classList.add('gm-row-done');
-    if (goal.queued) li.classList.add('gm-row-queued');
-
-    const handle = document.createElement('span');
-    handle.className = 'gm-handle';
-    handle.textContent = '⋮⋮';
-    li.appendChild(handle);
-
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.className = 'gm-check';
-    cb.checked = !!goal.done;
-    if (readOnly) { cb.disabled = true; cb.title = 'Activates at 6 AM tomorrow'; }
-    cb.addEventListener('change', () => {
-      const list = getGoals(key);
-      if (!list[idx]) return;
-      list[idx].done = cb.checked;
-      if (cb.checked) list[idx].doneAt = Date.now();
-      else delete list[idx].doneAt;
-      setGoals(key, list);
-      reload();
-    });
-    li.appendChild(cb);
-
-    const text = document.createElement('span');
-    text.className = 'gm-text';
-    text.textContent = goal.text;
-    li.appendChild(text);
-    makeInlineEdit(text, null, idx, key, reload);
-
-    const queueBtn = document.createElement('button');
-    queueBtn.type = 'button';
-    queueBtn.className = 'gm-queue-btn' + (goal.queued ? ' gm-queue-active' : '');
-    queueBtn.textContent = '⚡';
-    queueBtn.title = 'Queue for productivity window';
-    if (readOnly) queueBtn.disabled = true;
-    queueBtn.addEventListener('click', () => {
-      const list = getGoals(key);
-      if (!list[idx]) return;
-      list[idx].queued = !list[idx].queued;
-      setGoals(key, list);
-      li.classList.add('is-queue-flashing');
-      setTimeout(reload, 480);
-    });
-    li.appendChild(queueBtn);
-
-    const del = document.createElement('button');
-    del.type = 'button';
-    del.className = 'goal-delete';
-    del.setAttribute('aria-label', 'Delete goal');
-    del.textContent = '×';
-    del.addEventListener('click', () => {
-      const list = getGoals(key);
-      list.splice(idx, 1);
-      setGoals(key, list);
-      reload();
-    });
-    li.appendChild(del);
-
-    wireDragReorder(li, null, key, reload);
-    return li;
-  }
-
-  // ---------- Renderers ----------
-  function renderTodayHeader() {
-    const goals = getGoals(todayKey());
-    const total = goals.length;
-    const done  = goals.filter(g => g.done).length;
-    document.getElementById('gmProgressNum').textContent   = done;
-    document.getElementById('gmProgressTotal').textContent = '/ ' + total;
-    const label = document.getElementById('gmProgressLabel');
-    if (total === 0)        label.textContent = 'no goals yet';
-    else if (done === total) label.textContent = 'all done — solid day';
-    else                     label.textContent = 'complete';
-
-    document.getElementById('todayLabel').textContent =
-      'Today — ' + formatDate(getActiveDateString());
-
-    const bar = document.getElementById('gmBar');
-    bar.innerHTML = '';
-    goals.forEach(g => {
-      const seg = document.createElement('div');
-      seg.className = 'gm-bar-seg' + (g.done ? ' gm-bar-seg-done' : '');
-      bar.appendChild(seg);
-    });
-
-    const card = document.getElementById('gmCardToday');
-    card.classList.toggle('gm-all-done', total > 0 && done === total);
-
-    const pushBtn = document.getElementById('gmPushBtn');
-    pushBtn.style.display = (total > 0 && done < total) ? 'block' : 'none';
-  }
-
-  function renderStreak() {
-    const s = loadStreak();
-    document.getElementById('gmStreakNum').textContent = s.count;
-    document.getElementById('gmStreak').classList.toggle('gm-streak-active', s.count > 0);
-  }
-
-  function renderTomorrowCount() {
-    const list = getGoals(tomorrowKey());
-    document.getElementById('gmTomorrowCount').textContent = list.length + ' planned';
-    document.getElementById('tomorrowLabel').textContent =
-      'Plan tomorrow — ' + formatDate(getTomorrowDateString());
-  }
-
-  function renderListInto(goals, listEl, emptyEl, key, readOnly) {
-    listEl.innerHTML = '';
-    emptyEl.style.display = goals.length === 0 ? 'block' : 'none';
-    const reload = () => (key === todayKey() ? loadToday() : loadTomorrow());
-
-    const visible = goals.length > 5 ? goals.slice(0, 5) : goals;
-    visible.forEach((g, i) => listEl.appendChild(buildGoalRow(g, i, key, readOnly, reload)));
-
-    if (goals.length > 5) {
-      let expanded = false;
-      const toggle = document.createElement('button');
-      toggle.type = 'button';
-      toggle.className = 'gm-show-toggle';
-      const updateLabel = () => {
-        toggle.textContent = expanded ? 'Show less ▴' : ('Show ' + (goals.length - 5) + ' more ▾');
-      };
-      updateLabel();
-      toggle.addEventListener('click', () => {
-        expanded = !expanded;
-        if (expanded) {
-          goals.slice(5).forEach((g, i) => {
-            const row = buildGoalRow(g, i + 5, key, readOnly, reload);
-            listEl.insertBefore(row, toggle);
-          });
-        } else {
-          Array.from(listEl.querySelectorAll('.gm-row')).slice(5).forEach(r => r.remove());
-        }
-        updateLabel();
-      });
-      listEl.appendChild(toggle);
-    }
-
-    if (key === todayKey()) renderTodayHeader();
-    else                    renderTomorrowCount();
-  }
-
-  function loadToday() {
-    const goals = getGoals(todayKey());
-    renderListInto(goals, document.getElementById('goalList'), document.getElementById('emptyState'), todayKey(), false);
-  }
-  function loadTomorrow() {
-    const goals = getGoals(tomorrowKey());
-    renderListInto(goals, document.getElementById('tomorrowList'), document.getElementById('tomorrowEmpty'), tomorrowKey(), true);
-  }
-
-  // ---------- Push remaining ----------
-  document.getElementById('gmPushBtn').addEventListener('click', () => {
-    const today    = getGoals(todayKey());
-    const remaining = today.filter(g => !g.done);
-    if (remaining.length === 0) return;
-    if (!confirm('Move ' + remaining.length + ' unchecked goal' + (remaining.length === 1 ? '' : 's') + ' to tomorrow?')) return;
-    const tomorrow = getGoals(tomorrowKey());
-    const seen = new Set(tomorrow.map(g => g.text));
-    remaining.forEach(g => {
-      if (!seen.has(g.text)) { tomorrow.push({ text: g.text, done: false }); seen.add(g.text); }
-    });
-    setGoals(tomorrowKey(), tomorrow);
-    setGoals(todayKey(), today.filter(g => g.done));
-    loadToday(); loadTomorrow();
-  });
-
-  // ---------- Add + Polish handlers ----------
-  function showStatus(el, message, isError) {
-    el.textContent = message;
-    el.classList.toggle('gm-status-error', !!isError);
-    clearTimeout(el._t);
-    el._t = setTimeout(() => { el.textContent = ''; el.classList.remove('gm-status-error'); }, 3500);
-  }
-
-  async function polishOne(text) {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
-        max_tokens: 1000,
-        messages: [{
-          role: 'user',
-          content:
-            'Rewrite this single goal so it is concrete, action-oriented, and under 60 characters. ' +
-            'Return ONLY a JSON array with exactly one string, no preamble, no code fences.\n\nGoal: ' + text
-        }]
-      })
-    });
-    const data = await res.json();
-    const content = (data && data.content && data.content[0] && data.content[0].text) || '';
-    const arr = JSON.parse(content);
-    if (!Array.isArray(arr) || arr.length < 1 || typeof arr[0] !== 'string') throw new Error('bad response');
-    return arr[0].trim();
-  }
-
-  function makeAddHandlers(input, addBtn, polishBtn, key, statusEl, reload) {
-    function plainAdd(text) {
-      const list = getGoals(key);
-      list.push({ text, done: false });
-      setGoals(key, list);
-      input.value = '';
-      reload();
-    }
-    addBtn.addEventListener('click', () => {
-      const text = input.value.trim();
-      if (!text) return;
-      plainAdd(text);
-    });
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); addBtn.click(); }
-    });
-    polishBtn.addEventListener('click', async () => {
-      const text = input.value.trim();
-      if (!text) return;
-      if (!ANTHROPIC_API_KEY) {
-        plainAdd(text);
-        showStatus(statusEl, 'Polish needs an Anthropic API key — added as-typed.', false);
-        return;
-      }
-      polishBtn.disabled = true;
-      try {
-        const polished = await polishOne(text);
-        plainAdd(polished);
-      } catch (e) {
-        plainAdd(text);
-        showStatus(statusEl, 'Polish failed — added as-typed.', true);
-      } finally {
-        polishBtn.disabled = false;
-      }
-    });
-  }
-
-  makeAddHandlers(
-    document.getElementById('goalInput'),
-    document.getElementById('goalAddBtn'),
-    document.getElementById('goalPolishBtn'),
-    todayKey(),
-    document.getElementById('polishStatus'),
-    loadToday
-  );
-  makeAddHandlers(
-    document.getElementById('tomorrowInput'),
-    document.getElementById('tomorrowAddBtn'),
-    document.getElementById('tomorrowPolishBtn'),
-    tomorrowKey(),
-    document.getElementById('tomorrowStatus'),
-    loadTomorrow
-  );
-
-  // ---------- Boot ----------
-  rollover();
-  processStreak();
-  loadToday();
-  loadTomorrow();
-  renderStreak();
   renderSleepSummary();
-  startTicker();
-
-  // Re-render when storage changes from another tab (or our bridged parent).
-  window.addEventListener('storage', () => {
-    loadToday(); loadTomorrow(); renderStreak();
-  });
 
   // ============================================================
-  // DataLayer bridge boot — pulls goals_daily/goals_streak into
-  // dlGoalsByDate/dlStreak (the caches storeGet/storeSet/storeDelete/
-  // storeListKeys above read and write through), then re-runs the exact
-  // same boot sequence used above (rollover -> processStreak -> render)
-  // now that there's real data to roll over/process — the FIRST call to
-  // that sequence, higher up in this IIFE, ran synchronously against
-  // empty caches (before dataLayer.js, loaded with `defer`, had even
-  // executed) and was a harmless no-op. Wrapped in DOMContentLoaded for
-  // that same defer-timing reason, same as the other 6 migrated pages.
-  //
-  // Note: goal_streak_v1 never synced to the cloud before this migration
-  // (confirmed via direct Supabase query — no fila in app_state.goals).
-  // Per explicit user decision, its value is NOT recovered from anywhere;
-  // goals_streak starts at {count:0, lastProcessedDate:''} — the exact
-  // shape/field names loadStreak() already used (NOT {current,longest} —
-  // that was the task prompt's guess, not what the code actually has).
+  // DataLayer boot — auth-gated (same as before this migration).
+  // Runs the one-shot goals_daily -> tasks migration, loads the real
+  // 'tasks' collection, renders, and subscribes for realtime cross-
+  // device/cross-page updates (main.html <-> index.html's kernel panel).
   // ============================================================
-  async function refreshGoalsCaches() {
-    const [dailyRows, streak] = await Promise.all([
-      DataLayer.list('goals_daily'),
-      DataLayer.getSingleton('goals_streak'),
-    ]);
-    const byDate = {};
-    dailyRows.forEach((r) => { byDate[r.id] = Array.isArray(r.items) ? r.items : []; });
-    dlGoalsByDate = byDate;
-    dlStreak = (streak && typeof streak.count === 'number') ? streak : { count: 0, lastProcessedDate: '' };
-  }
-  document.addEventListener('DOMContentLoaded', async function initGoalsDataLayer() {
+  document.addEventListener('DOMContentLoaded', async function initTasksDataLayer() {
     if (typeof DataLayer === 'undefined') return;
     const session = await DataLayer.init({ requireAuth: true });
     if (!session) return; // redirected to login.html
 
-    await refreshGoalsCaches();
+    await migrateGoalsToTasksIfNeeded();
+    tasksCache = await DataLayer.list('tasks');
     dlReady = true;
-    mirrorAllGoalsDates();
+    refreshLegacyGoalsMirror();
+    renderAll();
+    startTicker();
 
-    rollover();
-    processStreak();
-    loadToday();
-    loadTomorrow();
-    renderStreak();
-    window.dispatchEvent(new CustomEvent('goals-changed'));
-
-    DataLayer.setLegacyMirror('goals_streak', 'goal_streak_v1', (rows) => {
-      const row = rows.find((r) => r.id === 'main');
-      return row ? { count: row.count, lastProcessedDate: row.lastProcessedDate } : { count: 0, lastProcessedDate: '' };
-    });
-
-    DataLayer.subscribe('goals_daily', async () => {
-      await refreshGoalsCaches();
-      mirrorAllGoalsDates();
-      loadToday(); loadTomorrow(); renderStreak();
-      window.dispatchEvent(new CustomEvent('goals-changed'));
-    });
-    DataLayer.subscribe('goals_streak', async () => {
-      await refreshGoalsCaches();
-      renderStreak();
+    DataLayer.subscribe('tasks', async () => {
+      tasksCache = await DataLayer.list('tasks');
+      refreshLegacyGoalsMirror();
+      scheduleRender();
+      cycleIdx = 0;
+      tick();
     });
   });
 })();

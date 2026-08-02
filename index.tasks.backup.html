@@ -11,7 +11,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="syncStatus.js" defer></script>
 <script src="sync.js" defer></script>
-<script src="dataLayer.js" defer></script>
 <script src="topbar.js" defer></script>
 
 <style>
@@ -277,18 +276,15 @@ body.rice-paused .verse-cursor { animation-play-state: paused; }
     grid-template-areas:
       "clock"
       "weather"
-      "klog"
       "verse"
       "telem"
       "ledger"
       "corr";
   }
   /* Decoratives ARE the density — but on a phone they'd just bury the
-     real data, so they're the first thing to go, per spec. kern.log is
-     no longer decorative (it's the task kernel now), so it stays. */
-  .rice-a-sigil, .rice-a-wave, .rice-a-sysmon { display: none; }
+     real data, so they're the first thing to go, per spec. */
+  .rice-a-sigil, .rice-a-wave, .rice-a-sysmon, .rice-a-klog { display: none; }
   .rice-a-clock { min-height: 0; }
-  .rice-a-klog { min-height: 220px; }
 }
 
 /* ==========================================================================
@@ -509,67 +505,22 @@ body.rice-paused .verse-cursor { animation-play-state: paused; }
 .sysmon-val { width: 30px; flex-shrink: 0; text-align: right; font-size: 9px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
 
 /* ==========================================================================
-   KERN.LOG — task kernel (backed by the 'tasks' DataLayer collection,
-   shared live with main.html's Tasks card). Pending tasks render as lit,
-   actionable lines with a terminal check glyph; done tasks render as grey
-   struck-through "[OK]" log lines and simply accumulate below — nothing is
-   ever removed from the list here, they scroll out of view under a
-   fade-mask on the scrollable list instead (see .klog-list mask-image).
+   KERN.LOG — ambient boot/dmesg stream. New lines are prepended into a
+   column-reverse list (see motion script) so new = bottom, old scrolls off
+   the top; overflow:hidden on the fixed-height list does the clipping.
    ========================================================================== */
-.klog-body { position: relative; }
 .klog-list {
-  flex: 1; min-height: 90px;
-  display: flex; flex-direction: column; gap: 3px;
-  overflow-y: auto; overflow-x: hidden;
-  padding-right: 2px;
-  font-size: 10px; line-height: 1.6;
-  mask-image: linear-gradient(to bottom, transparent 0, black 14px, black calc(100% - 4px), transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 14px, black calc(100% - 4px), transparent 100%);
-  scrollbar-width: none;
+  display: flex; flex-direction: column-reverse; height: 100%; overflow: hidden; gap: 2px;
+  font-size: 9px; line-height: 1.55;
 }
-.klog-list::-webkit-scrollbar { width: 0; height: 0; }
 .klog-line {
-  display: flex; align-items: baseline; gap: 6px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  color: var(--text-ambient); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   opacity: 0; transform: translateY(4px); animation: klog-in 0.3s var(--ease-rice) forwards;
 }
-.klog-line.klog-no-anim { opacity: 1; transform: none; animation: none; }
+.klog-line .klog-ts { color: var(--rice-red-dim); margin-right: 5px; }
+.klog-line .klog-ok { color: var(--success); margin-right: 4px; }
 @keyframes klog-in { to { opacity: 1; transform: translateY(0); } }
 @media (prefers-reduced-motion: reduce) { .klog-line { animation: none; opacity: 1; transform: none; } }
-
-.klog-ts { color: var(--rice-red-dim); margin-right: 1px; }
-.klog-ok { color: var(--success); margin-right: 2px; flex-shrink: 0; }
-.klog-empty { color: var(--text-ambient); }
-
-.klog-check {
-  flex-shrink: 0; cursor: pointer;
-  color: var(--rice-red);
-  font-size: 10px; line-height: 1.6;
-  width: 12px; text-align: center;
-  transition: color 0.15s var(--ease-rice), transform 0.15s var(--ease-rice);
-}
-.klog-check:hover { color: var(--text-primary); transform: scale(1.25); }
-.klog-pending .klog-text { color: var(--text-secondary); }
-.klog-pending:hover .klog-text { color: var(--text-primary); }
-.klog-done { opacity: 0.72; }
-.klog-done .klog-text { color: var(--text-ambient); text-decoration: line-through; text-decoration-color: var(--text-ambient); }
-
-.klog-prompt-row {
-  display: flex; align-items: center; gap: 6px;
-  margin-top: 8px; padding-top: 8px;
-  border-top: 1px solid var(--rice-border);
-  flex-shrink: 0;
-}
-.klog-prompt-glyph { color: var(--rice-red); font-size: 10px; flex-shrink: 0; }
-.klog-prompt-input {
-  flex: 1; min-width: 0;
-  background: transparent; border: 0; outline: none;
-  color: var(--text-primary);
-  font-family: var(--font-mono); font-size: 10px;
-  padding: 2px 0;
-}
-.klog-prompt-input::placeholder { color: var(--text-ambient); }
-.klog-prompt-cursor { font-size: 10px; flex-shrink: 0; }
 
 /* ==========================================================================
    RESPONSIVE — general
@@ -644,25 +595,20 @@ body.rice-paused .verse-cursor { animation-play-state: paused; }
       </div>
     </div>
 
-    <!-- ===== kern.log — task kernel (live, 'tasks' collection) ===== -->
-    <div class="proc-win proc-win--data rice-a-klog rice-stagger" data-proc>
+    <!-- ===== kern.log — ambient boot/dmesg stream ===== -->
+    <div class="proc-win proc-win--ambient rice-a-klog rice-stagger" data-proc>
       <div class="proc-head">
         <span class="hud-led" aria-hidden="true"></span>
         <span class="proc-name">kern.log</span>
         <span class="proc-glyph" aria-hidden="true">▚▚▚</span>
-        <span class="proc-meta" id="klogMeta">RING0</span>
+        <span class="proc-meta">RING0</span>
       </div>
       <span class="hud-corner tl" aria-hidden="true"></span>
       <span class="hud-corner tr" aria-hidden="true"></span>
       <span class="hud-corner bl" aria-hidden="true"></span>
       <span class="hud-corner br" aria-hidden="true"></span>
-      <div class="proc-body klog-body">
-        <div class="klog-list" id="riceKlogList"></div>
-        <div class="klog-prompt-row">
-          <span class="klog-prompt-glyph" aria-hidden="true">&gt;</span>
-          <input type="text" id="klogPromptInput" class="klog-prompt-input" placeholder="new task…" autocomplete="off" aria-label="Add task">
-          <span class="hud-cursor klog-prompt-cursor" aria-hidden="true">▋</span>
-        </div>
+      <div class="proc-body">
+        <div class="klog-list" id="riceKlogList" aria-hidden="true"></div>
       </div>
     </div>
 
@@ -2168,9 +2114,56 @@ body.rice-paused .verse-cursor { animation-play-state: paused; }
     }).observe(corrStrengthEl, { childList: true, characterData: true, subtree: true });
   }
 
-  /* kern.log is no longer decorative — it's the task kernel now, wired up
-     in its own dedicated script block below (DataLayer-backed, not part
-     of this purely-presentational motion layer). */
+  /* ============================================================
+     KERN.LOG — ambient boot/dmesg stream. Purely decorative flavor text
+     (never real personal data). New lines are prepended into a
+     column-reverse flex list so new = bottom, old scrolls off the top —
+     the CSS just clips via overflow:hidden on the fixed-height list, no
+     manual scroll math needed.
+     ============================================================ */
+  (function klog() {
+    var list = $('riceKlogList');
+    if (!list) return;
+    var MAX_LINES = 14;
+    var uptimeMs = 480;
+    var messages = [
+      'rice: mounting widgets', 'chronos.service: tick synced',
+      'weatherd: probe handshake ok', 'verse.daemon: buffer flushed',
+      'telemetry.monitor: 6 units nominal', 'ledger.service: vault sealed',
+      'analytics.core: sample window rolled', 'net: link carrier detected',
+      'gpu: compositor frame budget ok', 'audit: no anomalies',
+      'sched: idle balancer pass', 'cache: warm',
+      'rng: entropy pool refilled', 'systemd: reached target graphical',
+      'dbus: session bus alive', 'thermal: nominal'
+    ];
+    var okMessages = {
+      'rice: mounting widgets': 1, 'systemd: reached target graphical': 1,
+      'chronos.service: tick synced': 1, 'weatherd: probe handshake ok': 1
+    };
+    function pad(n, len) { return String(n).padStart(len, '0'); }
+    function nextLine() {
+      uptimeMs += 380 + Math.floor(Math.random() * 900);
+      var msg = messages[Math.floor(Math.random() * messages.length)];
+      var el = document.createElement('div');
+      el.className = 'klog-line';
+      el.innerHTML =
+        '<span class="klog-ts">[' + pad(Math.floor(uptimeMs / 1000), 5) + '.' + pad(uptimeMs % 1000, 3) + '00]</span>' +
+        (okMessages[msg] ? '<span class="klog-ok">[ OK ]</span>' : '') + msg;
+      list.prepend(el);
+      while (list.children.length > MAX_LINES) list.lastElementChild.remove();
+    }
+    for (var i = 0; i < 6; i++) nextLine(); // seed a few lines so it isn't empty on mount
+    var acc = 0;
+    var interval = reduceMotion ? 1500 : 750;
+    tickJobs.push({
+      tick: function () {
+        acc += TICK_MS;
+        if (acc < interval) return;
+        acc = 0;
+        nextLine();
+      }
+    });
+  })();
 
   /* ============================================================
      SYSMON — ambient htop-style bars, clearly ambient (never real
@@ -2297,177 +2290,6 @@ body.rice-paused .verse-cursor { animation-play-state: paused; }
       }
     });
   })();
-})();
-</script>
-
-<script>
-/* ==========================================================================
-   KERN.LOG TASK KERNEL — reads/writes the same DataLayer 'tasks' collection
-   as main.html's Tasks card (contract: {text, subtitle, dueDate, done,
-   createdAt, completedAt}, identical shape on both pages). Read-only-by-
-   default philosophy of the logic script above doesn't apply here — this
-   is deliberately the one place on the home page that does real writes,
-   same as any other DataLayer-migrated page. Not gated behind login
-   (unlike main.html): this page stays viewable without a session, same as
-   its other stat tiles — if no session exists, list()/put() just degrade
-   to an empty/queued state instead of redirecting away from Home.
-   ========================================================================== */
-(function () {
-  'use strict';
-
-  var listEl = document.getElementById('riceKlogList');
-  var metaEl = document.getElementById('klogMeta');
-  var promptInput = document.getElementById('klogPromptInput');
-  if (!listEl) return;
-
-  var tasksCache = [];
-  var loaded = false;
-  var dlReady = false;
-  var seenIds = new Set();
-
-  function pad2(n) { return String(n).padStart(2, '0'); }
-  function dateToKey(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
-  function genTaskId() { return 't_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8); }
-
-  // Same legacy-compat shim main.html keeps: topbar.js's nav badge and this
-  // very page's own read-only #statGoals tile both read
-  // localStorage['goals:' + <6AM-rollover date>] directly (never via
-  // DataLayer) and can't be touched in this task (topbar.js is off-limits).
-  // Refreshing it here too means they stay live even on a device that
-  // never opens main.html.
-  function legacyActiveDateKey() {
-    var now = new Date();
-    if (now.getHours() < 6) { var d = new Date(now); d.setDate(d.getDate() - 1); return dateToKey(d); }
-    return dateToKey(now);
-  }
-  function refreshLegacyGoalsMirror() {
-    try {
-      var key = legacyActiveDateKey();
-      var todays = tasksCache.filter(function (t) { return t.dueDate === key; }).map(function (t) { return { text: t.text, done: !!t.done }; });
-      localStorage.setItem('goals:' + key, JSON.stringify(todays));
-    } catch (e) {}
-  }
-
-  function taskPayload(t) {
-    return { text: t.text, subtitle: t.subtitle || '', dueDate: t.dueDate || null, done: !!t.done, createdAt: t.createdAt, completedAt: t.completedAt || null };
-  }
-  function upsertLocal(id, payload) {
-    var idx = tasksCache.findIndex(function (t) { return t.id === id; });
-    var row = Object.assign({ id: id }, payload);
-    if (idx >= 0) tasksCache[idx] = row; else tasksCache.push(row);
-  }
-
-  function emptyLine(text) {
-    var el = document.createElement('div');
-    el.className = 'klog-line klog-empty klog-no-anim';
-    el.textContent = text;
-    return el;
-  }
-
-  function buildRow(task, isDone) {
-    var row = document.createElement('div');
-    row.className = 'klog-line ' + (isDone ? 'klog-done' : 'klog-pending');
-    if (seenIds.has(task.id)) row.classList.add('klog-no-anim'); else seenIds.add(task.id);
-
-    if (isDone) {
-      var ok = document.createElement('span');
-      ok.className = 'klog-ok';
-      ok.textContent = '[OK]';
-      row.appendChild(ok);
-    } else {
-      var chk = document.createElement('span');
-      chk.className = 'klog-check';
-      chk.textContent = '○';
-      chk.setAttribute('role', 'button');
-      chk.setAttribute('tabindex', '0');
-      chk.setAttribute('aria-label', 'Complete task: ' + task.text);
-      chk.addEventListener('click', function () { completeTask(task); });
-      chk.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); completeTask(task); } });
-      row.appendChild(chk);
-    }
-
-    var text = document.createElement('span');
-    text.className = 'klog-text';
-    text.textContent = task.text;
-    row.appendChild(text);
-    return row;
-  }
-
-  function render() {
-    listEl.innerHTML = '';
-    if (!loaded) {
-      listEl.appendChild(emptyLine('loading tasks…'));
-      if (metaEl) metaEl.textContent = '···';
-      return;
-    }
-    var pending = tasksCache.filter(function (t) { return !t.done; }).sort(function (a, b) {
-      if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate) || a.createdAt - b.createdAt;
-      if (a.dueDate) return -1;
-      if (b.dueDate) return 1;
-      return a.createdAt - b.createdAt;
-    });
-    var done = tasksCache.filter(function (t) { return t.done; }).sort(function (a, b) { return (b.completedAt || 0) - (a.completedAt || 0); });
-
-    if (!pending.length && !done.length) {
-      listEl.appendChild(emptyLine('no tasks — type below to add one'));
-    } else {
-      if (!pending.length) listEl.appendChild(emptyLine('nothing pending'));
-      pending.forEach(function (t) { listEl.appendChild(buildRow(t, false)); });
-      done.forEach(function (t) { listEl.appendChild(buildRow(t, true)); });
-    }
-    if (metaEl) metaEl.textContent = pending.length + ' PEND';
-  }
-
-  function completeTask(task) {
-    var payload = taskPayload(Object.assign({}, task, { done: true, completedAt: Date.now() }));
-    upsertLocal(task.id, payload);
-    refreshLegacyGoalsMirror();
-    render();
-    if (dlReady) DataLayer.put('tasks', task.id, payload);
-  }
-
-  function addTaskFromPrompt() {
-    var text = promptInput.value.trim();
-    if (!text) return;
-    promptInput.value = '';
-    var id = genTaskId();
-    var payload = { text: text, subtitle: '', dueDate: null, done: false, createdAt: Date.now(), completedAt: null };
-    upsertLocal(id, payload);
-    refreshLegacyGoalsMirror();
-    render();
-    if (dlReady) DataLayer.put('tasks', id, payload);
-  }
-  if (promptInput) {
-    promptInput.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') { e.preventDefault(); addTaskFromPrompt(); }
-    });
-  }
-
-  render(); // "loading tasks…" placeholder until DataLayer resolves below
-
-  document.addEventListener('DOMContentLoaded', function () {
-    if (typeof DataLayer === 'undefined') return;
-    DataLayer.init().then(function () {
-      dlReady = true;
-      return DataLayer.list('tasks');
-    }).then(function (rows) {
-      tasksCache = rows || [];
-      loaded = true;
-      refreshLegacyGoalsMirror();
-      render();
-      DataLayer.subscribe('tasks', function () {
-        DataLayer.list('tasks').then(function (rows2) {
-          tasksCache = rows2 || [];
-          refreshLegacyGoalsMirror();
-          render();
-        });
-      });
-    }).catch(function (e) {
-      loaded = true;
-      render();
-      console.warn('[kern.log] tasks init failed', e);
-    });
-  });
 })();
 </script>
 </body>
