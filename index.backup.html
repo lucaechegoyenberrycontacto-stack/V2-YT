@@ -14,40 +14,21 @@
 <script src="topbar.js" defer></script>
 
 <style>
-/* ==========================================================================
-   BATCOMPUTER HUD — design tokens
-   ========================================================================== */
+/* ===== Shared design tokens (copied from template.html — do not diverge) ===== */
 :root {
-  --hud-black:      #050506;
-  --hud-black-2:    #0A0A0B;
-  --hud-panel:      rgba(255,255,255,0.025);
-  --hud-panel-2:    rgba(255,255,255,0.045);
-  --hud-border:     rgba(255,255,255,0.06);
-  --hud-border-2:   rgba(255,255,255,0.12);
-
-  --hud-red:        #B4121A;
-  --hud-red-dim:    #7A1016;
-  --hud-red-glow:   rgba(180,18,26,0.35);
-  --hud-red-border: rgba(180,18,26,0.25);
-  --hud-red-border-strong: rgba(180,18,26,0.45);
-
-  --text-primary:   #EDEDED;
-  --text-secondary: #9A9A9E;
-  --text-tertiary:  #5C5C60;
-
-  --success: #4FAE7C;
-  --warning: #C98A2E;
-  --danger:  var(--hud-red);
-
+  --text-primary: #FAFAFA;
+  --text-secondary: #B8B6B0;
+  --text-tertiary: #76746E;
+  --success: #6BE3A4;
+  --warning: #F2C063;
+  --danger:  #FF6B6B;
   --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-
-  --ease-hud: cubic-bezier(0.16, 1, 0.3, 1);
 }
 * { box-sizing: border-box; }
 html, body {
   margin: 0; padding: 0;
-  background: var(--hud-black);
+  background: #050506;
   color: var(--text-secondary);
   font-family: var(--font);
   -webkit-font-smoothing: antialiased;
@@ -60,483 +41,285 @@ body {
   overflow-x: hidden;
   padding: max(28px, env(safe-area-inset-top)) 20px 60px;
 }
-
-/* ===== AMBIENT BACKGROUND =====
-   Two static layers (red glow + blueprint grid) plus one animated drift
-   layer. Only `transform` is ever animated — the blur/gradient itself is
-   painted once and never re-evaluated per frame. */
 body::before {
   content: '';
-  position: fixed; inset: -10%;
+  position: fixed; inset: 0;
   background:
-    radial-gradient(circle at 80% 8%, rgba(180,18,26,0.11), transparent 42%),
-    radial-gradient(circle at 12% 94%, rgba(180,18,26,0.05), transparent 46%);
-  filter: blur(60px);
+    radial-gradient(circle at 82% 14%, rgba(224, 118, 88, 0.16), transparent 45%),
+    radial-gradient(circle at 18% 90%, rgba(180, 180, 200, 0.06), transparent 50%);
+  filter: blur(40px);
   pointer-events: none;
-  z-index: -3;
-  animation: hud-drift 40s ease-in-out infinite alternate;
-  will-change: transform;
+  z-index: -2;
+  animation: drift 36s ease-in-out infinite alternate;
 }
 body::after {
   content: '';
   position: fixed; inset: 0;
-  background-image:
-    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
-  background-size: 42px 42px;
-  -webkit-mask-image: radial-gradient(ellipse 80% 55% at 50% 0%, #000 40%, transparent 92%);
-  mask-image: radial-gradient(ellipse 80% 55% at 50% 0%, #000 40%, transparent 92%);
+  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
+  background-size: 3px 3px;
   pointer-events: none;
-  z-index: -2;
+  z-index: -1;
 }
-@keyframes hud-drift {
+@keyframes drift {
   0%   { transform: translate3d(0,0,0); }
-  100% { transform: translate3d(-24px, 16px, 0); }
-}
-/* Animation pause switch — toggled by the motion script on visibilitychange
-   so idle loops don't burn CPU/battery while the tab is in the background. */
-body.hud-paused::before,
-body.hud-paused .hud-led::after,
-body.hud-paused .hud-cursor,
-body.hud-paused .hud-scan,
-body.hud-paused .hud-stagger { animation-play-state: paused; }
-
-@media (prefers-reduced-motion: reduce) {
-  body::before { animation: none; }
+  100% { transform: translate3d(-22px, 14px, 0); }
 }
 
-.page { max-width: 1320px; margin: 0 auto; }
+.page { max-width: 1100px; margin: 0 auto; }
 
-/* ===== SYS LINE ===== */
-.hud-sysline {
-  display: flex; align-items: center; gap: 10px;
-  font-family: var(--font-mono); font-size: 10.5px;
-  letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--text-tertiary);
-  margin-bottom: 18px; padding: 0 2px;
-}
-.hud-sysline-text { flex: 1 1 auto; min-width: 0; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hud-sysline-text b { color: var(--text-primary); font-weight: 600; }
-.hud-sysline-sep { flex: 1 1 16px; height: 1px; background: linear-gradient(90deg, var(--hud-border), transparent); min-width: 8px; }
-/* flex-shrink + overflow:hidden here too — a bare `white-space:nowrap` flex
-   item refuses to shrink below its content's intrinsic width by default
-   and will silently push the whole row past the viewport on narrow
-   screens (480–600px), which is exactly what happened before this fix. */
-.hud-sysline-meta { flex: 0 1 auto; min-width: 0; max-width: 42%; color: var(--text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-/* ===== LED — pulsing ring via transform+opacity only; the glow itself
-   (box-shadow) is set once and never animated. ===== */
-.hud-led {
-  position: relative; width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
-  background: var(--hud-red);
-  box-shadow: 0 0 5px var(--hud-red-glow), 0 0 1px var(--hud-red);
-}
-.hud-led::after {
-  content: ''; position: absolute; inset: -4px; border-radius: 50%;
-  border: 1px solid var(--hud-red); opacity: 0;
-  animation: hud-led-ring 2.2s ease-out infinite;
-  will-change: transform, opacity;
-}
-@keyframes hud-led-ring {
-  0%   { transform: scale(0.5); opacity: 0.55; }
-  100% { transform: scale(2.1); opacity: 0; }
-}
-
-/* ===== Blinking cursor beside the clock (sibling element — homeClock's
-   own textContent is fully replaced every second, so nothing can live
-   inside it). ===== */
-.hud-cursor {
-  display: inline-block; color: var(--hud-red); font-weight: 400;
-  animation: hud-blink 1s steps(1, end) infinite;
-  will-change: opacity;
-}
-@keyframes hud-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) {
-  .hud-cursor { animation-duration: 1.6s; }
-}
-
-/* ===== Corner brackets on major panels (hero / finance / correlation) === */
-.hud-corner { position: absolute; width: 16px; height: 16px; pointer-events: none; opacity: 0.55; transition: opacity 0.2s var(--ease-hud); }
-.hud-corner::before, .hud-corner::after { content: ''; position: absolute; background: var(--hud-red); }
-.hud-corner::before { width: 100%; height: 1px; }
-.hud-corner::after  { width: 1px; height: 100%; }
-.hud-corner.tl { top: -1px; left: -1px; } .hud-corner.tl::before, .hud-corner.tl::after { top: 0; left: 0; }
-.hud-corner.tr { top: -1px; right: -1px; } .hud-corner.tr::before, .hud-corner.tr::after { top: 0; right: 0; }
-.hud-corner.bl { bottom: -1px; left: -1px; } .hud-corner.bl::before, .hud-corner.bl::after { bottom: 0; left: 0; }
-.hud-corner.br { bottom: -1px; right: -1px; } .hud-corner.br::before, .hud-corner.br::after { bottom: 0; right: 0; }
-.hud-panel:hover .hud-corner { opacity: 1; }
-
-/* ===== Panel shell (hero / finance / correlation) ===== */
-.hud-panel {
-  position: relative;
-  background: var(--hud-panel);
-  border: 1px solid var(--hud-border);
-  border-radius: 4px;
-  padding: 26px;
-  margin-bottom: 16px;
-  overflow: hidden;
-}
-
-/* Scanline sweep across the hero panel — transform + opacity only. */
-.hud-scan {
-  position: absolute; top: 0; left: 0; width: 16%; height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(180,18,26,0.05), rgba(180,18,26,0.11), rgba(180,18,26,0.05), transparent);
-  pointer-events: none;
-  transform: translateX(-700%);
-  animation: hud-scan-sweep 9s linear infinite;
-  will-change: transform, opacity;
-}
-@keyframes hud-scan-sweep {
-  0%   { transform: translateX(-700%); opacity: 0; }
-  6%   { opacity: 1; }
-  50%  { transform: translateX(700%); opacity: 1; }
-  56%  { opacity: 0; }
-  100% { transform: translateX(700%); opacity: 0; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .hud-scan { display: none; }
-}
-
-/* ===== Section headers ===== */
-.hud-section { margin-top: 10px; }
-.hud-section-title {
-  font-family: var(--font-mono);
-  font-size: 10px; font-weight: 600;
-  letter-spacing: 0.20em; text-transform: uppercase;
+.section { margin-top: 8px; }
+.section-title {
+  font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.18em; text-transform: uppercase;
   color: var(--text-tertiary);
   display: flex; align-items: center; gap: 12px;
   margin-bottom: 12px;
 }
-.hud-section-title::before { content: '//'; color: var(--hud-red-dim); }
-.hud-section-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--hud-border), transparent); }
-
-/* ===== Staggered entrance — opacity/transform only; degraded (skipped
-   entirely) under reduced motion via the media query below. ===== */
-.hud-stagger { opacity: 0; transform: translateY(10px); transition: opacity 0.5s var(--ease-hud), transform 0.5s var(--ease-hud); }
-.hud-stagger.hud-in { opacity: 1; transform: translateY(0); }
-@media (prefers-reduced-motion: reduce) {
-  .hud-stagger { opacity: 1; transform: none; transition: none; }
+.section-title::before {
+  content: ''; width: 18px; height: 1px;
+  background: var(--text-tertiary); opacity: 0.6;
+}
+.section-title::after {
+  content: ''; flex: 1; height: 1px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.08), transparent);
 }
 
-/* ============================================================
-   HERO PANEL — clock / date / weather + stoic & scripture readouts
-   ============================================================ */
-.hud-hero-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 40px; align-items: start; }
-.hud-kicker {
-  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--text-tertiary); margin-bottom: 14px;
-}
-.hud-kicker b { color: var(--hud-red); font-weight: 600; }
-.hud-clock-row { display: flex; align-items: flex-end; }
-.home-clock {
-  font-family: var(--font-mono); font-size: 58px; font-weight: 600;
-  color: var(--text-primary); letter-spacing: -0.03em; line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-.hud-cursor-clock { font-size: 42px; margin-left: 4px; margin-bottom: 3px; }
-.home-date {
-  margin-top: 10px; font-family: var(--font-mono); font-size: 12px;
-  letter-spacing: 0.05em; color: var(--text-secondary); text-transform: uppercase;
-}
-
-/* Weather */
-.home-weather { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--hud-border); }
-.home-weather-row { display: flex; align-items: center; gap: 12px; }
-.home-weather-icon { font-size: 26px; line-height: 1; flex-shrink: 0; }
-.home-weather-temp {
-  font-family: var(--font-mono); font-size: 32px; font-weight: 600; color: var(--text-primary);
-  letter-spacing: -0.02em; line-height: 1; font-variant-numeric: tabular-nums;
-}
-.home-weather-info { flex: 1; min-width: 0; }
-.home-weather-cond { font-size: 12px; color: var(--text-secondary); letter-spacing: 0.02em; }
-.home-weather-sub { margin-top: 3px; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-tertiary); }
-.hud-weather-refresh {
-  width: 30px; height: 30px; flex-shrink: 0; border-radius: 4px;
-  border: 1px solid var(--hud-border-2); background: transparent;
-  color: var(--text-secondary); font-size: 15px; line-height: 1; cursor: pointer;
-  transition: background 0.15s var(--ease-hud), color 0.15s var(--ease-hud), border-color 0.15s var(--ease-hud);
-}
-.hud-weather-refresh:hover { background: var(--hud-red-glow); color: var(--text-primary); border-color: var(--hud-red-border-strong); }
-.hud-weather-refresh.spinning { animation: hud-weather-spin 0.6s linear; }
-@keyframes hud-weather-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-.home-weather-chart-svg { width: 100%; height: 88px; display: block; margin-top: 12px; overflow: visible; }
-.home-weather-chart-svg.hidden { display: none; }
-.home-weather-chart-hour { font-size: 9px; font-family: var(--font-mono); fill: var(--text-tertiary); }
-.home-weather-chart-value { font-size: 10.5px; font-weight: 700; font-family: var(--font-mono); fill: var(--text-primary); }
-.home-weather-chart-value.now { fill: var(--hud-red); }
-.home-weather-chart-precip { font-size: 9px; font-family: var(--font-mono); fill: var(--text-tertiary); }
-.home-weather-chart-line { fill: none; stroke: var(--hud-red-dim); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; opacity: 0.85; }
-.home-weather-chart-dot { fill: var(--hud-red-dim); opacity: 0.85; }
-.home-weather-chart-dot.now { fill: var(--hud-red); opacity: 1; }
-
-/* Readouts (right column) */
-.hud-readout { padding-left: 22px; border-left: 1px solid var(--hud-border); }
-.hud-readout + .hud-readout { margin-top: 24px; }
-.hud-readout-label {
-  font-family: var(--font-mono); font-size: 9.5px; font-weight: 600;
-  letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-tertiary);
-  margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
-}
-.hud-readout-label::before { content: '◆'; font-size: 6px; color: var(--hud-red-dim); }
-.home-quote { font-size: 14px; font-style: italic; color: var(--text-secondary); line-height: 1.55; }
-.home-quote-author {
-  margin-top: 8px; font-family: var(--font-mono); font-size: 10px; font-weight: 600;
-  letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary);
-}
-
-@media (max-width: 1023px) {
-  .hud-hero-grid { grid-template-columns: 1fr; gap: 26px; }
-  .hud-readout { border-left: none; border-top: 1px solid var(--hud-border); padding-left: 0; padding-top: 16px; }
-  .hud-readout + .hud-readout { margin-top: 16px; }
-}
-@media (max-width: 560px) {
-  .home-clock { font-size: 40px; }
-  .hud-cursor-clock { font-size: 30px; }
-}
-
-/* ============================================================
-   TELEMETRY TILES — the .stat class itself is authoritative here:
-   the existing logic script does `el.className = 'stat' + (' stat-' +
-   status)` on every render, wiping any other class on the <a> — so all
-   tile styling (incl. corner brackets) has to hang off .stat / .stat-*,
-   never off an extra class added in markup.
-   ============================================================ */
-.hud-tile-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-@media (min-width: 600px) {
-  .hud-tile-grid { grid-template-columns: repeat(3, 1fr); }
-}
-.hud-tile-grid-finance { grid-template-columns: repeat(2, 1fr); }
-@media (max-width: 420px) {
-  .hud-tile-grid-finance { grid-template-columns: 1fr; }
-}
-
-.stat {
+.gm-card {
   position: relative;
-  background: var(--hud-panel);
-  border: 1px solid var(--hud-border);
-  border-radius: 3px; padding: 16px 16px 14px;
-  text-decoration: none; color: inherit; display: block;
-  transition: transform 0.18s var(--ease-hud), border-color 0.18s var(--ease-hud), background 0.18s var(--ease-hud);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 14px;
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+  overflow: hidden;
 }
-/* Two-corner bracket, CSS-only (no extra markup needed) — engages on hover. */
-.stat::before, .stat::after {
-  content: ''; position: absolute; width: 9px; height: 9px;
-  border-color: var(--hud-red-dim); opacity: 0.5;
-  transition: opacity 0.18s var(--ease-hud), border-color 0.18s var(--ease-hud);
-}
-.stat::before { top: -1px; left: -1px; border-top: 1px solid; border-left: 1px solid; }
-.stat::after  { bottom: -1px; right: -1px; border-bottom: 1px solid; border-right: 1px solid; }
-.stat:hover { transform: translateY(-2px); border-color: var(--hud-border-2); background: var(--hud-panel-2); }
-.stat:hover::before, .stat:hover::after { opacity: 1; border-color: var(--hud-red); }
 
-.hud-tile-label {
-  font-family: var(--font-mono); font-size: 9.5px; font-weight: 600;
-  letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-tertiary);
-  margin-bottom: 8px;
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
 }
+.stat {
+  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px; padding: 14px;
+  text-decoration: none; color: inherit; display: block;
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.stat:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.14); }
 .stat-num {
-  font-size: 25px; font-weight: 600;
+  font-size: 26px; font-weight: 700;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em; color: var(--text-primary); line-height: 1;
+  letter-spacing: -0.03em; color: var(--text-primary); line-height: 1;
   font-family: var(--font-mono);
 }
-/* Loading shimmer lives on the *Num element, never on the <a>, since
-   only the <a>'s class is at risk of being clobbered by setStat(). */
-.hud-num-loading { color: var(--text-tertiary); animation: hud-num-shimmer 1.6s ease-in-out infinite; }
-@keyframes hud-num-shimmer { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.9; } }
-@media (prefers-reduced-motion: reduce) {
-  .hud-num-loading { animation: none; opacity: 0.6; }
+.stat-label {
+  margin-top: 6px;
+  font-size: 10.5px; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-tertiary);
 }
-.hud-tile-sub { margin-top: 5px; font-family: var(--font-mono); font-size: 10px; color: var(--text-tertiary); }
-
+.stat-sub {
+  margin-top: 4px;
+  font-size: 10px; color: var(--text-tertiary);
+}
 /* Status tints — driven off --success/--warning/--danger only, no new colors. */
-.stat.stat-good { border-color: rgba(79,174,124,0.35); background: rgba(79,174,124,0.06); }
-.stat.stat-warn { border-color: rgba(201,138,46,0.35); background: rgba(201,138,46,0.06); }
-.stat.stat-bad  { border-color: rgba(180,18,26,0.45); background: rgba(180,18,26,0.08); }
+.stat.stat-good { border-color: rgba(107,227,164,0.35); background: rgba(107,227,164,0.07); }
+.stat.stat-warn { border-color: rgba(242,192,99,0.35); background: rgba(242,192,99,0.07); }
+.stat.stat-bad  { border-color: rgba(255,107,107,0.35); background: rgba(255,107,107,0.07); }
 .stat.stat-good .stat-num { color: var(--success); }
 .stat.stat-warn .stat-num { color: var(--warning); }
-.stat.stat-bad  .stat-num { color: var(--hud-red); }
+.stat.stat-bad  .stat-num { color: var(--danger); }
 
-/* ============================================================
-   FINANCE PANEL — same tile system, slightly more red-forward since
-   this is money.
-   ============================================================ */
-.hud-panel-finance { padding: 22px; border-color: var(--hud-red-border); }
-.hud-panel-finance .stat { background: rgba(180,18,26,0.035); }
-.hud-panel-finance .stat:hover { background: rgba(180,18,26,0.075); }
-
-/* ============================================================
-   SLEEP × TRAINING — correlation readout
-   ============================================================ */
-.hud-corr-msg { font-family: var(--font-mono); font-size: 12.5px; color: var(--text-tertiary); }
+.home-corr-card { font-size: 13px; }
+.home-corr-msg { color: var(--text-tertiary); }
 .home-corr-result.hidden, .home-corr-msg.hidden { display: none; }
-.hud-corr-phrase { color: var(--text-primary); font-size: 15px; line-height: 1.5; }
-.hud-corr-meta { margin-top: 16px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
-.hud-corr-strength-block { display: flex; flex-direction: column; flex-shrink: 0; }
+.home-corr-phrase { color: var(--text-primary); font-size: 15px; line-height: 1.4; }
+.home-corr-meta {
+  margin-top: 10px; display: flex; align-items: center; gap: 12px;
+}
 .home-corr-strength {
-  font-family: var(--font-mono); font-size: 26px; font-weight: 700;
+  font-family: var(--font-mono); font-size: 22px; font-weight: 700;
   letter-spacing: -0.02em; color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
-.hud-corr-strength-label {
-  font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--text-tertiary); margin-top: 2px;
-}
-.home-corr-stars { font-family: var(--font-mono); font-size: 14px; letter-spacing: 0.08em; color: var(--hud-red); }
-/* Strength bar — a technical reinterpretation of the star rating; its
-   fill is set by the motion script (reading corrStrength's own text),
-   animated via transform:scaleX so it stays a cheap compositor-only op. */
-.hud-corr-bar { flex: 1; min-width: 110px; height: 4px; background: var(--hud-border); border-radius: 2px; overflow: hidden; }
-.hud-corr-bar-fill {
-  height: 100%; width: 100%; background: var(--hud-red);
-  transform: scaleX(0); transform-origin: left;
-  transition: transform 0.8s var(--ease-hud);
-}
-.hud-corr-disclaimer { margin-top: 14px; font-family: var(--font-mono); font-size: 10px; color: var(--text-tertiary); }
+.home-corr-stars { font-size: 14px; letter-spacing: 0.06em; color: var(--warning); }
+.home-corr-disclaimer { margin-top: 10px; font-size: 10.5px; color: var(--text-tertiary); }
 
-/* ============================================================
-   RESPONSIVE — general
-   ============================================================ */
+/* ===== Home-page-specific bits ===== */
+.home-welcome {
+  font-family: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', serif;
+  font-style: italic;
+  font-size: 26px; color: #6B8E23;
+  letter-spacing: 0.01em; margin: 0 0 22px;
+}
+@media (max-width: 480px) { .home-welcome { font-size: 20px; } }
+.home-clock-row {
+  display: flex; flex-wrap: wrap; align-items: center;
+  justify-content: space-between; gap: 20px;
+}
+.home-clock-block { min-width: 200px; }
+.home-clock {
+  font-family: var(--font-mono); font-size: 44px; font-weight: 700;
+  color: var(--text-primary); letter-spacing: -0.02em; line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.home-date {
+  margin-top: 8px; font-size: 13px; color: var(--text-secondary);
+}
+.home-quote-block {
+  flex: 1; min-width: 220px; max-width: 440px;
+  padding-left: 20px; border-left: 1px solid rgba(255,255,255,0.08);
+}
+.home-quote {
+  font-size: 14px; font-style: italic; color: var(--text-secondary); line-height: 1.5;
+}
+.home-quote-author {
+  margin-top: 8px; font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary);
+}
+.home-bible { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.08); }
+
+/* Weather — minimalist: icon + big temp + condition + high/low, plus a
+   small sparkline of today's hourly temps (no axis labels, no libraries —
+   same hand-drawn SVG pattern as health.html's sleep chart). */
+.home-weather { margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.08); }
+.home-weather-row { display: flex; align-items: center; gap: 10px; }
+.home-weather-icon { font-size: 28px; line-height: 1; flex-shrink: 0; }
+.home-weather-temp {
+  font-size: 34px; font-weight: 600; color: var(--text-primary);
+  letter-spacing: -0.02em; line-height: 1; font-variant-numeric: tabular-nums;
+}
+.home-weather-info { flex: 1; min-width: 0; }
+.home-weather-cond { font-size: 12.5px; color: var(--text-secondary); }
+.home-weather-sub { margin-top: 2px; font-size: 10.5px; color: var(--text-tertiary); }
+.home-weather-refresh {
+  width: 30px; height: 30px; flex-shrink: 0; border-radius: 9px;
+  border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03);
+  color: var(--text-secondary); font-size: 15px; line-height: 1; cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.home-weather-refresh:hover { background: rgba(255,255,255,0.07); color: var(--text-primary); }
+.home-weather-refresh.spinning { animation: home-weather-spin 0.6s linear; }
+@keyframes home-weather-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.home-weather-chart-svg { width: 100%; height: 94px; display: block; margin-top: 10px; overflow: visible; }
+.home-weather-chart-svg.hidden { display: none; }
+.home-weather-chart-hour { font-size: 9px; font-family: var(--font-mono); fill: var(--text-tertiary); }
+.home-weather-chart-value { font-size: 11px; font-weight: 700; font-family: var(--font-mono); fill: var(--text-primary); }
+.home-weather-chart-value.now { fill: #6B8E23; }
+.home-weather-chart-precip { font-size: 9px; font-family: var(--font-mono); fill: var(--text-tertiary); }
+.home-weather-chart-line { fill: none; stroke: #6B8E23; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; opacity: 0.7; }
+.home-weather-chart-dot { fill: #6B8E23; opacity: 0.7; }
+.home-weather-chart-dot.now { opacity: 1; }
+
+@media (max-width: 560px) {
+  .home-clock { font-size: 34px; }
+  .home-quote-block { border-left: none; border-top: 1px solid rgba(255,255,255,0.08); padding-left: 0; padding-top: 16px; }
+}
 @media (max-width: 480px) {
   body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
-  .hud-panel { padding: 18px; }
-  .hud-sysline-meta { display: none; }
+  .gm-card { padding: 16px; }
 }
 </style>
 </head>
 <body>
 <div class="page">
 
-  <div class="hud-sysline hud-stagger">
-    <span class="hud-led" aria-hidden="true"></span>
-    <span class="hud-sysline-text">[ ONLINE ] SYSTEM: <b>LUCA</b> <span aria-hidden="true">·</span> &gt; ACCESS GRANTED</span>
-    <span class="hud-sysline-sep" aria-hidden="true"></span>
-    <span class="hud-sysline-meta">SEC-01 · BATCOMPUTER v2.4</span>
-  </div>
+  <div class="home-welcome">Bienvenido a tu dashboard, Luca</div>
 
-  <!-- ===== HERO PANEL ===== -->
-  <div class="hud-panel hud-stagger" data-hud-panel>
-    <span class="hud-corner tl" aria-hidden="true"></span>
-    <span class="hud-corner tr" aria-hidden="true"></span>
-    <span class="hud-corner bl" aria-hidden="true"></span>
-    <span class="hud-corner br" aria-hidden="true"></span>
-    <div class="hud-scan" aria-hidden="true"></div>
-
-    <div class="hud-hero-grid">
-      <div class="hud-hero-left">
-        <div class="hud-kicker">// <b>TODAY</b> // BATCOMPUTER ONLINE</div>
-        <div class="hud-clock-row">
+  <div class="section">
+    <div class="gm-card">
+      <div class="home-clock-row">
+        <div class="home-clock-block">
           <div class="home-clock" id="homeClock">00:00:00</div>
-          <span class="hud-cursor hud-cursor-clock" aria-hidden="true">▋</span>
-        </div>
-        <div class="home-date" id="homeDate">—</div>
-
-        <div class="home-weather" id="homeWeather">
-          <div class="home-weather-row">
-            <span class="home-weather-icon" id="weatherIcon"></span>
-            <span class="home-weather-temp" id="weatherTemp">—</span>
-            <div class="home-weather-info">
-              <div class="home-weather-cond" id="weatherCond">Loading…</div>
-              <div class="home-weather-sub" id="weatherSub"></div>
+          <div class="home-date" id="homeDate">—</div>
+          <div class="home-weather" id="homeWeather">
+            <div class="home-weather-row">
+              <span class="home-weather-icon" id="weatherIcon"></span>
+              <span class="home-weather-temp" id="weatherTemp">—</span>
+              <div class="home-weather-info">
+                <div class="home-weather-cond" id="weatherCond">Cargando…</div>
+                <div class="home-weather-sub" id="weatherSub"></div>
+              </div>
+              <button class="home-weather-refresh" id="weatherRefreshBtn" type="button" aria-label="Actualizar clima" title="Actualizar clima">↻</button>
             </div>
-            <button class="hud-weather-refresh" id="weatherRefreshBtn" type="button" aria-label="Refresh weather" title="Refresh weather">↻</button>
+            <svg class="home-weather-chart-svg hidden" id="weatherChartSvg" viewBox="0 0 300 94" preserveAspectRatio="none"></svg>
           </div>
-          <svg class="home-weather-chart-svg hidden" id="weatherChartSvg" viewBox="0 0 300 94" preserveAspectRatio="none"></svg>
         </div>
-      </div>
-
-      <div class="hud-hero-right">
-        <div class="hud-readout">
-          <div class="hud-readout-label">Stoic Readout</div>
+        <div class="home-quote-block">
           <div class="home-quote" id="homeQuoteText">"…"</div>
           <div class="home-quote-author" id="homeQuoteAuthor">— </div>
-        </div>
-        <div class="hud-readout">
-          <div class="hud-readout-label">Scripture Readout</div>
-          <div class="home-quote" id="homeBibleText">"…"</div>
-          <div class="home-quote-author" id="homeBibleRef">— </div>
+          <div class="home-bible">
+            <div class="home-quote" id="homeBibleText">"…"</div>
+            <div class="home-quote-author" id="homeBibleRef">— </div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ===== TELEMETRY GRID ===== -->
-  <div class="hud-section hud-stagger">
-    <div class="hud-section-title">TODAY // TELEMETRY</div>
-    <div class="hud-tile-grid">
+  <div class="section">
+    <div class="section-title">Hoy</div>
+    <div class="stat-grid">
       <a class="stat" id="statWater" href="po-water.html">
-        <div class="hud-tile-label">H2O</div>
-        <div class="stat-num hud-num-loading" id="statWaterNum">—</div>
+        <div class="stat-num" id="statWaterNum">—</div>
+        <div class="stat-label">Agua</div>
       </a>
       <a class="stat" id="statSleep" href="health.html#sleep">
-        <div class="hud-tile-label">Sleep</div>
-        <div class="stat-num hud-num-loading" id="statSleepNum">—</div>
-        <div class="hud-tile-sub" id="statSleepSub"></div>
+        <div class="stat-num" id="statSleepNum">—</div>
+        <div class="stat-label">Sueño</div>
+        <div class="stat-sub" id="statSleepSub"></div>
       </a>
       <a class="stat" id="statGoals" href="main.html">
-        <div class="hud-tile-label">Goals</div>
-        <div class="stat-num hud-num-loading" id="statGoalsNum">—</div>
+        <div class="stat-num" id="statGoalsNum">—</div>
+        <div class="stat-label">Goals</div>
       </a>
       <a class="stat" id="statCalories" href="nutrition.html">
-        <div class="hud-tile-label">Kcal</div>
-        <div class="stat-num hud-num-loading" id="statCaloriesNum">—</div>
+        <div class="stat-num" id="statCaloriesNum">—</div>
+        <div class="stat-label">Calorías</div>
       </a>
       <a class="stat" id="statGym" href="gym.html">
-        <div class="hud-tile-label">Training</div>
-        <div class="stat-num hud-num-loading" id="statGymNum">—</div>
-        <div class="hud-tile-sub" id="statGymSub"></div>
+        <div class="stat-num" id="statGymNum">—</div>
+        <div class="stat-label">Actividad</div>
+        <div class="stat-sub" id="statGymSub"></div>
       </a>
       <a class="stat" id="statSteps" href="gym.html">
-        <div class="hud-tile-label">Steps</div>
-        <div class="stat-num hud-num-loading" id="statStepsNum">—</div>
-        <div class="hud-tile-sub" id="statStepsSub"></div>
+        <div class="stat-num" id="statStepsNum">—</div>
+        <div class="stat-label">Pasos</div>
+        <div class="stat-sub" id="statStepsSub"></div>
       </a>
     </div>
   </div>
 
-  <!-- ===== FINANCE PANEL ===== -->
-  <div class="hud-section hud-stagger">
-    <div class="hud-section-title">FINANCE // LEDGER</div>
-    <div class="hud-panel hud-panel-finance" data-hud-panel>
-      <span class="hud-corner tl" aria-hidden="true"></span>
-      <span class="hud-corner tr" aria-hidden="true"></span>
-      <span class="hud-corner bl" aria-hidden="true"></span>
-      <span class="hud-corner br" aria-hidden="true"></span>
-      <div class="hud-tile-grid hud-tile-grid-finance">
-        <a class="stat" id="statNetWorth" href="finance.html">
-          <div class="hud-tile-label">Net Worth</div>
-          <div class="stat-num hud-num-loading" id="statNetWorthNum">—</div>
-          <div class="hud-tile-sub" id="statNetWorthSub"></div>
-        </a>
-        <a class="stat" id="statExpenses" href="finance.html">
-          <div class="hud-tile-label">Spend / Mo</div>
-          <div class="stat-num hud-num-loading" id="statExpensesNum">—</div>
-          <div class="hud-tile-sub" id="statExpensesSub"></div>
-        </a>
-      </div>
+  <div class="section">
+    <div class="section-title">Finanzas</div>
+    <div class="stat-grid">
+      <a class="stat" id="statNetWorth" href="finance.html">
+        <div class="stat-num" id="statNetWorthNum">—</div>
+        <div class="stat-label">Patrimonio</div>
+        <div class="stat-sub" id="statNetWorthSub"></div>
+      </a>
+      <a class="stat" id="statExpenses" href="finance.html">
+        <div class="stat-num" id="statExpensesNum">—</div>
+        <div class="stat-label">Gastos (mes)</div>
+        <div class="stat-sub" id="statExpensesSub"></div>
+      </a>
     </div>
   </div>
 
-  <!-- ===== SLEEP × TRAINING ===== -->
-  <div class="hud-section hud-stagger">
-    <div class="hud-section-title">SLEEP × TRAINING</div>
-    <div class="hud-panel" id="corrCard" data-hud-panel>
-      <span class="hud-corner tl" aria-hidden="true"></span>
-      <span class="hud-corner tr" aria-hidden="true"></span>
-      <span class="hud-corner bl" aria-hidden="true"></span>
-      <span class="hud-corner br" aria-hidden="true"></span>
-      <div class="hud-corr-msg" id="corrMsg">Loading…</div>
+  <div class="section">
+    <div class="section-title">Sueño vs. Entrenamiento</div>
+    <div class="gm-card home-corr-card" id="corrCard">
+      <div class="home-corr-msg" id="corrMsg">Cargando…</div>
       <div class="home-corr-result hidden" id="corrResult">
-        <div class="hud-corr-phrase" id="corrPhrase"></div>
-        <div class="hud-corr-meta">
-          <div class="hud-corr-strength-block">
-            <span class="home-corr-strength" id="corrStrength"></span>
-            <span class="hud-corr-strength-label">Correlation</span>
-          </div>
-          <div class="hud-corr-bar" aria-hidden="true"><div class="hud-corr-bar-fill" id="hudCorrBarFill"></div></div>
+        <div class="home-corr-phrase" id="corrPhrase"></div>
+        <div class="home-corr-meta">
+          <span class="home-corr-strength" id="corrStrength"></span>
           <span class="home-corr-stars" id="corrStars"></span>
         </div>
-        <div class="hud-corr-disclaimer">Correlation, not causation — does not determine what causes what.</div>
+        <div class="home-corr-disclaimer">Correlación, no causalidad — no determina qué causa qué.</div>
       </div>
     </div>
   </div>
@@ -1501,140 +1284,6 @@ body.hud-paused .hud-stagger { animation-play-state: paused; }
     // tab sat in the background.
     if (Date.now() - lastWarmUpAt > 30000) warmUpFromCloud();
   });
-})();
-</script>
-
-<script>
-/* ==========================================================================
-   BATCOMPUTER HUD — motion layer only. Pure presentation: reads values the
-   logic script above already wrote, never writes data back. Kept in its
-   own IIFE/script tag so it can't collide with the logic script's `$`,
-   const names, etc.
-   ========================================================================== */
-(function () {
-  'use strict';
-
-  var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  /* ---------- pause idle animations while the tab is hidden ----------
-     CSS animations keep ticking in background tabs unless told otherwise;
-     toggling this class (see body.hud-paused in the stylesheet) freezes
-     the LED ring, clock cursor, scanline and stagger transitions so they
-     don't burn CPU/battery when the home screen isn't even visible. */
-  function applyPausedState() {
-    document.body.classList.toggle('hud-paused', document.hidden);
-  }
-  document.addEventListener('visibilitychange', applyPausedState);
-  applyPausedState();
-
-  /* ---------- staggered panel/tile entrance ----------
-     Skipped entirely under reduced motion — the .hud-stagger CSS rule
-     already renders those elements at full opacity/position in that case,
-     so there is nothing for this loop to animate toward. */
-  if (!reduceMotion) {
-    var staggerEls = document.querySelectorAll('.hud-stagger');
-    staggerEls.forEach(function (el, i) {
-      setTimeout(function () { el.classList.add('hud-in'); }, 40 + i * 70);
-    });
-    // Safety net: never leave content stuck at opacity:0 if something above misfires.
-    setTimeout(function () {
-      staggerEls.forEach(function (el) { el.classList.add('hud-in'); });
-    }, 2500);
-  }
-
-  /* ---------- count-up on mount ----------
-     Reads the FINAL text the logic script already committed to each
-     `...Num` element and animates a numeric overlay from 0 up to it. The
-     real value is never touched — on the last frame we snap back to the
-     exact original string, so formatting/precision can never drift from
-     what the logic script actually computed. */
-  var NUM_TOKEN_RE = /\d[\d.,]*/g;
-  var COUNT_UP_MS = 900;
-
-  // Tokens come from a handful of known formats in the logic script above:
-  // plain ints ("5"), toFixed(1) decimals ("7.5"), es-ES thousands-grouped
-  // ints ("10.000"), and en-US grouped money ("12,345.67"). A comma marks
-  // en-US grouping unambiguously; a dot followed by exactly 3 digits marks
-  // es-ES thousands grouping; any other dot is a real decimal point.
-  function tokenInfo(token) {
-    if (token.indexOf(',') !== -1) {
-      var parts = token.split('.');
-      return { value: parseFloat(token.replace(/,/g, '')), decimals: (parts[1] || '').length };
-    }
-    if (/^\d{1,3}(\.\d{3})+$/.test(token)) {
-      return { value: parseInt(token.replace(/\./g, ''), 10), decimals: 0 };
-    }
-    var dot = token.indexOf('.');
-    return { value: parseFloat(token), decimals: dot === -1 ? 0 : token.length - dot - 1 };
-  }
-  function formatValue(value, decimals) {
-    return decimals ? value.toFixed(decimals) : String(Math.round(value));
-  }
-  function countUp(el) {
-    var finalText = el.textContent;
-    var trimmed = finalText.trim();
-    if (!trimmed || trimmed === '—') return; // '—' placeholder — nothing to count up from
-    var matches = trimmed.match(NUM_TOKEN_RE);
-    if (!matches || !matches.length) return; // no numeric token (shouldn't happen, but stay safe)
-    var infos = matches.map(tokenInfo);
-    if (infos.some(function (info) { return isNaN(info.value); })) return;
-
-    var start = null;
-    function frame(ts) {
-      if (start === null) start = ts;
-      var t = Math.min(1, (ts - start) / COUNT_UP_MS);
-      var eased = 1 - Math.pow(1 - t, 3); // ease-out cubic
-      var i = 0;
-      el.textContent = trimmed.replace(NUM_TOKEN_RE, function () {
-        var info = infos[i++];
-        return formatValue(info.value * eased, info.decimals);
-      });
-      if (t < 1) requestAnimationFrame(frame);
-      else el.textContent = finalText; // guarantee exact parity with the logic script's value
-    }
-    requestAnimationFrame(frame);
-  }
-
-  // One MutationObserver per tile, watching only for the FIRST time its
-  // value settles away from the '—' placeholder (some tiles populate
-  // synchronously from localStorage, others only after the async
-  // cross-device warm-up pull resolves) — that first settle is also what
-  // clears the loading shimmer. Fires at most once per tile per page load.
-  var TILE_NUM_IDS = [
-    'statWaterNum', 'statSleepNum', 'statGoalsNum', 'statCaloriesNum',
-    'statGymNum', 'statStepsNum', 'statNetWorthNum', 'statExpensesNum'
-  ];
-  TILE_NUM_IDS.forEach(function (id) {
-    var el = document.getElementById(id);
-    if (!el) return;
-    var settled = false;
-    var obs = new MutationObserver(check);
-    function check() {
-      if (settled) return;
-      var text = el.textContent.trim();
-      if (!text || text === '—') return; // still loading — keep watching
-      settled = true;
-      el.classList.remove('hud-num-loading');
-      if (!reduceMotion) countUp(el);
-      obs.disconnect();
-    }
-    obs.observe(el, { childList: true, characterData: true, subtree: true });
-    check(); // covers the common case where the value is already there at mount
-  });
-
-  /* ---------- correlation strength bar ----------
-     Reinterprets corrStrength's own "NN%" text as a fill bar — purely
-     decorative, driven off the DOM the logic script already wrote, never
-     read by it. */
-  var corrStrengthEl = document.getElementById('corrStrength');
-  var corrBarFillEl = document.getElementById('hudCorrBarFill');
-  if (corrStrengthEl && corrBarFillEl) {
-    new MutationObserver(function () {
-      var pct = parseFloat(corrStrengthEl.textContent);
-      if (isNaN(pct)) return;
-      corrBarFillEl.style.transform = 'scaleX(' + Math.max(0, Math.min(1, pct / 100)) + ')';
-    }).observe(corrStrengthEl, { childList: true, characterData: true, subtree: true });
-  }
 })();
 </script>
 </body>
