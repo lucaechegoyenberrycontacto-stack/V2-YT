@@ -15,41 +15,45 @@
 
 <style>
 /* ==========================================================================
-   BATCOMPUTER HUD — design tokens
+   RICE DESKTOP — "every panel is a system process" tiling-WM home.
+   Design tokens. All spacing/color/timing lives here, nothing hardcoded
+   downstream.
    ========================================================================== */
 :root {
-  --hud-black:      #050506;
-  --hud-black-2:    #0A0A0B;
-  --hud-panel:      rgba(255,255,255,0.025);
-  --hud-panel-2:    rgba(255,255,255,0.045);
-  --hud-border:     rgba(255,255,255,0.06);
-  --hud-border-2:   rgba(255,255,255,0.12);
+  --rice-black:      #050506;
+  --rice-black-2:    #0A0A0B;
+  --rice-panel:         rgba(255,255,255,0.028);
+  --rice-panel-2:       rgba(255,255,255,0.05);
+  --rice-panel-ambient: rgba(255,255,255,0.016);
+  --rice-border:     rgba(255,255,255,0.08);
+  --rice-border-2:   rgba(255,255,255,0.16);
 
-  --hud-red:        #B4121A;
-  --hud-red-dim:    #7A1016;
-  --hud-red-glow:   rgba(180,18,26,0.35);
-  --hud-red-border: rgba(180,18,26,0.25);
-  --hud-red-border-strong: rgba(180,18,26,0.45);
+  --rice-red:        #B4121A;
+  --rice-red-dim:    #7A1016;
+  --rice-red-glow:   rgba(180,18,26,0.35);
+  --rice-red-border: rgba(180,18,26,0.28);
+  --rice-red-border-strong: rgba(180,18,26,0.5);
 
   --text-primary:   #EDEDED;
   --text-secondary: #9A9A9E;
   --text-tertiary:  #5C5C60;
+  --text-ambient:   #4A4A4E;
 
   --success: #4FAE7C;
   --warning: #C98A2E;
-  --danger:  var(--hud-red);
 
-  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --ease-rice: cubic-bezier(0.16, 1, 0.3, 1);
 
-  --ease-hud: cubic-bezier(0.16, 1, 0.3, 1);
+  --rice-gutter: 6px;
+  --rice-radius: 2px;
 }
 * { box-sizing: border-box; }
 html, body {
   margin: 0; padding: 0;
-  background: var(--hud-black);
+  background: var(--rice-black);
   color: var(--text-secondary);
-  font-family: var(--font);
+  font-family: var(--font-mono);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-text-size-adjust: 100%;
@@ -58,379 +62,512 @@ body {
   min-height: 100vh;
   position: relative;
   overflow-x: hidden;
-  padding: max(28px, env(safe-area-inset-top)) 20px 60px;
+  padding: max(16px, env(safe-area-inset-top)) 12px 50px;
 }
 
-/* ===== AMBIENT BACKGROUND =====
-   Two static layers (red glow + blueprint grid) plus one animated drift
-   layer. Only `transform` is ever animated — the blur/gradient itself is
-   painted once and never re-evaluated per frame. */
+/* ==========================================================================
+   AMBIENT BACKGROUND — drift glow (body::before, animated) + blueprint
+   grid/scanline-texture/vignette stacked as layered backgrounds on a single
+   body::after (keeps the extra-layer count at one real DOM node total: the
+   moving sweep line below). Only `transform`/`opacity` ever animate.
+   ========================================================================== */
 body::before {
   content: '';
   position: fixed; inset: -10%;
   background:
-    radial-gradient(circle at 80% 8%, rgba(180,18,26,0.11), transparent 42%),
-    radial-gradient(circle at 12% 94%, rgba(180,18,26,0.05), transparent 46%);
+    radial-gradient(circle at 82% 6%, rgba(180,18,26,0.13), transparent 40%),
+    radial-gradient(circle at 8% 96%, rgba(180,18,26,0.06), transparent 46%);
   filter: blur(60px);
   pointer-events: none;
-  z-index: -3;
-  animation: hud-drift 40s ease-in-out infinite alternate;
+  z-index: -4;
+  animation: rice-drift 42s ease-in-out infinite alternate;
   will-change: transform;
 }
 body::after {
   content: '';
   position: fixed; inset: 0;
   background-image:
-    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
-  background-size: 42px 42px;
-  -webkit-mask-image: radial-gradient(ellipse 80% 55% at 50% 0%, #000 40%, transparent 92%);
-  mask-image: radial-gradient(ellipse 80% 55% at 50% 0%, #000 40%, transparent 92%);
+    repeating-linear-gradient(rgba(255,255,255,0.016) 0px, rgba(255,255,255,0.016) 1px, transparent 1px, transparent 3px),
+    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px),
+    radial-gradient(ellipse 90% 75% at 50% 30%, transparent 50%, rgba(0,0,0,0.62) 100%);
+  background-size: auto, 32px 32px, 32px 32px, 100% 100%;
   pointer-events: none;
-  z-index: -2;
+  z-index: -3;
 }
-@keyframes hud-drift {
+@keyframes rice-drift {
   0%   { transform: translate3d(0,0,0); }
-  100% { transform: translate3d(-24px, 16px, 0); }
+  100% { transform: translate3d(-26px, 18px, 0); }
 }
-/* Animation pause switch — toggled by the motion script on visibilitychange
-   so idle loops don't burn CPU/battery while the tab is in the background. */
-body.hud-paused::before,
-body.hud-paused .hud-led::after,
-body.hud-paused .hud-cursor,
-body.hud-paused .hud-scan,
-body.hud-paused .hud-stagger { animation-play-state: paused; }
-
+/* A single red line sweeping top-to-bottom across the whole desktop —
+   the page-level "CRT scan" pass. transform + opacity only. */
+.rice-sweep {
+  position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: -2; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(180,18,26,0.55), transparent);
+  transform: translateY(-4px);
+  animation: rice-sweep-move 11s linear infinite;
+  will-change: transform, opacity;
+}
+@keyframes rice-sweep-move {
+  0%   { transform: translateY(-4px); opacity: 0; }
+  4%   { opacity: 0.9; }
+  92%  { opacity: 0.9; }
+  100% { transform: translateY(100vh); opacity: 0; }
+}
 @media (prefers-reduced-motion: reduce) {
   body::before { animation: none; }
+  .rice-sweep { display: none; }
 }
+/* Pause switch — toggled on visibilitychange so idle loops don't burn
+   CPU/battery while the tab is hidden. Scoped to the specific elements
+   that actually loop; one-shot animations (boot flicker, klog entrance,
+   count-up) are timer/rAF-driven and already stop themselves via JS. */
+body.rice-paused::before,
+body.rice-paused .rice-sweep,
+body.rice-paused .hud-led::after,
+body.rice-paused .hud-cursor,
+body.rice-paused .sigil-art,
+body.rice-paused .verse-cursor { animation-play-state: paused; }
 
-.page { max-width: 1320px; margin: 0 auto; }
-
-/* ===== SYS LINE ===== */
-.hud-sysline {
+/* ==========================================================================
+   SHELL PROMPT LINE (sits just under topbar.js's sticky bar)
+   ========================================================================== */
+.rice-desktop { max-width: 1680px; margin: 0 auto; }
+.rice-sysline {
   display: flex; align-items: center; gap: 10px;
-  font-family: var(--font-mono); font-size: 10.5px;
-  letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--text-tertiary);
-  margin-bottom: 18px; padding: 0 2px;
+  font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--text-tertiary); margin-bottom: 10px; padding: 0 2px;
 }
-.hud-sysline-text { flex: 1 1 auto; min-width: 0; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hud-sysline-text b { color: var(--text-primary); font-weight: 600; }
-.hud-sysline-sep { flex: 1 1 16px; height: 1px; background: linear-gradient(90deg, var(--hud-border), transparent); min-width: 8px; }
-/* flex-shrink + overflow:hidden here too — a bare `white-space:nowrap` flex
-   item refuses to shrink below its content's intrinsic width by default
-   and will silently push the whole row past the viewport on narrow
-   screens (480–600px), which is exactly what happened before this fix. */
-.hud-sysline-meta { flex: 0 1 auto; min-width: 0; max-width: 42%; color: var(--text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rice-sysline-text { flex: 1 1 auto; min-width: 0; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rice-sysline-text b { color: var(--text-primary); font-weight: 600; }
+.rice-sysline-sep { flex: 1 1 16px; height: 1px; background: linear-gradient(90deg, var(--rice-border), transparent); min-width: 8px; }
+/* Same flexbox lesson as before: nowrap + no min-width:0/overflow:hidden
+   refuses to shrink and silently pushes the row past the viewport. */
+.rice-sysline-meta { flex: 0 1 auto; min-width: 0; max-width: 42%; color: var(--text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* ===== LED — pulsing ring via transform+opacity only; the glow itself
-   (box-shadow) is set once and never animated. ===== */
+/* ==========================================================================
+   LED / CURSOR / CORNER BRACKETS — shared primitives reused by every panel
+   ========================================================================== */
 .hud-led {
-  position: relative; width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
-  background: var(--hud-red);
-  box-shadow: 0 0 5px var(--hud-red-glow), 0 0 1px var(--hud-red);
+  position: relative; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  background: var(--rice-red);
+  box-shadow: 0 0 5px var(--rice-red-glow), 0 0 1px var(--rice-red);
 }
 .hud-led::after {
   content: ''; position: absolute; inset: -4px; border-radius: 50%;
-  border: 1px solid var(--hud-red); opacity: 0;
+  border: 1px solid var(--rice-red); opacity: 0;
   animation: hud-led-ring 2.2s ease-out infinite;
   will-change: transform, opacity;
 }
-@keyframes hud-led-ring {
-  0%   { transform: scale(0.5); opacity: 0.55; }
-  100% { transform: scale(2.1); opacity: 0; }
-}
+@keyframes hud-led-ring { 0% { transform: scale(0.5); opacity: 0.55; } 100% { transform: scale(2.1); opacity: 0; } }
 
-/* ===== Blinking cursor beside the clock (sibling element — homeClock's
-   own textContent is fully replaced every second, so nothing can live
-   inside it). ===== */
 .hud-cursor {
-  display: inline-block; color: var(--hud-red); font-weight: 400;
+  display: inline-block; color: var(--rice-red); font-weight: 400;
   animation: hud-blink 1s steps(1, end) infinite;
   will-change: opacity;
 }
 @keyframes hud-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) {
-  .hud-cursor { animation-duration: 1.6s; }
-}
+@media (prefers-reduced-motion: reduce) { .hud-cursor { animation-duration: 1.6s; } }
 
-/* ===== Corner brackets on major panels (hero / finance / correlation) === */
-.hud-corner { position: absolute; width: 16px; height: 16px; pointer-events: none; opacity: 0.55; transition: opacity 0.2s var(--ease-hud); }
-.hud-corner::before, .hud-corner::after { content: ''; position: absolute; background: var(--hud-red); }
+.hud-corner { position: absolute; width: 12px; height: 12px; pointer-events: none; opacity: 0.4; transition: opacity 0.2s var(--ease-rice); z-index: 2; }
+.hud-corner::before, .hud-corner::after { content: ''; position: absolute; background: var(--rice-red); }
 .hud-corner::before { width: 100%; height: 1px; }
 .hud-corner::after  { width: 1px; height: 100%; }
 .hud-corner.tl { top: -1px; left: -1px; } .hud-corner.tl::before, .hud-corner.tl::after { top: 0; left: 0; }
 .hud-corner.tr { top: -1px; right: -1px; } .hud-corner.tr::before, .hud-corner.tr::after { top: 0; right: 0; }
 .hud-corner.bl { bottom: -1px; left: -1px; } .hud-corner.bl::before, .hud-corner.bl::after { bottom: 0; left: 0; }
 .hud-corner.br { bottom: -1px; right: -1px; } .hud-corner.br::before, .hud-corner.br::after { bottom: 0; right: 0; }
-.hud-panel:hover .hud-corner { opacity: 1; }
+.proc-win:hover .hud-corner { opacity: 1; }
 
-/* ===== Panel shell (hero / finance / correlation) ===== */
-.hud-panel {
+/* ==========================================================================
+   PROC-WIN — the base "system process window" chrome every panel shares.
+   ========================================================================== */
+.proc-win {
   position: relative;
-  background: var(--hud-panel);
-  border: 1px solid var(--hud-border);
-  border-radius: 4px;
-  padding: 26px;
-  margin-bottom: 16px;
+  background: var(--rice-panel);
+  border: 1px solid var(--rice-border);
+  border-radius: var(--rice-radius);
+  display: flex; flex-direction: column;
   overflow: hidden;
+  min-width: 0; min-height: 0;
+  transition: border-color 0.2s var(--ease-rice);
 }
+.proc-win--data:hover { border-color: var(--rice-red-border); }
+.proc-win--ambient { background: var(--rice-panel-ambient); }
+.proc-win--ambient .proc-name, .proc-win--ambient .proc-meta { color: var(--text-ambient); }
 
-/* Scanline sweep across the hero panel — transform + opacity only. */
-.hud-scan {
-  position: absolute; top: 0; left: 0; width: 16%; height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(180,18,26,0.05), rgba(180,18,26,0.11), rgba(180,18,26,0.05), transparent);
-  pointer-events: none;
-  transform: translateX(-700%);
-  animation: hud-scan-sweep 9s linear infinite;
-  will-change: transform, opacity;
+.proc-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 9px;
+  border-bottom: 1px solid var(--rice-border);
+  background: rgba(255,255,255,0.022);
+  font-size: 10px; letter-spacing: 0.06em;
+  flex-shrink: 0;
 }
-@keyframes hud-scan-sweep {
-  0%   { transform: translateX(-700%); opacity: 0; }
-  6%   { opacity: 1; }
-  50%  { transform: translateX(700%); opacity: 1; }
-  56%  { opacity: 0; }
-  100% { transform: translateX(700%); opacity: 0; }
+.proc-name { min-width: 0; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.proc-trace { width: 24px; height: 12px; flex-shrink: 0; opacity: 0.55; }
+.proc-trace path { fill: none; stroke: var(--rice-red-dim); stroke-width: 1; }
+.proc-trace circle { fill: var(--rice-red); }
+.proc-glyph { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; letter-spacing: 0.3em; color: var(--rice-red-dim); opacity: 0.7; }
+.proc-meta { flex-shrink: 0; color: var(--text-tertiary); white-space: nowrap; font-size: 8.5px; }
+
+.proc-body { padding: 12px; flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+
+/* ==========================================================================
+   BOOT / STAGGER — cascading power-on with a brief flicker per panel.
+   One-shot (`forwards`), never loops, so it's cheap regardless of count.
+   ========================================================================== */
+.rice-stagger { opacity: 0; transform: translateY(8px); }
+.rice-stagger.rice-boot { animation: rice-boot-in 0.6s var(--ease-rice) forwards; }
+@keyframes rice-boot-in {
+  0%   { opacity: 0;    transform: translateY(8px); }
+  8%   { opacity: 0.7;  transform: translateY(0); }
+  14%  { opacity: 0.15; }
+  20%  { opacity: 0.85; }
+  27%  { opacity: 0.35; }
+  36%  { opacity: 1; }
+  100% { opacity: 1;    transform: translateY(0); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .hud-scan { display: none; }
+  .rice-stagger { opacity: 1; transform: none; }
+  .rice-stagger.rice-boot { animation: none; }
 }
 
-/* ===== Section headers ===== */
-.hud-section { margin-top: 10px; }
-.hud-section-title {
-  font-family: var(--font-mono);
-  font-size: 10px; font-weight: 600;
-  letter-spacing: 0.20em; text-transform: uppercase;
-  color: var(--text-tertiary);
-  display: flex; align-items: center; gap: 12px;
-  margin-bottom: 12px;
+/* ==========================================================================
+   MOSAIC GRID — named-area tiling so each breakpoint can fully redeclare
+   the layout (true tiling-WM behavior) instead of just reflowing columns.
+   ========================================================================== */
+.rice-mosaic {
+  display: grid;
+  gap: var(--rice-gutter);
+  grid-template-columns: 1.5fr 1.1fr 1fr 0.9fr;
+  grid-template-areas:
+    "clock   weather weather klog"
+    "verse   verse   verse   klog"
+    "sigil   wave    sysmon  klog"
+    "telem   telem   telem   ledger"
+    "corr    corr    corr    corr";
 }
-.hud-section-title::before { content: '//'; color: var(--hud-red-dim); }
-.hud-section-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--hud-border), transparent); }
+.rice-a-clock   { grid-area: clock;   min-height: 230px; }
+.rice-a-weather { grid-area: weather; }
+.rice-a-klog    { grid-area: klog; }
+.rice-a-verse   { grid-area: verse; }
+.rice-a-sigil   { grid-area: sigil; }
+.rice-a-wave    { grid-area: wave; }
+.rice-a-sysmon  { grid-area: sysmon; }
+.rice-a-telem   { grid-area: telem; }
+.rice-a-ledger  { grid-area: ledger; }
+.rice-a-corr    { grid-area: corr; }
 
-/* ===== Staggered entrance — opacity/transform only; degraded (skipped
-   entirely) under reduced motion via the media query below. ===== */
-.hud-stagger { opacity: 0; transform: translateY(10px); transition: opacity 0.5s var(--ease-hud), transform 0.5s var(--ease-hud); }
-.hud-stagger.hud-in { opacity: 1; transform: translateY(0); }
-@media (prefers-reduced-motion: reduce) {
-  .hud-stagger { opacity: 1; transform: none; transition: none; }
+@media (max-width: 1099px) {
+  .rice-mosaic {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "clock   weather"
+      "verse   verse"
+      "sigil   wave"
+      "sysmon  klog"
+      "telem   telem"
+      "ledger  ledger"
+      "corr    corr";
+  }
+  .rice-a-clock { min-height: 200px; }
+}
+@media (max-width: 699px) {
+  .rice-mosaic {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "clock"
+      "weather"
+      "verse"
+      "telem"
+      "ledger"
+      "corr";
+  }
+  /* Decoratives ARE the density — but on a phone they'd just bury the
+     real data, so they're the first thing to go, per spec. */
+  .rice-a-sigil, .rice-a-wave, .rice-a-sysmon, .rice-a-klog { display: none; }
+  .rice-a-clock { min-height: 0; }
 }
 
-/* ============================================================
-   HERO PANEL — clock / date / weather + stoic & scripture readouts
-   ============================================================ */
-.hud-hero-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 40px; align-items: start; }
-.hud-kicker {
-  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--text-tertiary); margin-bottom: 14px;
+/* ==========================================================================
+   CHRONOS.SERVICE — clock. #homeClock/#homeDate stay in the DOM (contract)
+   but #homeClock is visually hidden; the digit-flip overlay below mirrors
+   its textContent live via MutationObserver (see motion script) so the
+   real value is always the source of truth, never delayed behind the effect.
+   ========================================================================== */
+#homeClock {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0,0,0,0); white-space: nowrap; border: 0; padding: 0; margin: -1px;
 }
-.hud-kicker b { color: var(--hud-red); font-weight: 600; }
-.hud-clock-row { display: flex; align-items: flex-end; }
-.home-clock {
-  font-family: var(--font-mono); font-size: 58px; font-weight: 600;
-  color: var(--text-primary); letter-spacing: -0.03em; line-height: 1;
-  font-variant-numeric: tabular-nums;
+.chronos-body { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+.chronos-row { display: flex; align-items: flex-end; }
+.chronos-digits {
+  display: flex; perspective: 240px;
+  font-size: 60px; font-weight: 600; letter-spacing: -0.02em; line-height: 1;
+  color: var(--text-primary); font-variant-numeric: tabular-nums;
 }
-.hud-cursor-clock { font-size: 42px; margin-left: 4px; margin-bottom: 3px; }
+.chronos-digit { display: inline-block; }
+.chronos-digit.sep { color: var(--rice-red); }
+.chronos-digit.flip { animation: chronos-flip 0.4s var(--ease-rice); }
+@keyframes chronos-flip {
+  0%   { transform: rotateX(0deg);   opacity: 1; }
+  40%  { transform: rotateX(78deg);  opacity: 0.25; }
+  60%  { transform: rotateX(-78deg); opacity: 0.25; }
+  100% { transform: rotateX(0deg);   opacity: 1; }
+}
+.hud-cursor-clock { font-size: 46px; margin-left: 6px; margin-bottom: 2px; }
 .home-date {
-  margin-top: 10px; font-family: var(--font-mono); font-size: 12px;
-  letter-spacing: 0.05em; color: var(--text-secondary); text-transform: uppercase;
+  margin-top: 10px; font-size: 11.5px;
+  letter-spacing: 0.06em; color: var(--text-secondary); text-transform: uppercase;
+}
+@media (prefers-reduced-motion: reduce) {
+  .chronos-digit.flip { animation: none; }
+}
+@media (max-width: 699px) {
+  .chronos-digits { font-size: 42px; }
+  .hud-cursor-clock { font-size: 34px; }
 }
 
-/* Weather */
-.home-weather { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--hud-border); }
-.home-weather-row { display: flex; align-items: center; gap: 12px; }
-.home-weather-icon { font-size: 26px; line-height: 1; flex-shrink: 0; }
+/* ==========================================================================
+   WEATHERD
+   ========================================================================== */
+.home-weather { display: flex; flex-direction: column; flex: 1; }
+.home-weather-row { display: flex; align-items: center; gap: 10px; }
+.home-weather-icon { font-size: 22px; line-height: 1; flex-shrink: 0; }
 .home-weather-temp {
-  font-family: var(--font-mono); font-size: 32px; font-weight: 600; color: var(--text-primary);
+  font-size: 28px; font-weight: 600; color: var(--text-primary);
   letter-spacing: -0.02em; line-height: 1; font-variant-numeric: tabular-nums;
 }
 .home-weather-info { flex: 1; min-width: 0; }
-.home-weather-cond { font-size: 12px; color: var(--text-secondary); letter-spacing: 0.02em; }
-.home-weather-sub { margin-top: 3px; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-tertiary); }
+.home-weather-cond { font-size: 11.5px; color: var(--text-secondary); letter-spacing: 0.02em; }
+.home-weather-sub { margin-top: 3px; font-size: 10px; color: var(--text-tertiary); }
 .hud-weather-refresh {
-  width: 30px; height: 30px; flex-shrink: 0; border-radius: 4px;
-  border: 1px solid var(--hud-border-2); background: transparent;
-  color: var(--text-secondary); font-size: 15px; line-height: 1; cursor: pointer;
-  transition: background 0.15s var(--ease-hud), color 0.15s var(--ease-hud), border-color 0.15s var(--ease-hud);
+  width: 26px; height: 26px; flex-shrink: 0; border-radius: 2px;
+  border: 1px solid var(--rice-border-2); background: transparent;
+  color: var(--text-secondary); font-size: 13px; line-height: 1; cursor: pointer;
+  transition: background 0.15s var(--ease-rice), color 0.15s var(--ease-rice), border-color 0.15s var(--ease-rice);
 }
-.hud-weather-refresh:hover { background: var(--hud-red-glow); color: var(--text-primary); border-color: var(--hud-red-border-strong); }
+.hud-weather-refresh:hover { background: var(--rice-red-glow); color: var(--text-primary); border-color: var(--rice-red-border-strong); }
 .hud-weather-refresh.spinning { animation: hud-weather-spin 0.6s linear; }
 @keyframes hud-weather-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-.home-weather-chart-svg { width: 100%; height: 88px; display: block; margin-top: 12px; overflow: visible; }
+.home-weather-chart-svg { width: 100%; height: 72px; display: block; margin-top: 10px; overflow: visible; flex: 1; }
 .home-weather-chart-svg.hidden { display: none; }
-.home-weather-chart-hour { font-size: 9px; font-family: var(--font-mono); fill: var(--text-tertiary); }
-.home-weather-chart-value { font-size: 10.5px; font-weight: 700; font-family: var(--font-mono); fill: var(--text-primary); }
-.home-weather-chart-value.now { fill: var(--hud-red); }
-.home-weather-chart-precip { font-size: 9px; font-family: var(--font-mono); fill: var(--text-tertiary); }
-.home-weather-chart-line { fill: none; stroke: var(--hud-red-dim); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; opacity: 0.85; }
-.home-weather-chart-dot { fill: var(--hud-red-dim); opacity: 0.85; }
-.home-weather-chart-dot.now { fill: var(--hud-red); opacity: 1; }
+.home-weather-chart-hour { font-size: 8.5px; font-family: var(--font-mono); fill: var(--text-tertiary); }
+.home-weather-chart-value { font-size: 10px; font-weight: 700; font-family: var(--font-mono); fill: var(--text-primary); }
+.home-weather-chart-value.now { fill: var(--rice-red); }
+.home-weather-chart-precip { font-size: 8.5px; font-family: var(--font-mono); fill: var(--text-tertiary); }
+.home-weather-chart-line { fill: none; stroke: var(--rice-red-dim); stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; opacity: 0.85; }
+.home-weather-chart-dot { fill: var(--rice-red-dim); opacity: 0.85; }
+.home-weather-chart-dot.now { fill: var(--rice-red); opacity: 1; }
 
-/* Readouts (right column) */
-.hud-readout { padding-left: 22px; border-left: 1px solid var(--hud-border); }
-.hud-readout + .hud-readout { margin-top: 24px; }
-.hud-readout-label {
-  font-family: var(--font-mono); font-size: 9.5px; font-weight: 600;
-  letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-tertiary);
-  margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+/* ==========================================================================
+   VERSE.DAEMON — #homeQuoteText/Author + #homeBibleText/Ref stay in the DOM
+   (contract, and JS still writes their real textContent) but are visually
+   hidden; the .verse-line/.verse-author overlays "type" that same text.
+   ========================================================================== */
+#homeQuoteText, #homeQuoteAuthor, #homeBibleText, #homeBibleRef {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0,0,0,0); white-space: nowrap; border: 0; padding: 0; margin: -1px;
 }
-.hud-readout-label::before { content: '◆'; font-size: 6px; color: var(--hud-red-dim); }
-.home-quote { font-size: 14px; font-style: italic; color: var(--text-secondary); line-height: 1.55; }
-.home-quote-author {
-  margin-top: 8px; font-family: var(--font-mono); font-size: 10px; font-weight: 600;
-  letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary);
+.verse-body { display: flex; flex-direction: column; gap: 14px; flex: 1; justify-content: center; }
+.verse-label {
+  font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-tertiary);
+  margin-bottom: 5px; display: flex; align-items: center; gap: 6px;
 }
+.verse-label::before { content: '>'; color: var(--rice-red-dim); }
+.verse-line { font-size: 12.5px; font-style: italic; color: var(--text-secondary); line-height: 1.55; min-height: 1.55em; }
+.verse-cursor { display: inline-block; color: var(--rice-red); animation: hud-blink 0.9s steps(1,end) infinite; }
+.verse-cursor.done { display: none; }
+.verse-author { margin-top: 6px; font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-tertiary); }
 
-@media (max-width: 1023px) {
-  .hud-hero-grid { grid-template-columns: 1fr; gap: 26px; }
-  .hud-readout { border-left: none; border-top: 1px solid var(--hud-border); padding-left: 0; padding-top: 16px; }
-  .hud-readout + .hud-readout { margin-top: 16px; }
-}
-@media (max-width: 560px) {
-  .home-clock { font-size: 40px; }
-  .hud-cursor-clock { font-size: 30px; }
-}
-
-/* ============================================================
-   TELEMETRY TILES — the .stat class itself is authoritative here:
-   the existing logic script does `el.className = 'stat' + (' stat-' +
+/* ==========================================================================
+   TELEMETRY.MONITOR — the .stat class itself is authoritative here: the
+   untouched logic script does `el.className = 'stat' + (' stat-' +
    status)` on every render, wiping any other class on the <a> — so all
-   tile styling (incl. corner brackets) has to hang off .stat / .stat-*,
-   never off an extra class added in markup.
-   ============================================================ */
-.hud-tile-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-@media (min-width: 600px) {
-  .hud-tile-grid { grid-template-columns: repeat(3, 1fr); }
-}
-.hud-tile-grid-finance { grid-template-columns: repeat(2, 1fr); }
-@media (max-width: 420px) {
-  .hud-tile-grid-finance { grid-template-columns: 1fr; }
-}
+   tile styling (incl. corner brackets) hangs off .stat/.stat-*, never an
+   extra class added in markup. Same lesson from the previous pass.
+   ========================================================================== */
+.proc-tile-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; flex: 1; }
+@media (min-width: 480px) { .proc-tile-grid { grid-template-columns: repeat(3, 1fr); } }
+.proc-tile-grid--finance { grid-template-columns: repeat(2, 1fr) !important; }
 
 .stat {
   position: relative;
-  background: var(--hud-panel);
-  border: 1px solid var(--hud-border);
-  border-radius: 3px; padding: 16px 16px 14px;
+  background: var(--rice-panel);
+  border: 1px solid var(--rice-border);
+  border-radius: var(--rice-radius); padding: 10px 10px 9px;
   text-decoration: none; color: inherit; display: block;
-  transition: transform 0.18s var(--ease-hud), border-color 0.18s var(--ease-hud), background 0.18s var(--ease-hud);
+  transition: transform 0.18s var(--ease-rice), border-color 0.18s var(--ease-rice), background 0.18s var(--ease-rice);
 }
-/* Two-corner bracket, CSS-only (no extra markup needed) — engages on hover. */
 .stat::before, .stat::after {
-  content: ''; position: absolute; width: 9px; height: 9px;
-  border-color: var(--hud-red-dim); opacity: 0.5;
-  transition: opacity 0.18s var(--ease-hud), border-color 0.18s var(--ease-hud);
+  content: ''; position: absolute; width: 7px; height: 7px;
+  border-color: var(--rice-red-dim); opacity: 0.5;
+  transition: opacity 0.18s var(--ease-rice), border-color 0.18s var(--ease-rice);
 }
 .stat::before { top: -1px; left: -1px; border-top: 1px solid; border-left: 1px solid; }
 .stat::after  { bottom: -1px; right: -1px; border-bottom: 1px solid; border-right: 1px solid; }
-.stat:hover { transform: translateY(-2px); border-color: var(--hud-border-2); background: var(--hud-panel-2); }
-.stat:hover::before, .stat:hover::after { opacity: 1; border-color: var(--hud-red); }
+.stat:hover { transform: translateY(-2px); border-color: var(--rice-border-2); background: var(--rice-panel-2); }
+.stat:hover::before, .stat:hover::after { opacity: 1; border-color: var(--rice-red); }
 
 .hud-tile-label {
-  font-family: var(--font-mono); font-size: 9.5px; font-weight: 600;
-  letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-tertiary);
-  margin-bottom: 8px;
+  font-size: 8.5px; font-weight: 600;
+  letter-spacing: 0.13em; text-transform: uppercase; color: var(--text-tertiary);
+  margin-bottom: 6px;
 }
 .stat-num {
-  font-size: 25px; font-weight: 600;
+  font-size: 19px; font-weight: 600;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em; color: var(--text-primary); line-height: 1;
-  font-family: var(--font-mono);
+  letter-spacing: -0.02em; color: var(--text-primary); line-height: 1.05;
 }
-/* Loading shimmer lives on the *Num element, never on the <a>, since
-   only the <a>'s class is at risk of being clobbered by setStat(). */
 .hud-num-loading { color: var(--text-tertiary); animation: hud-num-shimmer 1.6s ease-in-out infinite; }
 @keyframes hud-num-shimmer { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.9; } }
-@media (prefers-reduced-motion: reduce) {
-  .hud-num-loading { animation: none; opacity: 0.6; }
-}
-.hud-tile-sub { margin-top: 5px; font-family: var(--font-mono); font-size: 10px; color: var(--text-tertiary); }
+@media (prefers-reduced-motion: reduce) { .hud-num-loading { animation: none; opacity: 0.6; } }
+.hud-tile-sub { margin-top: 4px; font-size: 9px; color: var(--text-tertiary); }
 
-/* Status tints — driven off --success/--warning/--danger only, no new colors. */
 .stat.stat-good { border-color: rgba(79,174,124,0.35); background: rgba(79,174,124,0.06); }
 .stat.stat-warn { border-color: rgba(201,138,46,0.35); background: rgba(201,138,46,0.06); }
 .stat.stat-bad  { border-color: rgba(180,18,26,0.45); background: rgba(180,18,26,0.08); }
 .stat.stat-good .stat-num { color: var(--success); }
 .stat.stat-warn .stat-num { color: var(--warning); }
-.stat.stat-bad  .stat-num { color: var(--hud-red); }
+.stat.stat-bad  .stat-num { color: var(--rice-red); }
 
-/* ============================================================
-   FINANCE PANEL — same tile system, slightly more red-forward since
-   this is money.
-   ============================================================ */
-.hud-panel-finance { padding: 22px; border-color: var(--hud-red-border); }
-.hud-panel-finance .stat { background: rgba(180,18,26,0.035); }
-.hud-panel-finance .stat:hover { background: rgba(180,18,26,0.075); }
+/* ==========================================================================
+   LEDGER.SERVICE — same tile system, more red-forward since this is money.
+   ========================================================================== */
+.rice-a-ledger .proc-win, .proc-win--ledger { border-color: var(--rice-red-border); }
+.proc-win--ledger .stat { background: rgba(180,18,26,0.04); }
+.proc-win--ledger .stat:hover { background: rgba(180,18,26,0.08); }
 
-/* ============================================================
-   SLEEP × TRAINING — correlation readout
-   ============================================================ */
-.hud-corr-msg { font-family: var(--font-mono); font-size: 12.5px; color: var(--text-tertiary); }
+/* ==========================================================================
+   ANALYTICS.CORE — correlation readout
+   ========================================================================== */
+.hud-corr-msg { font-size: 12px; color: var(--text-tertiary); }
 .home-corr-result.hidden, .home-corr-msg.hidden { display: none; }
-.hud-corr-phrase { color: var(--text-primary); font-size: 15px; line-height: 1.5; }
-.hud-corr-meta { margin-top: 16px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.hud-corr-phrase { color: var(--text-primary); font-size: 14px; line-height: 1.5; }
+.hud-corr-meta { margin-top: 14px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .hud-corr-strength-block { display: flex; flex-direction: column; flex-shrink: 0; }
 .home-corr-strength {
-  font-family: var(--font-mono); font-size: 26px; font-weight: 700;
-  letter-spacing: -0.02em; color: var(--text-primary);
+  font-size: 24px; font-weight: 700; letter-spacing: -0.02em; color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
-.hud-corr-strength-label {
-  font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--text-tertiary); margin-top: 2px;
-}
-.home-corr-stars { font-family: var(--font-mono); font-size: 14px; letter-spacing: 0.08em; color: var(--hud-red); }
-/* Strength bar — a technical reinterpretation of the star rating; its
-   fill is set by the motion script (reading corrStrength's own text),
-   animated via transform:scaleX so it stays a cheap compositor-only op. */
-.hud-corr-bar { flex: 1; min-width: 110px; height: 4px; background: var(--hud-border); border-radius: 2px; overflow: hidden; }
+.hud-corr-strength-label { font-size: 8.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-tertiary); margin-top: 2px; }
+.home-corr-stars { font-size: 13px; letter-spacing: 0.08em; color: var(--rice-red); }
+.hud-corr-bar { flex: 1; min-width: 110px; height: 4px; background: var(--rice-border); border-radius: 1px; overflow: hidden; }
 .hud-corr-bar-fill {
-  height: 100%; width: 100%; background: var(--hud-red);
+  height: 100%; width: 100%; background: var(--rice-red);
   transform: scaleX(0); transform-origin: left;
-  transition: transform 0.8s var(--ease-hud);
+  transition: transform 0.8s var(--ease-rice);
 }
-.hud-corr-disclaimer { margin-top: 14px; font-family: var(--font-mono); font-size: 10px; color: var(--text-tertiary); }
+.hud-corr-disclaimer { margin-top: 12px; font-size: 9.5px; color: var(--text-tertiary); }
 
-/* ============================================================
+/* ==========================================================================
+   SIGIL — ambient ASCII emblem, slow tasteful flicker (opacity only).
+   ========================================================================== */
+.sigil-art {
+  margin: 0; font-size: 9.5px; line-height: 1.15; color: var(--rice-red-dim);
+  text-align: center; white-space: pre; animation: sigil-flicker 5.5s ease-in-out infinite;
+}
+.sigil-caption { margin-top: 8px; text-align: center; font-size: 8.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-ambient); }
+@keyframes sigil-flicker {
+  0%, 100% { opacity: 0.85; } 42% { opacity: 0.85; } 44% { opacity: 0.45; }
+  46% { opacity: 0.85; } 80% { opacity: 0.85; } 82% { opacity: 0.55; } 84% { opacity: 0.85; }
+}
+@media (prefers-reduced-motion: reduce) { .sigil-art { animation: none; opacity: 0.85; } }
+
+/* ==========================================================================
+   WAVEFORM.OSC — <canvas> oscilloscope, drawn by the shared rAF loop.
+   ========================================================================== */
+.wave-canvas { width: 100%; flex: 1; min-height: 60px; display: block; }
+
+/* ==========================================================================
+   SYSMON — ambient htop-style bars. Values are random-walked by the shared
+   tick timer; the smoothing itself is a CSS transition on transform, not
+   per-frame JS, so it stays cheap.
+   ========================================================================== */
+.sysmon-body { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 9px; }
+.sysmon-row { display: flex; align-items: center; gap: 8px; }
+.sysmon-label { width: 58px; flex-shrink: 0; font-size: 8.5px; letter-spacing: 0.08em; color: var(--text-ambient); }
+.sysmon-track { flex: 1; height: 4px; background: var(--rice-border); border-radius: 1px; overflow: hidden; }
+.sysmon-fill { height: 100%; width: 100%; background: var(--rice-red-dim); transform: scaleX(0); transform-origin: left; transition: transform 0.65s var(--ease-rice); }
+.sysmon-val { width: 30px; flex-shrink: 0; text-align: right; font-size: 9px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+
+/* ==========================================================================
+   KERN.LOG — ambient boot/dmesg stream. New lines are prepended into a
+   column-reverse list (see motion script) so new = bottom, old scrolls off
+   the top; overflow:hidden on the fixed-height list does the clipping.
+   ========================================================================== */
+.klog-list {
+  display: flex; flex-direction: column-reverse; height: 100%; overflow: hidden; gap: 2px;
+  font-size: 9px; line-height: 1.55;
+}
+.klog-line {
+  color: var(--text-ambient); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  opacity: 0; transform: translateY(4px); animation: klog-in 0.3s var(--ease-rice) forwards;
+}
+.klog-line .klog-ts { color: var(--rice-red-dim); margin-right: 5px; }
+.klog-line .klog-ok { color: var(--success); margin-right: 4px; }
+@keyframes klog-in { to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .klog-line { animation: none; opacity: 1; transform: none; } }
+
+/* ==========================================================================
    RESPONSIVE — general
-   ============================================================ */
+   ========================================================================== */
 @media (max-width: 480px) {
-  body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
-  .hud-panel { padding: 18px; }
-  .hud-sysline-meta { display: none; }
+  body { padding: max(14px, env(safe-area-inset-top)) 10px 46px; }
+  .rice-sysline-meta { display: none; }
+  .proc-body { padding: 10px; }
 }
 </style>
 </head>
 <body>
-<div class="page">
+<div class="rice-sweep" aria-hidden="true"></div>
+<div class="rice-desktop">
 
-  <div class="hud-sysline hud-stagger">
+  <div class="rice-sysline rice-stagger">
     <span class="hud-led" aria-hidden="true"></span>
-    <span class="hud-sysline-text">[ ONLINE ] SYSTEM: <b>LUCA</b> <span aria-hidden="true">·</span> &gt; ACCESS GRANTED</span>
-    <span class="hud-sysline-sep" aria-hidden="true"></span>
-    <span class="hud-sysline-meta">SEC-01 · BATCOMPUTER v2.4</span>
+    <span class="rice-sysline-text">&gt; SYSTEM ONLINE — OPERATOR: <b>LUCA</b></span>
+    <span class="rice-sysline-sep" aria-hidden="true"></span>
+    <span class="rice-sysline-meta">JARVIS // v3.0 · SEC-01</span>
   </div>
 
-  <!-- ===== HERO PANEL ===== -->
-  <div class="hud-panel hud-stagger" data-hud-panel>
-    <span class="hud-corner tl" aria-hidden="true"></span>
-    <span class="hud-corner tr" aria-hidden="true"></span>
-    <span class="hud-corner bl" aria-hidden="true"></span>
-    <span class="hud-corner br" aria-hidden="true"></span>
-    <div class="hud-scan" aria-hidden="true"></div>
+  <div class="rice-mosaic">
 
-    <div class="hud-hero-grid">
-      <div class="hud-hero-left">
-        <div class="hud-kicker">// <b>TODAY</b> // BATCOMPUTER ONLINE</div>
-        <div class="hud-clock-row">
-          <div class="home-clock" id="homeClock">00:00:00</div>
+    <!-- ===== chronos.service — clock ===== -->
+    <div class="proc-win proc-win--data rice-a-clock rice-stagger" data-proc>
+      <div class="proc-head">
+        <span class="hud-led" aria-hidden="true"></span>
+        <span class="proc-name">chronos.service</span>
+        <svg class="proc-trace" viewBox="0 0 28 14" aria-hidden="true"><path d="M1 7 H10 V2 H27"></path><circle cx="27" cy="2" r="1.6"></circle></svg>
+        <span class="proc-meta">PID 0x1A2F</span>
+      </div>
+      <span class="hud-corner tl" aria-hidden="true"></span>
+      <span class="hud-corner tr" aria-hidden="true"></span>
+      <span class="hud-corner bl" aria-hidden="true"></span>
+      <span class="hud-corner br" aria-hidden="true"></span>
+      <div class="proc-body chronos-body">
+        <div class="chronos-row">
+          <div class="chronos-digits" id="chronosDigits" aria-hidden="true"></div>
           <span class="hud-cursor hud-cursor-clock" aria-hidden="true">▋</span>
         </div>
         <div class="home-date" id="homeDate">—</div>
+        <div id="homeClock">00:00:00</div>
+      </div>
+    </div>
 
+    <!-- ===== weatherd — weather probe ===== -->
+    <div class="proc-win proc-win--data rice-a-weather rice-stagger" data-proc>
+      <div class="proc-head">
+        <span class="hud-led" aria-hidden="true"></span>
+        <span class="proc-name">weatherd</span>
+        <span class="proc-glyph" aria-hidden="true">╺━╺━╺━</span>
+        <span class="proc-meta">PROBE</span>
+      </div>
+      <span class="hud-corner tl" aria-hidden="true"></span>
+      <span class="hud-corner tr" aria-hidden="true"></span>
+      <span class="hud-corner bl" aria-hidden="true"></span>
+      <span class="hud-corner br" aria-hidden="true"></span>
+      <div class="proc-body">
         <div class="home-weather" id="homeWeather">
           <div class="home-weather-row">
             <span class="home-weather-icon" id="weatherIcon"></span>
@@ -444,104 +581,222 @@ body.hud-paused .hud-stagger { animation-play-state: paused; }
           <svg class="home-weather-chart-svg hidden" id="weatherChartSvg" viewBox="0 0 300 94" preserveAspectRatio="none"></svg>
         </div>
       </div>
+    </div>
 
-      <div class="hud-hero-right">
-        <div class="hud-readout">
-          <div class="hud-readout-label">Stoic Readout</div>
-          <div class="home-quote" id="homeQuoteText">"…"</div>
-          <div class="home-quote-author" id="homeQuoteAuthor">— </div>
-        </div>
-        <div class="hud-readout">
-          <div class="hud-readout-label">Scripture Readout</div>
-          <div class="home-quote" id="homeBibleText">"…"</div>
-          <div class="home-quote-author" id="homeBibleRef">— </div>
-        </div>
+    <!-- ===== kern.log — ambient boot/dmesg stream ===== -->
+    <div class="proc-win proc-win--ambient rice-a-klog rice-stagger" data-proc>
+      <div class="proc-head">
+        <span class="hud-led" aria-hidden="true"></span>
+        <span class="proc-name">kern.log</span>
+        <span class="proc-glyph" aria-hidden="true">▚▚▚</span>
+        <span class="proc-meta">RING0</span>
       </div>
-    </div>
-  </div>
-
-  <!-- ===== TELEMETRY GRID ===== -->
-  <div class="hud-section hud-stagger">
-    <div class="hud-section-title">TODAY // TELEMETRY</div>
-    <div class="hud-tile-grid">
-      <a class="stat" id="statWater" href="po-water.html">
-        <div class="hud-tile-label">H2O</div>
-        <div class="stat-num hud-num-loading" id="statWaterNum">—</div>
-      </a>
-      <a class="stat" id="statSleep" href="health.html#sleep">
-        <div class="hud-tile-label">Sleep</div>
-        <div class="stat-num hud-num-loading" id="statSleepNum">—</div>
-        <div class="hud-tile-sub" id="statSleepSub"></div>
-      </a>
-      <a class="stat" id="statGoals" href="main.html">
-        <div class="hud-tile-label">Goals</div>
-        <div class="stat-num hud-num-loading" id="statGoalsNum">—</div>
-      </a>
-      <a class="stat" id="statCalories" href="nutrition.html">
-        <div class="hud-tile-label">Kcal</div>
-        <div class="stat-num hud-num-loading" id="statCaloriesNum">—</div>
-      </a>
-      <a class="stat" id="statGym" href="gym.html">
-        <div class="hud-tile-label">Training</div>
-        <div class="stat-num hud-num-loading" id="statGymNum">—</div>
-        <div class="hud-tile-sub" id="statGymSub"></div>
-      </a>
-      <a class="stat" id="statSteps" href="gym.html">
-        <div class="hud-tile-label">Steps</div>
-        <div class="stat-num hud-num-loading" id="statStepsNum">—</div>
-        <div class="hud-tile-sub" id="statStepsSub"></div>
-      </a>
-    </div>
-  </div>
-
-  <!-- ===== FINANCE PANEL ===== -->
-  <div class="hud-section hud-stagger">
-    <div class="hud-section-title">FINANCE // LEDGER</div>
-    <div class="hud-panel hud-panel-finance" data-hud-panel>
       <span class="hud-corner tl" aria-hidden="true"></span>
       <span class="hud-corner tr" aria-hidden="true"></span>
       <span class="hud-corner bl" aria-hidden="true"></span>
       <span class="hud-corner br" aria-hidden="true"></span>
-      <div class="hud-tile-grid hud-tile-grid-finance">
-        <a class="stat" id="statNetWorth" href="finance.html">
-          <div class="hud-tile-label">Net Worth</div>
-          <div class="stat-num hud-num-loading" id="statNetWorthNum">—</div>
-          <div class="hud-tile-sub" id="statNetWorthSub"></div>
-        </a>
-        <a class="stat" id="statExpenses" href="finance.html">
-          <div class="hud-tile-label">Spend / Mo</div>
-          <div class="stat-num hud-num-loading" id="statExpensesNum">—</div>
-          <div class="hud-tile-sub" id="statExpensesSub"></div>
-        </a>
+      <div class="proc-body">
+        <div class="klog-list" id="riceKlogList" aria-hidden="true"></div>
       </div>
     </div>
-  </div>
 
-  <!-- ===== SLEEP × TRAINING ===== -->
-  <div class="hud-section hud-stagger">
-    <div class="hud-section-title">SLEEP × TRAINING</div>
-    <div class="hud-panel" id="corrCard" data-hud-panel>
+    <!-- ===== verse.daemon — stoic + scripture readouts, typed ===== -->
+    <div class="proc-win proc-win--data rice-a-verse rice-stagger" data-proc>
+      <div class="proc-head">
+        <span class="hud-led" aria-hidden="true"></span>
+        <span class="proc-name">verse.daemon</span>
+        <span class="proc-glyph" aria-hidden="true">╺━━━━━━</span>
+        <span class="proc-meta">LOG</span>
+      </div>
       <span class="hud-corner tl" aria-hidden="true"></span>
       <span class="hud-corner tr" aria-hidden="true"></span>
       <span class="hud-corner bl" aria-hidden="true"></span>
       <span class="hud-corner br" aria-hidden="true"></span>
-      <div class="hud-corr-msg" id="corrMsg">Loading…</div>
-      <div class="home-corr-result hidden" id="corrResult">
-        <div class="hud-corr-phrase" id="corrPhrase"></div>
-        <div class="hud-corr-meta">
-          <div class="hud-corr-strength-block">
-            <span class="home-corr-strength" id="corrStrength"></span>
-            <span class="hud-corr-strength-label">Correlation</span>
+      <div class="proc-body">
+        <div class="verse-body">
+          <div class="verse-block">
+            <div class="verse-label">Stoic</div>
+            <div class="verse-line" id="verseStoicLine"><span class="verse-typed"></span><span class="verse-cursor" aria-hidden="true">▋</span></div>
+            <div class="verse-author" id="verseStoicAuthor"></div>
+            <div id="homeQuoteText">"…"</div>
+            <div id="homeQuoteAuthor">— </div>
           </div>
-          <div class="hud-corr-bar" aria-hidden="true"><div class="hud-corr-bar-fill" id="hudCorrBarFill"></div></div>
-          <span class="home-corr-stars" id="corrStars"></span>
+          <div class="verse-block">
+            <div class="verse-label">Scripture</div>
+            <div class="verse-line" id="verseBibleLine"><span class="verse-typed"></span><span class="verse-cursor" aria-hidden="true">▋</span></div>
+            <div class="verse-author" id="verseBibleAuthor"></div>
+            <div id="homeBibleText">"…"</div>
+            <div id="homeBibleRef">— </div>
+          </div>
         </div>
-        <div class="hud-corr-disclaimer">Correlation, not causation — does not determine what causes what.</div>
       </div>
     </div>
-  </div>
 
-</div><!-- /.page -->
+    <!-- ===== sigil — ambient ASCII emblem ===== -->
+    <div class="proc-win proc-win--ambient rice-a-sigil rice-stagger" data-proc>
+      <div class="proc-head">
+        <span class="hud-led" aria-hidden="true"></span>
+        <span class="proc-name">sigil</span>
+        <span class="proc-glyph" aria-hidden="true">◢◤</span>
+        <span class="proc-meta">AUTH</span>
+      </div>
+      <span class="hud-corner tl" aria-hidden="true"></span>
+      <span class="hud-corner tr" aria-hidden="true"></span>
+      <span class="hud-corner bl" aria-hidden="true"></span>
+      <span class="hud-corner br" aria-hidden="true"></span>
+      <div class="proc-body">
+        <pre class="sigil-art" aria-hidden="true">   ◢▚▚▚▚▚◣
+  ◢▚▚▚▚▚▚▚◣
+ ▐▚▚▚ ◉ ▚▚▚▌
+  ◥▚▚▚▚▚▚▚◤
+   ◥▚▚▚▚▚◤</pre>
+        <div class="sigil-caption">SYS // LUCA</div>
+      </div>
+    </div>
+
+    <!-- ===== waveform.osc — ambient oscilloscope (canvas) ===== -->
+    <div class="proc-win proc-win--ambient rice-a-wave rice-stagger" data-proc>
+      <div class="proc-head">
+        <span class="hud-led" aria-hidden="true"></span>
+        <span class="proc-name">waveform.osc</span>
+        <span class="proc-glyph" aria-hidden="true">∿∿∿</span>
+        <span class="proc-meta">CH1</span>
+      </div>
+      <span class="hud-corner tl" aria-hidden="true"></span>
+      <span class="hud-corner tr" aria-hidden="true"></span>
+      <span class="hud-corner bl" aria-hidden="true"></span>
+      <span class="hud-corner br" aria-hidden="true"></span>
+      <div class="proc-body">
+        <canvas class="wave-canvas" id="riceWaveCanvas" aria-hidden="true"></canvas>
+      </div>
+    </div>
+
+    <!-- ===== sysmon — ambient htop-style bars ===== -->
+    <div class="proc-win proc-win--ambient rice-a-sysmon rice-stagger" data-proc>
+      <div class="proc-head">
+        <span class="hud-led" aria-hidden="true"></span>
+        <span class="proc-name">sysmon</span>
+        <span class="proc-glyph" aria-hidden="true">▚▚▚</span>
+        <span class="proc-meta">HTOP</span>
+      </div>
+      <span class="hud-corner tl" aria-hidden="true"></span>
+      <span class="hud-corner tr" aria-hidden="true"></span>
+      <span class="hud-corner bl" aria-hidden="true"></span>
+      <span class="hud-corner br" aria-hidden="true"></span>
+      <div class="proc-body">
+        <div class="sysmon-body" id="riceSysmonBody" aria-hidden="true">
+          <div class="sysmon-row"><span class="sysmon-label">CORE_LOAD</span><span class="sysmon-track"><span class="sysmon-fill" data-sysmon="core"></span></span><span class="sysmon-val" data-sysmon-val="core">0%</span></div>
+          <div class="sysmon-row"><span class="sysmon-label">MEM</span><span class="sysmon-track"><span class="sysmon-fill" data-sysmon="mem"></span></span><span class="sysmon-val" data-sysmon-val="mem">0%</span></div>
+          <div class="sysmon-row"><span class="sysmon-label">NET_IO</span><span class="sysmon-track"><span class="sysmon-fill" data-sysmon="net"></span></span><span class="sysmon-val" data-sysmon-val="net">0%</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== telemetry.monitor — today's stat tiles ===== -->
+    <div class="proc-win proc-win--data rice-a-telem rice-stagger" data-proc>
+      <div class="proc-head">
+        <span class="hud-led" aria-hidden="true"></span>
+        <span class="proc-name">telemetry.monitor</span>
+        <svg class="proc-trace" viewBox="0 0 28 14" aria-hidden="true"><path d="M1 12 H8 V4 H27"></path><circle cx="27" cy="4" r="1.6"></circle></svg>
+        <span class="proc-meta">6 UNITS</span>
+      </div>
+      <span class="hud-corner tl" aria-hidden="true"></span>
+      <span class="hud-corner tr" aria-hidden="true"></span>
+      <span class="hud-corner bl" aria-hidden="true"></span>
+      <span class="hud-corner br" aria-hidden="true"></span>
+      <div class="proc-body">
+        <div class="proc-tile-grid">
+          <a class="stat" id="statWater" href="po-water.html">
+            <div class="hud-tile-label">H2O</div>
+            <div class="stat-num hud-num-loading" id="statWaterNum">—</div>
+          </a>
+          <a class="stat" id="statSleep" href="health.html#sleep">
+            <div class="hud-tile-label">Sleep</div>
+            <div class="stat-num hud-num-loading" id="statSleepNum">—</div>
+            <div class="hud-tile-sub" id="statSleepSub"></div>
+          </a>
+          <a class="stat" id="statGoals" href="main.html">
+            <div class="hud-tile-label">Goals</div>
+            <div class="stat-num hud-num-loading" id="statGoalsNum">—</div>
+          </a>
+          <a class="stat" id="statCalories" href="nutrition.html">
+            <div class="hud-tile-label">Kcal</div>
+            <div class="stat-num hud-num-loading" id="statCaloriesNum">—</div>
+          </a>
+          <a class="stat" id="statGym" href="gym.html">
+            <div class="hud-tile-label">Training</div>
+            <div class="stat-num hud-num-loading" id="statGymNum">—</div>
+            <div class="hud-tile-sub" id="statGymSub"></div>
+          </a>
+          <a class="stat" id="statSteps" href="gym.html">
+            <div class="hud-tile-label">Steps</div>
+            <div class="stat-num hud-num-loading" id="statStepsNum">—</div>
+            <div class="hud-tile-sub" id="statStepsSub"></div>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== ledger.service — finance ===== -->
+    <div class="proc-win proc-win--data proc-win--ledger rice-a-ledger rice-stagger" data-proc>
+      <div class="proc-head">
+        <span class="hud-led" aria-hidden="true"></span>
+        <span class="proc-name">ledger.service</span>
+        <svg class="proc-trace" viewBox="0 0 28 14" aria-hidden="true"><path d="M27 12 H20 V4 H1"></path><circle cx="1" cy="4" r="1.6"></circle></svg>
+        <span class="proc-meta">SECURE</span>
+      </div>
+      <span class="hud-corner tl" aria-hidden="true"></span>
+      <span class="hud-corner tr" aria-hidden="true"></span>
+      <span class="hud-corner bl" aria-hidden="true"></span>
+      <span class="hud-corner br" aria-hidden="true"></span>
+      <div class="proc-body">
+        <div class="proc-tile-grid proc-tile-grid--finance">
+          <a class="stat" id="statNetWorth" href="finance.html">
+            <div class="hud-tile-label">Net Worth</div>
+            <div class="stat-num hud-num-loading" id="statNetWorthNum">—</div>
+            <div class="hud-tile-sub" id="statNetWorthSub"></div>
+          </a>
+          <a class="stat" id="statExpenses" href="finance.html">
+            <div class="hud-tile-label">Spend / Mo</div>
+            <div class="stat-num hud-num-loading" id="statExpensesNum">—</div>
+            <div class="hud-tile-sub" id="statExpensesSub"></div>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== analytics.core — sleep × training correlation ===== -->
+    <div class="proc-win proc-win--data rice-a-corr rice-stagger" id="corrCard" data-proc>
+      <div class="proc-head">
+        <span class="hud-led" aria-hidden="true"></span>
+        <span class="proc-name">analytics.core</span>
+        <span class="proc-glyph" aria-hidden="true">╺━━━━━━━━━━</span>
+        <span class="proc-meta">SLEEP × TRAINING</span>
+      </div>
+      <span class="hud-corner tl" aria-hidden="true"></span>
+      <span class="hud-corner tr" aria-hidden="true"></span>
+      <span class="hud-corner bl" aria-hidden="true"></span>
+      <span class="hud-corner br" aria-hidden="true"></span>
+      <div class="proc-body">
+        <div class="hud-corr-msg" id="corrMsg">Loading…</div>
+        <div class="home-corr-result hidden" id="corrResult">
+          <div class="hud-corr-phrase" id="corrPhrase"></div>
+          <div class="hud-corr-meta">
+            <div class="hud-corr-strength-block">
+              <span class="home-corr-strength" id="corrStrength"></span>
+              <span class="hud-corr-strength-label">Correlation</span>
+            </div>
+            <div class="hud-corr-bar" aria-hidden="true"><div class="hud-corr-bar-fill" id="hudCorrBarFill"></div></div>
+            <span class="home-corr-stars" id="corrStars"></span>
+          </div>
+          <div class="hud-corr-disclaimer">Correlation, not causation — does not determine what causes what.</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /.rice-mosaic -->
+
+</div><!-- /.rice-desktop -->
 
 <script>
 (function () {
@@ -1506,50 +1761,192 @@ body.hud-paused .hud-stagger { animation-play-state: paused; }
 
 <script>
 /* ==========================================================================
-   BATCOMPUTER HUD — motion layer only. Pure presentation: reads values the
-   logic script above already wrote, never writes data back. Kept in its
-   own IIFE/script tag so it can't collide with the logic script's `$`,
-   const names, etc.
+   RICE DESKTOP — motion layer only. Pure presentation: every widget below
+   reads values the logic script above already wrote (via id/textContent)
+   and never writes data back. Lives in its own IIFE/script tag, separate
+   from the logic script's `$`/consts.
+
+   Two shared drivers power everything animated in this file:
+   - ONE requestAnimationFrame loop (`rafJobs`) — canvas drawing and the
+     tile count-up both register a job here instead of each running their
+     own rAF chain, per spec ("un solo rAF compartido para TODAS las
+     animaciones JS", not one per widget).
+   - ONE setInterval "tick" (`tickJobs`) — typing, kern.log line emission
+     and sysmon value jitter are all throttled, timer-driven effects, not
+     per-frame work, so they share a single low-frequency clock instead of
+     each widget running its own setInterval.
+   Both stop doing work (but keep the underlying timer/rAF alive so they
+   can resume cleanly) while the tab is hidden.
    ========================================================================== */
 (function () {
   'use strict';
 
+  var $ = function (id) { return document.getElementById(id); };
   var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var hidden = document.hidden;
 
-  /* ---------- pause idle animations while the tab is hidden ----------
-     CSS animations keep ticking in background tabs unless told otherwise;
-     toggling this class (see body.hud-paused in the stylesheet) freezes
-     the LED ring, clock cursor, scanline and stagger transitions so they
-     don't burn CPU/battery when the home screen isn't even visible. */
+  /* ============================================================
+     SHARED SCHEDULERS
+     ============================================================ */
+  var rafJobs = [];  // { draw(ts) } — canvas + count-up
+  var tickJobs = []; // { tick(nowMs) } — typing + kern.log + sysmon
+
+  function rafLoop(ts) {
+    requestAnimationFrame(rafLoop);
+    if (hidden) return;
+    for (var i = 0; i < rafJobs.length; i++) rafJobs[i].draw(ts);
+  }
+  requestAnimationFrame(rafLoop);
+
+  var TICK_MS = 90;
+  setInterval(function () {
+    if (hidden) return;
+    var now = Date.now();
+    for (var i = 0; i < tickJobs.length; i++) tickJobs[i].tick(now);
+  }, TICK_MS);
+
   function applyPausedState() {
-    document.body.classList.toggle('hud-paused', document.hidden);
+    hidden = document.hidden;
+    document.body.classList.toggle('rice-paused', hidden);
   }
   document.addEventListener('visibilitychange', applyPausedState);
   applyPausedState();
 
-  /* ---------- staggered panel/tile entrance ----------
-     Skipped entirely under reduced motion — the .hud-stagger CSS rule
-     already renders those elements at full opacity/position in that case,
-     so there is nothing for this loop to animate toward. */
+  /* ============================================================
+     BOOT CASCADE — panels power on in sequence with a brief flicker.
+     One-shot per panel (`animation-fill-mode: forwards`), so cost is
+     bounded regardless of how many panels exist. Skipped under reduced
+     motion — the .rice-stagger CSS rule already shows them at full
+     opacity in that case.
+     ============================================================ */
   if (!reduceMotion) {
-    var staggerEls = document.querySelectorAll('.hud-stagger');
-    staggerEls.forEach(function (el, i) {
-      setTimeout(function () { el.classList.add('hud-in'); }, 40 + i * 70);
+    var bootEls = document.querySelectorAll('.rice-stagger');
+    bootEls.forEach(function (el, i) {
+      setTimeout(function () { el.classList.add('rice-boot'); }, 50 + i * 90);
     });
-    // Safety net: never leave content stuck at opacity:0 if something above misfires.
-    setTimeout(function () {
-      staggerEls.forEach(function (el) { el.classList.add('hud-in'); });
-    }, 2500);
+    setTimeout(function () { // safety net if something above misfires
+      bootEls.forEach(function (el) { el.classList.add('rice-boot'); });
+    }, 3000);
   }
 
-  /* ---------- count-up on mount ----------
+  /* ============================================================
+     CHRONOS.SERVICE — digit-flip clock overlay.
+     #homeClock keeps getting a full textContent replace every second from
+     the logic script (contract: never touched). We mirror that string
+     character-by-character into individual spans and only flip the
+     specific characters that actually changed — never "retype" all 8
+     characters, which is explicitly what would look broken here.
+     ============================================================ */
+  (function chronos() {
+    var source = $('homeClock');
+    var target = $('chronosDigits');
+    if (!source || !target) return;
+    var last = '';
+    function render() {
+      var text = source.textContent;
+      if (text === last && target.childNodes.length) return;
+      var prevChars = last.split('');
+      var chars = text.split('');
+      if (target.childNodes.length !== chars.length) {
+        target.innerHTML = '';
+        chars.forEach(function (ch) {
+          var span = document.createElement('span');
+          span.className = 'chronos-digit' + (ch === ':' ? ' sep' : '');
+          span.textContent = ch;
+          target.appendChild(span);
+        });
+      } else {
+        chars.forEach(function (ch, i) {
+          var span = target.childNodes[i];
+          if (prevChars[i] === ch) return;
+          span.textContent = ch;
+          if (!reduceMotion) {
+            span.classList.remove('flip');
+            void span.offsetWidth; // force reflow so the animation restarts
+            span.classList.add('flip');
+          }
+        });
+      }
+      last = text;
+    }
+    render();
+    new MutationObserver(render).observe(source, { childList: true, characterData: true, subtree: true });
+  })();
+
+  /* ============================================================
+     VERSE.DAEMON — typing effect.
+     #homeQuoteText/Author/#homeBibleText/Ref remain the real, JS-updated
+     source of truth (contract IDs, kept in the DOM, visually hidden via
+     CSS) — we watch each for its first real value (set once per load,
+     never rotated by the logic script) and "type" it into the matching
+     overlay at ~22ms/char. Reduced motion skips straight to the final text.
+     ============================================================ */
+  function typeInto(sourceId, lineId) {
+    var source = $(sourceId);
+    var lineEl = $(lineId);
+    if (!source || !lineEl) return;
+    var typedEl = lineEl.querySelector('.verse-typed');
+    var cursorEl = lineEl.querySelector('.verse-cursor');
+    var settled = false;
+    var obs = new MutationObserver(check);
+    function check() {
+      if (settled) return;
+      var text = source.textContent.trim();
+      if (!text || text === '"…"') return; // placeholder — keep watching
+      settled = true;
+      obs.disconnect();
+      if (reduceMotion) {
+        typedEl.textContent = text;
+        if (cursorEl) cursorEl.classList.add('done');
+        return;
+      }
+      var shown = 0;
+      var job = {
+        tick: function () {
+          shown = Math.min(text.length, shown + 2);
+          typedEl.textContent = text.slice(0, shown);
+          if (shown >= text.length) {
+            tickJobs.splice(tickJobs.indexOf(job), 1);
+            if (cursorEl) cursorEl.classList.add('done');
+          }
+        }
+      };
+      tickJobs.push(job);
+    }
+    obs.observe(source, { childList: true, characterData: true, subtree: true });
+    check();
+  }
+  typeInto('homeQuoteText', 'verseStoicLine');
+  typeInto('homeBibleText', 'verseBibleLine');
+
+  // Author/reference lines are secondary — mirrored instantly (no typing)
+  // the moment the logic script commits their real text.
+  function mirrorInto(sourceId, targetId) {
+    var source = $(sourceId);
+    var target = $(targetId);
+    if (!source || !target) return;
+    function check() {
+      var text = source.textContent.trim();
+      if (!text || text === '—') return;
+      target.textContent = text;
+    }
+    new MutationObserver(check).observe(source, { childList: true, characterData: true, subtree: true });
+    check();
+  }
+  mirrorInto('homeQuoteAuthor', 'verseStoicAuthor');
+  mirrorInto('homeBibleRef', 'verseBibleAuthor');
+
+  /* ============================================================
+     TELEMETRY.MONITOR / LEDGER.SERVICE — count-up on mount.
      Reads the FINAL text the logic script already committed to each
-     `...Num` element and animates a numeric overlay from 0 up to it. The
-     real value is never touched — on the last frame we snap back to the
-     exact original string, so formatting/precision can never drift from
-     what the logic script actually computed. */
+     `...Num` element and animates a numeric overlay from 0 up to it via
+     the shared rAF loop above. The real value is never touched — on the
+     last frame we snap back to the exact original string, so
+     formatting/precision can never drift from what the logic script
+     actually computed.
+     ============================================================ */
   var NUM_TOKEN_RE = /\d[\d.,]*/g;
-  var COUNT_UP_MS = 900;
+  var COUNT_UP_MS = 800;
 
   // Tokens come from a handful of known formats in the logic script above:
   // plain ints ("5"), toFixed(1) decimals ("7.5"), es-ES thousands-grouped
@@ -1573,39 +1970,38 @@ body.hud-paused .hud-stagger { animation-play-state: paused; }
   function countUp(el) {
     var finalText = el.textContent;
     var trimmed = finalText.trim();
-    if (!trimmed || trimmed === '—') return; // '—' placeholder — nothing to count up from
+    if (!trimmed || trimmed === '—') return; // nothing to count up from
     var matches = trimmed.match(NUM_TOKEN_RE);
-    if (!matches || !matches.length) return; // no numeric token (shouldn't happen, but stay safe)
+    if (!matches || !matches.length) return;
     var infos = matches.map(tokenInfo);
     if (infos.some(function (info) { return isNaN(info.value); })) return;
 
     var start = null;
-    function frame(ts) {
-      if (start === null) start = ts;
-      var t = Math.min(1, (ts - start) / COUNT_UP_MS);
-      var eased = 1 - Math.pow(1 - t, 3); // ease-out cubic
-      var i = 0;
-      el.textContent = trimmed.replace(NUM_TOKEN_RE, function () {
-        var info = infos[i++];
-        return formatValue(info.value * eased, info.decimals);
-      });
-      if (t < 1) requestAnimationFrame(frame);
-      else el.textContent = finalText; // guarantee exact parity with the logic script's value
-    }
-    requestAnimationFrame(frame);
+    var job = {
+      draw: function (ts) {
+        if (start === null) start = ts;
+        var t = Math.min(1, (ts - start) / COUNT_UP_MS);
+        var eased = 1 - Math.pow(1 - t, 3); // ease-out cubic
+        var i = 0;
+        el.textContent = trimmed.replace(NUM_TOKEN_RE, function () {
+          var info = infos[i++];
+          return formatValue(info.value * eased, info.decimals);
+        });
+        if (t >= 1) {
+          el.textContent = finalText; // guarantee exact parity with the logic script's value
+          rafJobs.splice(rafJobs.indexOf(job), 1);
+        }
+      }
+    };
+    rafJobs.push(job);
   }
 
-  // One MutationObserver per tile, watching only for the FIRST time its
-  // value settles away from the '—' placeholder (some tiles populate
-  // synchronously from localStorage, others only after the async
-  // cross-device warm-up pull resolves) — that first settle is also what
-  // clears the loading shimmer. Fires at most once per tile per page load.
   var TILE_NUM_IDS = [
     'statWaterNum', 'statSleepNum', 'statGoalsNum', 'statCaloriesNum',
     'statGymNum', 'statStepsNum', 'statNetWorthNum', 'statExpensesNum'
   ];
   TILE_NUM_IDS.forEach(function (id) {
-    var el = document.getElementById(id);
+    var el = $(id);
     if (!el) return;
     var settled = false;
     var obs = new MutationObserver(check);
@@ -1622,12 +2018,12 @@ body.hud-paused .hud-stagger { animation-play-state: paused; }
     check(); // covers the common case where the value is already there at mount
   });
 
-  /* ---------- correlation strength bar ----------
-     Reinterprets corrStrength's own "NN%" text as a fill bar — purely
-     decorative, driven off the DOM the logic script already wrote, never
-     read by it. */
-  var corrStrengthEl = document.getElementById('corrStrength');
-  var corrBarFillEl = document.getElementById('hudCorrBarFill');
+  /* ============================================================
+     ANALYTICS.CORE — correlation strength bar, reinterpreting
+     corrStrength's own "NN%" text as a fill (purely decorative).
+     ============================================================ */
+  var corrStrengthEl = $('corrStrength');
+  var corrBarFillEl = $('hudCorrBarFill');
   if (corrStrengthEl && corrBarFillEl) {
     new MutationObserver(function () {
       var pct = parseFloat(corrStrengthEl.textContent);
@@ -1635,6 +2031,183 @@ body.hud-paused .hud-stagger { animation-play-state: paused; }
       corrBarFillEl.style.transform = 'scaleX(' + Math.max(0, Math.min(1, pct / 100)) + ')';
     }).observe(corrStrengthEl, { childList: true, characterData: true, subtree: true });
   }
+
+  /* ============================================================
+     KERN.LOG — ambient boot/dmesg stream. Purely decorative flavor text
+     (never real personal data). New lines are prepended into a
+     column-reverse flex list so new = bottom, old scrolls off the top —
+     the CSS just clips via overflow:hidden on the fixed-height list, no
+     manual scroll math needed.
+     ============================================================ */
+  (function klog() {
+    var list = $('riceKlogList');
+    if (!list) return;
+    var MAX_LINES = 14;
+    var uptimeMs = 480;
+    var messages = [
+      'rice: mounting widgets', 'chronos.service: tick synced',
+      'weatherd: probe handshake ok', 'verse.daemon: buffer flushed',
+      'telemetry.monitor: 6 units nominal', 'ledger.service: vault sealed',
+      'analytics.core: sample window rolled', 'net: link carrier detected',
+      'gpu: compositor frame budget ok', 'audit: no anomalies',
+      'sched: idle balancer pass', 'cache: warm',
+      'rng: entropy pool refilled', 'systemd: reached target graphical',
+      'dbus: session bus alive', 'thermal: nominal'
+    ];
+    var okMessages = {
+      'rice: mounting widgets': 1, 'systemd: reached target graphical': 1,
+      'chronos.service: tick synced': 1, 'weatherd: probe handshake ok': 1
+    };
+    function pad(n, len) { return String(n).padStart(len, '0'); }
+    function nextLine() {
+      uptimeMs += 380 + Math.floor(Math.random() * 900);
+      var msg = messages[Math.floor(Math.random() * messages.length)];
+      var el = document.createElement('div');
+      el.className = 'klog-line';
+      el.innerHTML =
+        '<span class="klog-ts">[' + pad(Math.floor(uptimeMs / 1000), 5) + '.' + pad(uptimeMs % 1000, 3) + '00]</span>' +
+        (okMessages[msg] ? '<span class="klog-ok">[ OK ]</span>' : '') + msg;
+      list.prepend(el);
+      while (list.children.length > MAX_LINES) list.lastElementChild.remove();
+    }
+    for (var i = 0; i < 6; i++) nextLine(); // seed a few lines so it isn't empty on mount
+    var acc = 0;
+    var interval = reduceMotion ? 1500 : 750;
+    tickJobs.push({
+      tick: function () {
+        acc += TICK_MS;
+        if (acc < interval) return;
+        acc = 0;
+        nextLine();
+      }
+    });
+  })();
+
+  /* ============================================================
+     SYSMON — ambient htop-style bars, clearly ambient (never real
+     personal stats). Values are a clamped random walk updated on the
+     shared tick; the smoothing between updates is a CSS transition on
+     transform, not per-frame JS, so it stays cheap.
+     ============================================================ */
+  (function sysmon() {
+    var root = $('riceSysmonBody');
+    if (!root) return;
+    var fills = root.querySelectorAll('[data-sysmon]');
+    if (!fills.length) return;
+    var state = {};
+    fills.forEach(function (el) { state[el.getAttribute('data-sysmon')] = 18 + Math.random() * 34; });
+    function paint() {
+      fills.forEach(function (el) {
+        var key = el.getAttribute('data-sysmon');
+        var v = state[key];
+        el.style.transform = 'scaleX(' + (v / 100).toFixed(3) + ')';
+        var valEl = root.querySelector('[data-sysmon-val="' + key + '"]');
+        if (valEl) valEl.textContent = Math.round(v) + '%';
+      });
+    }
+    paint();
+    var acc = 0;
+    var interval = reduceMotion ? 1400 : 700;
+    tickJobs.push({
+      tick: function () {
+        acc += TICK_MS;
+        if (acc < interval) return;
+        acc = 0;
+        Object.keys(state).forEach(function (key) {
+          state[key] = Math.max(4, Math.min(96, state[key] + (Math.random() - 0.5) * 16));
+        });
+        paint();
+      }
+    });
+  })();
+
+  /* ============================================================
+     WAVEFORM.OSC — canvas oscilloscope, drawn by the ONE shared rAF loop
+     above (registered as a rafJobs entry, not its own rAF chain). A faint
+     column of falling hex glyphs runs behind the trace in the same
+     canvas/frame for a bit of "matrix" texture without a second canvas.
+     ============================================================ */
+  (function waveform() {
+    var canvas = $('riceWaveCanvas');
+    if (!canvas || !canvas.getContext) return;
+    var ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var w = 0, h = 0, cols = [];
+    var glyphs = '0123456789ABCDEF';
+
+    // Setting canvas.width/height (not just CSS size) resets the drawing
+    // buffer AND the transform — so under reduced motion, where nothing
+    // redraws every frame to self-heal, a resize() call has to redraw the
+    // static frame itself or a later resize (even a spurious one, which
+    // headless browsers can fire once after initial layout settles) would
+    // silently clear the canvas and leave it blank forever.
+    function drawStaticFrame() {
+      ctx.clearRect(0, 0, w, h);
+      ctx.beginPath();
+      for (var sx = 0; sx <= w; sx += 3) {
+        var sy = h / 2 + Math.sin((sx / w) * Math.PI * 4) * (h * 0.24);
+        if (sx === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
+      }
+      ctx.strokeStyle = 'rgba(180,18,26,0.6)';
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+    }
+
+    function resize() {
+      var rect = canvas.getBoundingClientRect();
+      w = Math.max(1, Math.round(rect.width));
+      h = Math.max(1, Math.round(rect.height));
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      var n = Math.max(3, Math.floor(w / 42));
+      cols = [];
+      for (var i = 0; i < n; i++) {
+        cols.push({ x: (i + 0.5) * (w / n), y: Math.random() * h, speed: 8 + Math.random() * 14 });
+      }
+      if (reduceMotion) drawStaticFrame();
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    if (reduceMotion) return; // no rAF job registered at all under reduced motion
+
+    var lastTs = 0;
+    rafJobs.push({
+      draw: function (ts) {
+        var dt = Math.min(64, ts - (lastTs || ts));
+        lastTs = ts;
+        ctx.clearRect(0, 0, w, h);
+
+        ctx.font = '9px ' + (getComputedStyle(document.body).fontFamily || 'monospace');
+        ctx.fillStyle = 'rgba(180,18,26,0.16)';
+        cols.forEach(function (c) {
+          c.y += c.speed * (dt / 1000);
+          if (c.y > h) c.y = -10;
+          ctx.fillText(glyphs[(Math.random() * glyphs.length) | 0], c.x, c.y);
+        });
+
+        var t = ts / 1000;
+        ctx.beginPath();
+        for (var x = 0; x <= w; x += 3) {
+          var phase = (x / w) * Math.PI * 4 + t * 2.2;
+          var y = h / 2 + Math.sin(phase) * (h * 0.28) + Math.sin(phase * 2.7 + t) * (h * 0.06);
+          if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = 'rgba(180,18,26,0.75)';
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(0, h / 2);
+        ctx.lineTo(w, h / 2);
+        ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    });
+  })();
 })();
 </script>
 </body>
