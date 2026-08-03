@@ -263,6 +263,9 @@ main {
     .jr-empty { margin-top: 16px; padding: 16px; text-align: center; font-size: 12.5px; color: var(--text-tertiary); font-style: italic; }
     .jr-empty.hidden { display: none; }
 
+    .jr-more-days { display: block; margin: 14px auto 0; padding: 8px 16px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03); color: var(--text-secondary); font-family: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer; transition: background 0.15s; -webkit-tap-highlight-color: transparent; }
+    .jr-more-days:hover { background: rgba(255,255,255,0.06); }
+
     @media (max-width: 400px) {
       .jr-emoji-btn { font-size: 19px; padding: 10px 0; }
       .jr-entry-note { font-size: 12px; }
@@ -310,7 +313,7 @@ main {
       <div class="jr-daypick-wrap">
         <button type="button" class="jr-daypick-btn" id="jrDayPickBtn" aria-haspopup="dialog" aria-expanded="false">
           <svg class="jr-cal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          <span id="jrDayPickLabel">Hoy</span>
+          <span id="jrDayPickLabel">Ver otro día</span>
         </button>
         <div class="jr-popover hidden" id="jrDayPickPopover" role="dialog" aria-modal="false" aria-label="Elegir día">
           <div class="jr-cal-head">
@@ -321,7 +324,7 @@ main {
           <div class="jr-cal-grid" id="jrCalGrid"></div>
         </div>
       </div>
-      <button type="button" class="jr-daypick-clear hidden" id="jrDayPickClear">Volver a hoy</button>
+      <button type="button" class="jr-daypick-clear hidden" id="jrDayPickClear">Ver últimos días</button>
     </div>
     <div class="jr-timeline" id="jrTimeline"></div>
     <div class="jr-empty hidden" id="jrEmpty">Todavía no hay entradas. Registrá la primera arriba.</div>
@@ -443,10 +446,9 @@ main {
     let jrEditingId = null;
     let jrDraft = { mood: null, energy: null, stress: null, digestion: null };
     let jrDraftTs = new Date();
-    // Timeline always shows exactly one day — never a stacked "all days"
-    // view, so the page height stays bounded. Defaults to today; the
-    // day-picker popover below (or saving/editing an entry) can change it.
-    let jrFilterDateKey = jrLocalDateKey(new Date());
+    // Timeline day filter: null = default "recent days" view, otherwise a
+    // 'YYYY-MM-DD' key picked from the day-picker popover below.
+    let jrFilterDateKey = null;
 
     function jrAutoResizeNote() {
       const el = $('jrNote');
@@ -556,17 +558,14 @@ main {
         createdAt: existing ? existing.createdAt : nowIso,
         updatedAt: nowIso,
       };
-      // Captured before jrResetForm() below overwrites jrDraftTs — this is
-      // the day the saved entry actually belongs to.
-      const savedDayKey = jrLocalDateKey(jrDraftTs);
       await DataLayer.put(JR_COL, id, data);
       jrEntries = jrEntries.filter((e) => e.id !== id).concat([Object.assign({ id: id }, data)]);
       jrShowSaveStatus(wasEditing ? 'Entrada actualizada ✓' : 'Entrada guardada ✓');
       jrResetForm();
-      // Jump the timeline to the saved entry's day so it's visible right
-      // away — otherwise saving while viewing a different day would make
-      // the new/edited entry seem to vanish.
-      jrFilterDateKey = savedDayKey;
+      // Always land back on the default recent view after saving — if a
+      // day filter were left active, saving an entry for a different day
+      // (e.g. "now") could disappear from view right after being saved.
+      jrFilterDateKey = null;
       jrUpdateDayPickUI();
       jrRenderTimeline();
     });
@@ -741,45 +740,63 @@ main {
       jrOpenPopover($('jrDayPickBtn'), $('jrDayPickPopover'), focusEl);
     });
     $('jrDayPickClear').addEventListener('click', () => {
-      jrFilterDateKey = jrLocalDateKey(new Date());
+      jrFilterDateKey = null;
       jrUpdateDayPickUI();
       jrRenderTimeline();
     });
     function jrUpdateDayPickUI() {
-      const isToday = jrFilterDateKey === jrLocalDateKey(new Date());
-      $('jrDayPickLabel').textContent = jrDayHeaderLabel(jrFilterDateKey);
-      $('jrDayPickBtn').classList.toggle('active', !isToday);
-      $('jrDayPickClear').classList.toggle('hidden', isToday);
+      const isFiltered = !!jrFilterDateKey;
+      $('jrDayPickLabel').textContent = isFiltered ? jrDayHeaderLabel(jrFilterDateKey) : 'Ver otro día';
+      $('jrDayPickBtn').classList.toggle('active', isFiltered);
+      $('jrDayPickClear').classList.toggle('hidden', !isFiltered);
     }
 
-    // Always renders exactly ONE day — the one in jrFilterDateKey — never
-    // the full history stacked, so the journal's height stays bounded
-    // regardless of how many entries/days exist.
+    let jrShowAllDays = false;
+    const JR_DAYS_LIMIT = 14;
     function jrRenderTimeline() {
       const wrap = $('jrTimeline');
       const groups = jrGroupByDay(jrEntries);
 
-      if (!jrEntries.length) {
-        $('jrEmpty').classList.remove('hidden');
-        wrap.innerHTML = '';
-        return;
-      }
-      $('jrEmpty').classList.add('hidden');
-
-      const dayEntries = groups[jrFilterDateKey]; // ascending by time — feeds the mini chart left-to-right
-      if (!dayEntries || !dayEntries.length) {
+      if (jrFilterDateKey) {
+        $('jrEmpty').classList.add('hidden');
+        const dayEntries = groups[jrFilterDateKey]; // ascending by time — feeds the mini chart left-to-right
+        if (!dayEntries || !dayEntries.length) {
+          wrap.innerHTML = '<div class="jr-filter-empty">No hay entradas para ' + jrDayHeaderLabel(jrFilterDateKey) + '.</div>';
+          return;
+        }
         wrap.innerHTML = '<div class="jr-day-group">'
           + '<div class="jr-day-header">' + jrDayHeaderLabel(jrFilterDateKey) + '</div>'
-          + '<div class="jr-filter-empty">Sin entradas este día.</div>'
+          + jrMiniChartSvg(dayEntries)
+          + '<div class="jr-day-entries">' + dayEntries.slice().reverse().map(jrRenderEntryRow).join('') + '</div>'
           + '</div>';
         return;
       }
 
-      wrap.innerHTML = '<div class="jr-day-group">'
-        + '<div class="jr-day-header">' + jrDayHeaderLabel(jrFilterDateKey) + '</div>'
-        + jrMiniChartSvg(dayEntries)
-        + '<div class="jr-day-entries">' + dayEntries.slice().reverse().map(jrRenderEntryRow).join('') + '</div>' // most recent first in the list
-        + '</div>';
+      const dayKeys = Object.keys(groups).sort().reverse();
+      $('jrEmpty').classList.toggle('hidden', dayKeys.length > 0);
+      if (!dayKeys.length) { wrap.innerHTML = ''; return; }
+
+      const visibleKeys = jrShowAllDays ? dayKeys : dayKeys.slice(0, JR_DAYS_LIMIT);
+      let html = '';
+      visibleKeys.forEach((key) => {
+        const dayEntries = groups[key]; // ascending by time — feeds the mini chart left-to-right
+        html += '<div class="jr-day-group">'
+          + '<div class="jr-day-header">' + jrDayHeaderLabel(key) + '</div>'
+          + jrMiniChartSvg(dayEntries)
+          + '<div class="jr-day-entries">'
+          + dayEntries.slice().reverse().map(jrRenderEntryRow).join('') // most recent first in the list
+          + '</div></div>';
+      });
+      wrap.innerHTML = html;
+
+      if (dayKeys.length > JR_DAYS_LIMIT) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'jr-more-days';
+        btn.textContent = jrShowAllDays ? 'Ver menos' : 'Ver más';
+        btn.addEventListener('click', () => { jrShowAllDays = !jrShowAllDays; jrRenderTimeline(); });
+        wrap.appendChild(btn);
+      }
     }
 
     $('jrTimeline').addEventListener('click', async (e) => {
@@ -801,7 +818,6 @@ main {
     });
 
     jrResetForm();
-    jrUpdateDayPickUI();
 
     window.__initHealthJournal = async function () {
       jrEntries = await DataLayer.list(JR_COL);
