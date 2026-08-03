@@ -6,56 +6,30 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#050506">
-<title>Tasks · Dashboard</title>
+<title>Luca Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="syncStatus.js" defer></script>
 <script src="sync.js" defer></script>
 <script src="dataLayer.js" defer></script>
 <script src="topbar.js" defer></script>
 <style>
-/* ==========================================================================
-   RICE DESKTOP — main.html reskin ("task.manager" process window). Same
-   tokens/chrome family as index.html/apps.html: black + blood-red HUD,
-   monospace, terminal-style panel headers. Presentation only — the task
-   CRUD/render/migration/subscribe logic in the scripts below is byte-for-
-   byte untouched; this file only changes markup/classes those scripts
-   don't own, and adds a separate decorative motion-layer script at the
-   very end (boot cascade + pause-on-hidden, nothing else).
-   ========================================================================== */
 :root {
-  --rice-black:      #050506;
-  --rice-black-2:    #0A0A0B;
-  --rice-panel:         rgba(255,255,255,0.028);
-  --rice-panel-2:       rgba(255,255,255,0.05);
-  --rice-panel-ambient: rgba(255,255,255,0.016);
-  --rice-border:     rgba(255,255,255,0.08);
-  --rice-border-2:   rgba(255,255,255,0.16);
-
-  --rice-red:        #B4121A;
-  --rice-red-dim:    #7A1016;
-  --rice-red-glow:   rgba(180,18,26,0.35);
-  --rice-red-border: rgba(180,18,26,0.28);
-  --rice-red-border-strong: rgba(180,18,26,0.5);
-
-  --text-primary:   #EDEDED;
-  --text-secondary: #9A9A9E;
-  --text-tertiary:  #5C5C60;
-  --text-ambient:   #4A4A4E;
-
-  --success: #4FAE7C;
-  --warning: #C98A2E;
-
+  --text-primary: #FAFAFA;
+  --text-secondary: #B8B6B0;
+  --text-tertiary: #76746E;
+  --success: #6BE3A4;
+  --warning: #F2C063;
+  --danger: #FF6B6B;
+  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --ease-rice: cubic-bezier(0.16, 1, 0.3, 1);
-  --rice-radius: 2px;
-  --rice-gutter: 12px;
 }
+
 * { box-sizing: border-box; }
 html, body {
   margin: 0; padding: 0;
-  background: var(--rice-black);
+  background: #050506;
   color: var(--text-secondary);
-  font-family: var(--font-mono);
+  font-family: var(--font);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-text-size-adjust: 100%;
@@ -64,235 +38,267 @@ body {
   min-height: 100vh;
   position: relative;
   overflow-x: hidden;
-  padding: max(16px, env(safe-area-inset-top)) 14px 56px;
+  padding: max(28px, env(safe-area-inset-top)) 20px 60px;
 }
-
-/* ==========================================================================
-   AMBIENT HUD CHROME — same recipe as index.html/apps.html (drift glow +
-   blueprint grid + scanline texture + vignette). No moving sweep-line here
-   (same call apps.html made for its secondary pages): a task list should
-   read calm and scannable, not busy. Only transform/opacity ever animate.
-   ========================================================================== */
 body::before {
   content: '';
-  position: fixed; inset: -10%;
+  position: fixed; inset: 0;
   background:
-    radial-gradient(circle at 82% 6%, rgba(180,18,26,0.12), transparent 42%),
-    radial-gradient(circle at 10% 94%, rgba(180,18,26,0.05), transparent 48%);
-  filter: blur(60px);
+    radial-gradient(circle at 82% 14%, rgba(224, 118, 88, 0.16), transparent 45%),
+    radial-gradient(circle at 18% 90%, rgba(180, 180, 200, 0.06), transparent 50%);
+  filter: blur(40px);
   pointer-events: none;
-  z-index: -3;
-  animation: rice-drift 42s ease-in-out infinite alternate;
-  will-change: transform;
+  z-index: -2;
+  animation: drift 36s ease-in-out infinite alternate;
 }
 body::after {
   content: '';
   position: fixed; inset: 0;
-  background-image:
-    repeating-linear-gradient(rgba(255,255,255,0.014) 0px, rgba(255,255,255,0.014) 1px, transparent 1px, transparent 3px),
-    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px),
-    radial-gradient(ellipse 90% 75% at 50% 25%, transparent 55%, rgba(0,0,0,0.6) 100%);
-  background-size: auto, 32px 32px, 32px 32px, 100% 100%;
+  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
+  background-size: 3px 3px;
   pointer-events: none;
-  z-index: -2;
+  z-index: -1;
 }
-@keyframes rice-drift {
+@keyframes drift {
   0%   { transform: translate3d(0,0,0); }
-  100% { transform: translate3d(-24px, 16px, 0); }
-}
-@media (prefers-reduced-motion: reduce) { body::before { animation: none; } }
-/* Paused on visibilitychange by the motion script at the bottom — idle
-   loops (LED ring, blink cursor, ambient drift) don't burn cycles while
-   the tab is hidden. */
-body.rice-paused::before,
-body.rice-paused .hud-led::after,
-body.rice-paused .hud-cursor { animation-play-state: paused; }
-
-.rice-desktop { max-width: 680px; margin: 0 auto; }
-
-/* ==========================================================================
-   HUD PRIMITIVES — LED / blink cursor / corner brackets. Identical recipe
-   to index.html/apps.html so every page reads as the same system.
-   ========================================================================== */
-.hud-led {
-  position: relative; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
-  background: var(--rice-red);
-  box-shadow: 0 0 5px var(--rice-red-glow), 0 0 1px var(--rice-red);
-}
-.hud-led::after {
-  content: ''; position: absolute; inset: -4px; border-radius: 50%;
-  border: 1px solid var(--rice-red); opacity: 0;
-  animation: hud-led-ring 2.2s ease-out infinite;
-  will-change: transform, opacity;
-}
-@keyframes hud-led-ring { 0% { transform: scale(0.5); opacity: 0.55; } 100% { transform: scale(2.1); opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .hud-led::after { animation: none; opacity: 0; } }
-
-.hud-cursor { display: inline-block; color: var(--rice-red); font-weight: 400; animation: hud-blink 1s steps(1, end) infinite; will-change: opacity; }
-@keyframes hud-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .hud-cursor { animation-duration: 1.6s; } }
-
-.hud-corner { position: absolute; width: 12px; height: 12px; pointer-events: none; opacity: 0.4; transition: opacity 0.2s var(--ease-rice); z-index: 2; }
-.hud-corner::before, .hud-corner::after { content: ''; position: absolute; background: var(--rice-red); }
-.hud-corner::before { width: 100%; height: 1px; }
-.hud-corner::after  { width: 1px; height: 100%; }
-.hud-corner.tl { top: -1px; left: -1px; } .hud-corner.tl::before, .hud-corner.tl::after { top: 0; left: 0; }
-.hud-corner.tr { top: -1px; right: -1px; } .hud-corner.tr::before, .hud-corner.tr::after { top: 0; right: 0; }
-.hud-corner.bl { bottom: -1px; left: -1px; } .hud-corner.bl::before, .hud-corner.bl::after { bottom: 0; left: 0; }
-.hud-corner.br { bottom: -1px; right: -1px; } .hud-corner.br::before, .hud-corner.br::after { bottom: 0; right: 0; }
-.proc-win:hover .hud-corner { opacity: 1; }
-
-/* ==========================================================================
-   BOOT CASCADE — one-shot fade+rise per panel, staggered purely via each
-   element's `--i` custom property. `body.rice-boot` is added exactly once
-   by the motion script at the very bottom of this file; classList.add is
-   idempotent and that script never re-fires it, so later interaction
-   (adding/completing a task, a realtime update landing) never re-triggers
-   the cascade or causes flicker. Monotonic opacity ramp only.
-   ========================================================================== */
-.rice-stagger { opacity: 0; transform: translateY(8px); }
-body.rice-boot .rice-stagger {
-  animation: rice-boot-in 0.48s var(--ease-rice) forwards;
-  animation-delay: calc(var(--i, 0) * 80ms);
-}
-@keyframes rice-boot-in {
-  0%   { opacity: 0; transform: translateY(8px); }
-  100% { opacity: 1; transform: translateY(0); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .rice-stagger { opacity: 1; transform: none; }
-  body.rice-boot .rice-stagger { animation: none; }
+  100% { transform: translate3d(-22px, 14px, 0); }
 }
 
-/* ==========================================================================
-   HEADER ROW — sysline-style title, apps.html's hub-head pattern (main.html
-   is a single focused process page, not a mosaic — same family as apps.html).
-   ========================================================================== */
-.hub-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: var(--rice-gutter); padding: 0 2px; }
-.hub-id { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.hub-title { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: 0.04em; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 7px; }
-.hub-title-dim { color: var(--text-tertiary); font-weight: 500; }
-.hub-meta { flex-shrink: 0; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-tertiary); white-space: nowrap; }
-@media (max-width: 480px) { .hub-meta { display: none; } }
-
-/* ==========================================================================
-   PROC-WIN — base "system process window" chrome shared by every panel.
-   ========================================================================== */
-.proc-win {
-  position: relative;
-  background: var(--rice-panel);
-  border: 1px solid var(--rice-border);
-  border-radius: var(--rice-radius);
-  display: flex; flex-direction: column;
-  overflow: hidden;
-  margin-bottom: var(--rice-gutter);
-  transition: border-color 0.2s var(--ease-rice);
+.page {
+  max-width: 1100px;
+  margin: 0 auto;
 }
-.proc-win--data:hover { border-color: var(--rice-red-border); }
-.proc-win.gm-all-done:hover { border-color: rgba(79,174,124,0.5); }
 
-.proc-head {
-  display: flex; align-items: center; gap: 8px;
-  padding: 7px 10px;
-  border-bottom: 1px solid var(--rice-border);
-  background: rgba(255,255,255,0.022);
-  font-size: 10px; letter-spacing: 0.06em;
-  flex-shrink: 0;
+/* ===== Component 1: page title ===== */
+.dash-title {
+  margin: 0 0 14px;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  background: linear-gradient(180deg, #FFFFFF 0%, #C7C4BC 120%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
 }
-.proc-name { min-width: 0; color: var(--text-secondary); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.proc-trace { width: 24px; height: 12px; flex-shrink: 0; opacity: 0.55; }
-.proc-trace path { fill: none; stroke: var(--rice-red-dim); stroke-width: 1; }
-.proc-trace circle { fill: var(--rice-red); }
-.proc-glyph { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; letter-spacing: 0.3em; color: var(--rice-red-dim); opacity: 0.7; }
-.proc-meta { flex-shrink: 0; color: var(--text-tertiary); white-space: nowrap; font-size: 8.5px; text-transform: uppercase; font-variant-numeric: tabular-nums; }
+@media (max-width: 480px) { .dash-title { font-size: 22px; } }
 
-.proc-body { padding: 14px; flex: 1; min-width: 0; }
-
-/* Soft ambient wash when every task is cleared — an accent, not an alarm. */
-.proc-win.gm-all-done::before {
-  content: ''; position: absolute; inset: 0;
-  background: radial-gradient(circle at 50% 0%, rgba(79,174,124,0.10), transparent 60%);
+/* ===== Component 2: Goal Ticker ===== */
+.ticker-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+  margin-bottom: 18px;
+}
+.goal-ticker {
+  position: relative; overflow: hidden;
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 12px;
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.30) 100%),
+    repeating-linear-gradient(0deg, rgba(255,255,255,0.025) 0, rgba(255,255,255,0.025) 1px, transparent 1px, transparent 3px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+}
+.goal-ticker::after {
+  content: '';
+  position: absolute; top: 0; bottom: 0;
+  width: 30%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
   pointer-events: none;
+  animation: ticker-sweep 8s linear infinite;
 }
-.proc-win.gm-all-done { border-color: rgba(79,174,124,0.32); }
-.gm-all-done #tkPendingPill { color: var(--success); }
-
-/* ==========================================================================
-   TICKER.FEED — today's due tasks, cycling one line at a time. Wraps the
-   pre-existing #goalTicker/#goalTickerStage/#goalTickerMeta hooks the
-   ticker script below reads/writes by id; .goal-ticker-row/-status/-text
-   and .is-fading are recreated verbatim from the untouched JS, so those
-   four class names must stay exactly as they are.
-   ========================================================================== */
-.rice-ticker { display: flex; align-items: center; gap: 10px; }
-.rice-ticker-stage { position: relative; overflow: hidden; flex: 1; min-width: 0; height: 20px; }
+@keyframes ticker-sweep {
+  0%   { left: -40%; }
+  100% { left: 110%; }
+}
+.goal-ticker-led { display: inline-flex; align-items: center; }
+.goal-ticker-led-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #6BE3A4;
+  box-shadow: 0 0 8px rgba(107,227,164,0.7);
+  animation: led-pulse 1.6s ease-in-out infinite;
+}
+@keyframes led-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.45; transform: scale(0.85); }
+}
+.goal-ticker-label {
+  font-family: var(--font-mono);
+  font-size: 9.5px; font-weight: 800;
+  letter-spacing: 0.18em;
+  color: var(--text-tertiary);
+}
+.goal-ticker-stage {
+  position: relative; overflow: hidden;
+  flex: 1; height: 22px;
+}
 .goal-ticker-row {
   position: absolute; inset: 0;
   display: flex; align-items: center; gap: 8px;
-  font-family: var(--font-mono); font-size: 12px; font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: 12.5px; font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--text-primary);
   white-space: nowrap;
-  opacity: 1; transition: opacity 0.22s ease;
+  opacity: 1;
+  transition: opacity 0.22s ease;
 }
 .goal-ticker-row.is-fading { opacity: 0; }
-@media (prefers-reduced-motion: reduce) { .goal-ticker-row { transition: none; } }
-.goal-ticker-status { display: inline-flex; justify-content: center; width: 16px; flex-shrink: 0; color: var(--text-tertiary); }
+.goal-ticker-status {
+  display: inline-flex; justify-content: center;
+  width: 18px;
+  color: var(--text-tertiary);
+}
 .goal-ticker-status[data-status="done"]    { color: var(--success); }
-.goal-ticker-status[data-status="pending"] { color: var(--rice-red-dim); }
-.goal-ticker-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rice-ticker-meta {
-  flex-shrink: 0;
-  font-family: var(--font-mono); font-size: 11px; font-weight: 700;
-  font-variant-numeric: tabular-nums; letter-spacing: 0.04em;
+.goal-ticker-status[data-status="pending"] { color: var(--text-tertiary); }
+.goal-ticker-text {
+  flex: 1;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.goal-ticker-meta {
+  font-family: var(--font-mono);
+  font-size: 11px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
   color: var(--text-secondary);
-  padding: 3px 9px;
-  border: 1px solid var(--rice-border); border-radius: var(--rice-radius);
-  background: rgba(255,255,255,0.03);
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.04);
+}
+@media (max-width: 480px) {
+  .goal-ticker { padding: 9px 12px; }
+  .goal-ticker-label { font-size: 9px; letter-spacing: 0.14em; }
+  .goal-ticker-row { font-size: 12px; }
+  .goal-ticker-meta { font-size: 10px; padding: 2px 7px; }
 }
 
-/* ==========================================================================
-   SLEEP.PROBE — last-night readout (manual entry, see health.html#sleep).
-   Wraps #sleepSummaryValue/#sleepSummarySub the render script writes to.
-   ========================================================================== */
-.rice-sleep { display: flex; align-items: center; gap: 14px; }
-.rice-sleep-icon { font-size: 26px; line-height: 1; flex-shrink: 0; filter: drop-shadow(0 0 8px var(--rice-red-glow)); }
-.rice-sleep-body { flex: 1; min-width: 0; }
-.rice-sleep-value { font-size: 19px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
-.rice-sleep-sub { margin-top: 3px; font-size: 10.5px; color: var(--text-tertiary); }
-.rice-sleep-link {
-  flex-shrink: 0; width: 32px; height: 32px; border-radius: var(--rice-radius);
+/* ===== Component 3: Sleep Summary (manual entry, see health.html#sleep) ===== */
+.sleep-summary-wrap {
+  display: flex; align-items: center;
+  gap: 18px;
+  padding: 20px 22px;
+  margin-bottom: 22px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+}
+.sleep-summary-icon { font-size: 34px; line-height: 1; flex-shrink: 0; }
+.sleep-summary-body { flex: 1; min-width: 0; }
+.sleep-summary-label {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--text-tertiary); margin-bottom: 4px;
+}
+.sleep-summary-value {
+  font-size: 22px; font-weight: 800;
+  color: var(--text-primary); letter-spacing: -0.02em;
+}
+.sleep-summary-sub { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+.sleep-summary-link {
+  flex-shrink: 0; width: 38px; height: 38px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  border: 1px solid var(--rice-border); background: var(--rice-panel);
-  color: var(--rice-red); text-decoration: none; font-size: 15px;
-  transition: border-color 0.15s var(--ease-rice), background 0.15s var(--ease-rice), transform 0.1s;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+  color: var(--text-primary); text-decoration: none; font-size: 18px;
+  transition: background 0.15s, transform 0.12s;
 }
-.rice-sleep-link:hover { border-color: var(--rice-red-border-strong); background: rgba(180,18,26,0.1); }
-.rice-sleep-link:active { transform: scale(0.94); }
+.sleep-summary-link:hover { background: rgba(255,255,255,0.10); }
+.sleep-summary-link:active { transform: scale(0.94); }
+@media (max-width: 480px) {
+  .sleep-summary-wrap { padding: 16px 18px; gap: 14px; }
+  .sleep-summary-icon { font-size: 28px; }
+  .sleep-summary-value { font-size: 19px; }
+}
 
-/* ==========================================================================
-   TASK.MANAGER — console add-form, date/subtitle reveal, grouped rows.
-   Every id/class below that the CRUD/render script creates or toggles
-   (taskCard, tkPendingPill, tkAdd/tk-expanded, tkAddExtra, tkGroups,
-   tk-group-*, gm-row, gm-check, tk-completing/-collapsing/-entering,
-   tk-body/-text-main/-text-sub/-text-date, tk-actions, tk-icon-btn/
-   -delete, tk-edit-form/-row/-actions, tk-completed-row/-text,
-   tk-undo-btn, hidden) is reused verbatim — only the visual tokens change.
-   ========================================================================== */
-.tk-add { margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid var(--rice-border); }
-.tk-add-main { display: flex; align-items: center; gap: 8px; }
-.tk-caret { font-family: var(--font-mono); color: var(--rice-red); font-size: 14px; flex-shrink: 0; }
+/* ===== Component 4: section + Tasks ===== */
+.section { margin-top: 8px; }
+.section-title {
+  font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-tertiary);
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 12px;
+}
+.section-title::before {
+  content: ''; width: 18px; height: 1px;
+  background: var(--text-tertiary); opacity: 0.6;
+}
+.section-title::after {
+  content: ''; flex: 1; height: 1px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.08), transparent);
+}
+
+.hidden { display: none !important; }
+
+.gm-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 14px;
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+  transition: background 0.4s;
+  overflow: hidden;
+}
+.gm-card.gm-all-done::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at 50% 0%, rgba(107,227,164,0.10), transparent 60%);
+  pointer-events: none;
+}
+
+.gm-header {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px;
+  margin-bottom: 16px;
+}
+.gm-eyebrow {
+  font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.tk-pending-pill {
+  font-family: var(--font-mono);
+  font-size: 11px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.07);
+  transition: background 0.25s, color 0.25s, border-color 0.25s;
+}
+.gm-all-done .tk-pending-pill {
+  background: rgba(107,227,164,0.10);
+  color: var(--success);
+  border-color: rgba(107,227,164,0.28);
+}
+
+/* ---- add task ---- */
+.tk-add {
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.tk-add-main { display: flex; gap: 8px; align-items: center; }
 .tk-input {
-  flex: 1; min-width: 0; padding: 10px 12px;
-  border: 1px solid var(--rice-border); border-radius: var(--rice-radius);
-  background: rgba(0,0,0,0.35); color: var(--text-primary);
-  font-family: var(--font-mono); font-size: 13px;
+  flex: 1; min-width: 0;
+  padding: 11px 14px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  background: rgba(0,0,0,0.28);
+  color: var(--text-primary);
+  font-family: inherit; font-size: 14px;
   outline: none;
   transition: border-color 0.2s, background 0.2s;
 }
 .tk-input::placeholder { color: var(--text-tertiary); }
-.tk-input:focus { border-color: var(--rice-red-border-strong); background: rgba(0,0,0,0.45); }
+.tk-input:focus { border-color: rgba(255,255,255,0.28); background: rgba(0,0,0,0.36); }
 .tk-add-extra {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -301,7 +307,7 @@ body.rice-boot .rice-stagger {
   opacity: 0;
   margin-top: 0;
   overflow: hidden;
-  transition: max-height 0.28s var(--ease-rice), opacity 0.22s ease, margin-top 0.28s ease;
+  transition: max-height 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.22s ease, margin-top 0.28s ease;
 }
 .tk-add.tk-expanded .tk-add-extra {
   max-height: 60px;
@@ -312,74 +318,66 @@ body.rice-boot .rice-stagger {
   color-scheme: dark;
   min-width: 0;
   font-size: 13px;
-  padding: 9px 10px;
+  padding: 10px 12px;
 }
-.tk-input-date::-webkit-calendar-picker-indicator { filter: invert(0.55) sepia(1) saturate(6) hue-rotate(-40deg); cursor: pointer; }
-
 .gm-add {
   flex-shrink: 0;
-  padding: 10px 16px;
-  border: 1px solid var(--rice-red-border-strong); border-radius: var(--rice-radius);
-  background: rgba(180,18,26,0.14);
-  color: var(--text-primary);
-  font-family: var(--font-mono); font-size: 11px; font-weight: 700;
-  letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 11px 20px;
+  border: 0; border-radius: 12px;
+  background: linear-gradient(180deg, #FFFFFF 0%, #E8E5DD 100%);
+  color: #0A0A0B;
+  font-family: inherit; font-size: 13px; font-weight: 700;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.9),
+    0 2px 8px rgba(0,0,0,0.35),
+    0 8px 22px rgba(0,0,0,0.25);
+  transition: transform 0.1s, filter 0.15s;
 }
-.gm-add:hover { background: rgba(180,18,26,0.24); border-color: var(--rice-red); }
-.gm-add:active { transform: translateY(1px); }
-
-.hidden { display: none !important; }
-.empty-state {
-  text-align: center;
-  font-family: var(--font-mono);
-  font-size: 11.5px; letter-spacing: 0.03em;
-  color: var(--text-tertiary);
-  padding: 24px 0;
-}
+.gm-add:hover { filter: brightness(1.06); transform: translateY(-1px); }
+.gm-add:active { transform: translateY(0); }
 
 /* ---- groups + rows ---- */
-.tk-groups { display: flex; flex-direction: column; gap: 16px; margin-top: 14px; }
+.tk-groups { display: flex; flex-direction: column; gap: 18px; }
 .tk-group-label {
-  font-size: 9.5px; font-weight: 700;
+  font-size: 10px; font-weight: 700;
   letter-spacing: 0.14em; text-transform: uppercase;
   color: var(--text-tertiary);
-  margin-bottom: 8px; padding-bottom: 6px;
-  border-bottom: 1px solid var(--rice-border);
-  display: flex; align-items: baseline; gap: 6px;
+  margin-bottom: 8px;
+  display: flex; align-items: center; gap: 6px;
 }
-.tk-group-label::before { content: '//'; color: var(--rice-red-dim); font-weight: 400; }
-.tk-group-count { font-family: var(--font-mono); font-weight: 600; color: inherit; opacity: 0.65; }
-.tk-group-overdue .tk-group-label,
-.tk-group-overdue .tk-group-label::before { color: var(--rice-red); }
-.tk-group-today .tk-group-label { color: var(--text-primary); }
+.tk-group-overdue .tk-group-label { color: var(--danger); }
+.tk-group-today .tk-group-label { color: var(--warning); }
+.tk-group-count { font-family: var(--font-mono); font-weight: 600; color: inherit; opacity: 0.75; }
 
 .goal-list { list-style: none; margin: 0; padding: 0; }
+.empty-state {
+  text-align: center;
+  font-size: 12.5px; font-style: italic;
+  color: var(--text-tertiary);
+  padding: 26px 0;
+}
 
 .gm-row {
-  display: flex; align-items: flex-start; gap: 10px;
-  padding: 10px 11px;
-  margin-bottom: 5px;
-  background: var(--rice-panel);
-  border: 1px solid var(--rice-border);
-  border-radius: var(--rice-radius);
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 14px;
+  margin-bottom: 6px;
+  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
+  transition: background 0.2s, opacity 0.3s ease, max-height 0.32s ease, margin 0.32s ease, padding 0.32s ease, border-width 0.32s ease;
   position: relative;
   overflow: hidden;
   max-height: 140px;
-  transition: background 0.18s var(--ease-rice), border-color 0.18s var(--ease-rice), opacity 0.3s ease, max-height 0.32s ease, margin 0.32s ease, padding 0.32s ease, border-width 0.32s ease;
 }
-.gm-row:hover { background: var(--rice-panel-2); border-color: var(--rice-border-2); }
-.tk-group-overdue .gm-row { border-color: var(--rice-red-border); }
-.tk-group-overdue .gm-row:hover { border-color: var(--rice-red-border-strong); }
-
+.gm-row:hover { background: rgba(255,255,255,0.06); }
 .gm-row.tk-completing .tk-text-main {
   text-decoration: line-through;
-  text-decoration-color: var(--text-tertiary);
-  opacity: 0.5;
+  text-decoration-color: rgba(255,255,255,0.4);
+  opacity: 0.55;
   transition: opacity 0.3s ease, text-decoration-color 0.3s ease;
 }
-.gm-row.tk-completing .tk-text-sub { opacity: 0.3; transition: opacity 0.3s ease; }
+.gm-row.tk-completing .tk-text-sub { opacity: 0.35; transition: opacity 0.3s ease; }
 .gm-row.tk-collapsing {
   opacity: 0;
   max-height: 0;
@@ -387,216 +385,172 @@ body.rice-boot .rice-stagger {
   padding-top: 0; padding-bottom: 0;
   border-width: 0;
 }
-.gm-row.tk-entering { animation: tk-row-in 0.3s var(--ease-rice); }
+.gm-row.tk-entering { animation: tk-row-in 0.3s cubic-bezier(0.34,1.2,0.64,1); }
 @keyframes tk-row-in {
-  from { opacity: 0; transform: translateY(-4px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
-@media (prefers-reduced-motion: reduce) { .gm-row.tk-entering { animation: none; } }
 
 .gm-check {
   appearance: none; -webkit-appearance: none;
-  width: 18px; height: 18px; flex-shrink: 0;
+  width: 22px; height: 22px; flex-shrink: 0;
   margin: 1px 0 0;
-  border: 1px solid var(--rice-border-2);
-  background: rgba(0,0,0,0.3);
-  border-radius: var(--rice-radius);
+  border: 1.5px solid rgba(255,255,255,0.18);
+  background: rgba(0,0,0,0.28);
+  border-radius: 7px;
   position: relative;
   cursor: pointer;
   transition: background 0.2s, border-color 0.2s, box-shadow 0.25s;
 }
-.gm-check:hover { border-color: var(--rice-red-border-strong); }
 .gm-check:checked {
-  background: rgba(180,18,26,0.18);
-  border-color: var(--rice-red);
-  box-shadow: 0 0 10px var(--rice-red-glow);
+  background: #6BE3A4;
+  border-color: #6BE3A4;
+  box-shadow: 0 0 12px rgba(107,227,164,0.40);
 }
 .gm-check:checked::after {
-  content: '✓';
-  position: absolute; inset: 0;
-  display: flex; align-items: center; justify-content: center;
-  font-family: var(--font-mono); font-size: 12px; font-weight: 700;
-  color: var(--rice-red);
-  animation: gm-check-pop 0.25s var(--ease-rice);
+  content: '';
+  position: absolute; left: 6px; top: 2px;
+  width: 6px; height: 11px;
+  border: solid #0A0A0B;
+  border-width: 0 2.5px 2.5px 0;
+  transform: rotate(45deg);
+  animation: gm-check-pop 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 @keyframes gm-check-pop {
-  from { transform: scale(0.3); opacity: 0; }
-  to   { transform: scale(1); opacity: 1; }
+  from { transform: rotate(45deg) scale(0); }
+  to   { transform: rotate(45deg) scale(1); }
 }
-@media (prefers-reduced-motion: reduce) { .gm-check:checked::after { animation: none; } }
 
 .tk-body { flex: 1; min-width: 0; }
-.tk-text-main { font-family: var(--font-mono); font-size: 13px; color: var(--text-primary); line-height: 1.4; }
-.tk-text-sub { font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); margin-top: 3px; }
+.tk-text-main { font-size: 14px; color: var(--text-primary); }
+.tk-text-sub { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
 .tk-text-date {
   flex-shrink: 0;
   font-family: var(--font-mono);
-  font-size: 9.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
-  font-variant-numeric: tabular-nums;
+  font-size: 10.5px; font-weight: 600;
+  letter-spacing: 0.03em;
   color: var(--text-tertiary);
-  padding: 3px 7px;
-  border: 1px solid var(--rice-border); border-radius: var(--rice-radius);
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.04);
   margin-top: 1px;
   white-space: nowrap;
 }
-.tk-group-overdue .tk-text-date { color: var(--rice-red); border-color: var(--rice-red-border); background: rgba(180,18,26,0.08); }
+.tk-group-overdue .tk-text-date { color: var(--danger); background: rgba(255,107,107,0.10); }
 
 .tk-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; opacity: 0; transition: opacity 0.2s; }
 .gm-row:hover .tk-actions { opacity: 1; }
-@media (hover: none) { .tk-actions { opacity: 1; } }
 .tk-icon-btn {
-  border: 1px solid transparent; background: transparent;
+  border: 0; background: transparent;
   color: var(--text-tertiary);
-  font-family: var(--font-mono); font-size: 13px;
+  font-size: 14px;
   cursor: pointer;
-  width: 25px; height: 25px;
+  width: 26px; height: 26px;
   display: inline-flex; align-items: center; justify-content: center;
-  border-radius: var(--rice-radius);
-  transition: color 0.2s, background 0.2s, border-color 0.2s;
+  border-radius: 6px;
+  transition: color 0.2s, background 0.2s;
 }
-.tk-icon-btn:hover { color: var(--text-primary); background: rgba(255,255,255,0.06); border-color: var(--rice-border); }
-.tk-icon-btn.tk-delete:hover { color: var(--rice-red); background: rgba(180,18,26,0.1); border-color: var(--rice-red-border); }
+.tk-icon-btn:hover { color: var(--text-primary); background: rgba(255,255,255,0.06); }
+.tk-icon-btn.tk-delete:hover { color: var(--danger); }
 
 /* ---- inline edit ---- */
 .tk-edit-form { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .tk-edit-row { display: flex; gap: 6px; }
-.tk-edit-form .tk-input { padding: 8px 10px; font-size: 12.5px; }
+.tk-edit-form .tk-input { padding: 8px 10px; font-size: 13px; border-radius: 8px; }
 .tk-edit-actions { display: flex; gap: 4px; flex-shrink: 0; align-self: flex-start; }
 
 /* ---- completed (collapsible) ---- */
 .gm-show-toggle {
   width: 100%;
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   padding: 9px;
-  border: 1px dashed var(--rice-border-2);
-  border-radius: var(--rice-radius);
+  border: 1px dashed rgba(255,255,255,0.12);
+  border-radius: 10px;
   background: transparent;
   color: var(--text-tertiary);
-  font-family: var(--font-mono);
-  font-size: 10.5px; font-weight: 600;
-  letter-spacing: 0.08em; text-transform: uppercase;
+  font-family: inherit;
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.06em; text-transform: uppercase;
   cursor: pointer;
   transition: color 0.2s, border-color 0.2s;
 }
-.gm-show-toggle:hover { color: var(--text-primary); border-color: var(--rice-red-border-strong); }
+.gm-show-toggle:hover { color: var(--text-primary); border-color: rgba(255,255,255,0.22); }
 .tk-completed-list { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
 .tk-completed-row {
   display: flex; align-items: center; gap: 10px;
-  padding: 8px 11px;
-  border-radius: var(--rice-radius);
-  background: rgba(255,255,255,0.018);
-  font-family: var(--font-mono); font-size: 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.02);
+  font-size: 13px;
 }
 .tk-completed-text {
   flex: 1; min-width: 0;
-  color: var(--text-ambient);
+  color: var(--text-tertiary);
   text-decoration: line-through;
-  text-decoration-color: var(--text-ambient);
+  text-decoration-color: rgba(255,255,255,0.25);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .tk-undo-btn {
   border: 0; background: transparent;
   color: var(--text-tertiary);
   font-size: 13px; cursor: pointer;
-  padding: 4px 6px; border-radius: var(--rice-radius);
+  padding: 4px 6px; border-radius: 6px;
   opacity: 0.7; transition: opacity 0.2s, color 0.2s;
 }
-.tk-undo-btn:hover { opacity: 1; color: var(--rice-red); }
+.tk-undo-btn:hover { opacity: 1; color: var(--text-primary); }
 
-/* ==========================================================================
-   RESPONSIVE — general. topbar.js owns its own sticky-top/bottom-nav
-   spacing (padding-top baked into its bar, `body.has-bottombar` padding-
-   bottom !important) so nothing here needs to compensate for it.
-   ========================================================================== */
 @media (max-width: 480px) {
-  body { padding: max(14px, env(safe-area-inset-top)) 10px 50px; }
-  .proc-body { padding: 12px; }
+  body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
+  .gm-card { padding: 16px; }
   .tk-add-extra { grid-template-columns: 1fr; }
 }
 </style>
 </head>
 <body>
-<div class="rice-desktop">
+<div class="page">
 
-  <div class="hub-head rice-stagger" style="--i:0">
-    <div class="hub-id">
-      <span class="hud-led" aria-hidden="true"></span>
-      <h1 class="hub-title">&gt; TASKS <span class="hub-title-dim">// LUCA</span> <span class="hud-cursor" aria-hidden="true">▋</span></h1>
-    </div>
-    <span class="hub-meta">task.manager · live</span>
-  </div>
+  <h1 class="dash-title">Luca Dashboard</h1>
 
-  <!-- ===== ticker.feed — today's due tasks, cycling ===== -->
-  <div class="proc-win proc-win--data rice-stagger" style="--i:1" data-proc>
-    <div class="proc-head">
-      <span class="hud-led" aria-hidden="true"></span>
-      <span class="proc-name">ticker.feed</span>
-      <span class="proc-glyph" aria-hidden="true">╺━╺━╺━</span>
-      <span class="proc-meta">TODAY</span>
-    </div>
-    <span class="hud-corner tl" aria-hidden="true"></span>
-    <span class="hud-corner tr" aria-hidden="true"></span>
-    <span class="hud-corner bl" aria-hidden="true"></span>
-    <span class="hud-corner br" aria-hidden="true"></span>
-    <div class="proc-body">
-      <div class="rice-ticker" id="goalTicker" aria-live="polite" aria-atomic="true">
-        <div class="rice-ticker-stage" id="goalTickerStage">
-          <div class="goal-ticker-row">
-            <span class="goal-ticker-status" data-status="">—</span>
-            <span class="goal-ticker-text">Loading…</span>
-          </div>
+  <div class="ticker-row">
+    <div class="goal-ticker" id="goalTicker" aria-live="polite" aria-atomic="true">
+      <div class="goal-ticker-led"><span class="goal-ticker-led-dot"></span></div>
+      <div class="goal-ticker-label">GOALS</div>
+      <div class="goal-ticker-stage" id="goalTickerStage">
+        <div class="goal-ticker-row">
+          <span class="goal-ticker-status" data-status="">—</span>
+          <span class="goal-ticker-text">Loading…</span>
         </div>
-        <div class="rice-ticker-meta" id="goalTickerMeta">0/0</div>
       </div>
+      <div class="goal-ticker-meta" id="goalTickerMeta">0/0</div>
     </div>
   </div>
 
-  <!-- ===== sleep.probe — last-night readout (health.html#sleep) ===== -->
-  <div class="proc-win proc-win--data rice-stagger" style="--i:2" data-proc>
-    <div class="proc-head">
-      <span class="hud-led" aria-hidden="true"></span>
-      <span class="proc-name">sleep.probe</span>
-      <span class="proc-glyph" aria-hidden="true">∿∿∿</span>
-      <span class="proc-meta">LAST NIGHT</span>
+  <div class="sleep-summary-wrap" id="sleepSummaryWrap">
+    <div class="sleep-summary-icon">🌙</div>
+    <div class="sleep-summary-body">
+      <div class="sleep-summary-label">Last night</div>
+      <div class="sleep-summary-value" id="sleepSummaryValue">No data yet</div>
+      <div class="sleep-summary-sub" id="sleepSummarySub">Log your first night to start tracking.</div>
     </div>
-    <span class="hud-corner tl" aria-hidden="true"></span>
-    <span class="hud-corner tr" aria-hidden="true"></span>
-    <span class="hud-corner bl" aria-hidden="true"></span>
-    <span class="hud-corner br" aria-hidden="true"></span>
-    <div class="proc-body">
-      <div class="rice-sleep" id="sleepSummaryWrap">
-        <div class="rice-sleep-icon">🌙</div>
-        <div class="rice-sleep-body">
-          <div class="rice-sleep-value" id="sleepSummaryValue">No data yet</div>
-          <div class="rice-sleep-sub" id="sleepSummarySub">Log your first night to start tracking.</div>
-        </div>
-        <a href="health.html#sleep" class="rice-sleep-link" aria-label="Open sleep tracker" title="Open sleep tracker">→</a>
-      </div>
-    </div>
+    <a href="health.html#sleep" class="sleep-summary-link" aria-label="Open sleep tracker" title="Open sleep tracker">→</a>
   </div>
 
-  <!-- ===== task.manager — task kernel, DataLayer 'tasks' collection ===== -->
-  <div class="proc-win proc-win--data rice-stagger" id="taskCard" style="--i:3" data-proc>
-    <div class="proc-head">
-      <span class="hud-led" aria-hidden="true"></span>
-      <span class="proc-name">task.manager</span>
-      <svg class="proc-trace" viewBox="0 0 28 14" aria-hidden="true"><path d="M1 7 H10 V2 H27"></path><circle cx="27" cy="2" r="1.6"></circle></svg>
-      <span class="proc-meta" id="tkPendingPill">0 pending</span>
-    </div>
-    <span class="hud-corner tl" aria-hidden="true"></span>
-    <span class="hud-corner tr" aria-hidden="true"></span>
-    <span class="hud-corner bl" aria-hidden="true"></span>
-    <span class="hud-corner br" aria-hidden="true"></span>
-    <div class="proc-body">
+  <div class="section">
+    <div class="section-title">Tasks</div>
+
+    <div class="gm-card" id="taskCard">
+      <div class="gm-header">
+        <div class="gm-eyebrow">Tasks</div>
+        <div class="tk-pending-pill" id="tkPendingPill">0 pending</div>
+      </div>
 
       <div class="tk-add" id="tkAdd">
         <div class="tk-add-main">
-          <span class="tk-caret" aria-hidden="true">&gt;</span>
-          <input id="tkTextInput" class="tk-input" type="text" placeholder="new task…" autocomplete="off">
+          <input id="tkTextInput" class="tk-input" type="text" placeholder="New task…" autocomplete="off">
           <button type="button" id="tkAddBtn" class="gm-add">+ Add</button>
         </div>
         <div class="tk-add-extra" id="tkAddExtra">
-          <input id="tkSubtitleInput" class="tk-input" type="text" placeholder="subtitle (optional)" autocomplete="off">
+          <input id="tkSubtitleInput" class="tk-input" type="text" placeholder="Subtitle (optional)" autocomplete="off">
           <input id="tkDateInput" class="tk-input tk-input-date" type="date">
         </div>
       </div>
@@ -1133,29 +1087,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 });
-</script>
-
-<script>
-/* ==========================================================================
-   RICE MOTION LAYER — presentation-only, own IIFE, never reads/writes task
-   data. Same recipe as apps.html:
-   - Boot cascade: adds `.rice-boot` to <body> exactly once; the CSS above
-     does the actual per-panel stagger via each element's `--i`, so no
-     per-element timers are needed here, and later DOM churn (rows being
-     added/removed by the logic above) can never re-trigger it.
-   - Pauses the ambient LED-ring/drift-glow/cursor-blink loops while the
-     tab is hidden.
-   ========================================================================== */
-(function () {
-  'use strict';
-  var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  function applyPaused() { document.body.classList.toggle('rice-paused', document.hidden); }
-  document.addEventListener('visibilitychange', applyPaused);
-  applyPaused();
-
-  if (!reduceMotion) document.body.classList.add('rice-boot');
-})();
 </script>
 </body>
 </html>
