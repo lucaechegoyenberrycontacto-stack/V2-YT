@@ -242,7 +242,7 @@ body.rice-paused .verse-cursor { animation-play-state: paused; }
   grid-template-areas:
     "clock   weather weather klog"
     "verse   verse   verse   klog"
-    "sigil   wave    upcoming  klog"
+    "sigil   wave    sysmon  klog"
     "telem   telem   telem   ledger"
     "corr    corr    corr    corr";
 }
@@ -252,7 +252,7 @@ body.rice-paused .verse-cursor { animation-play-state: paused; }
 .rice-a-verse   { grid-area: verse; }
 .rice-a-sigil   { grid-area: sigil; }
 .rice-a-wave    { grid-area: wave; }
-.rice-a-upcoming { grid-area: upcoming; }
+.rice-a-sysmon  { grid-area: sysmon; }
 .rice-a-telem   { grid-area: telem; }
 .rice-a-ledger  { grid-area: ledger; }
 .rice-a-corr    { grid-area: corr; }
@@ -264,7 +264,7 @@ body.rice-paused .verse-cursor { animation-play-state: paused; }
       "clock   weather"
       "verse   verse"
       "sigil   wave"
-      "upcoming  klog"
+      "sysmon  klog"
       "telem   telem"
       "ledger  ledger"
       "corr    corr";
@@ -278,20 +278,17 @@ body.rice-paused .verse-cursor { animation-play-state: paused; }
       "clock"
       "weather"
       "klog"
-      "upcoming"
       "verse"
       "telem"
       "ledger"
       "corr";
   }
   /* Decoratives ARE the density — but on a phone they'd just bury the
-     real data, so they're the first thing to go, per spec. kern.log and
-     agenda.service (upcoming) are functional, not decorative, so both
-     stay — same exception, same reasoning. */
-  .rice-a-sigil, .rice-a-wave { display: none; }
+     real data, so they're the first thing to go, per spec. kern.log is
+     no longer decorative (it's the task kernel now), so it stays. */
+  .rice-a-sigil, .rice-a-wave, .rice-a-sysmon { display: none; }
   .rice-a-clock { min-height: 0; }
   .rice-a-klog { min-height: 220px; }
-  .rice-a-upcoming { min-height: 160px; }
 }
 
 /* ==========================================================================
@@ -500,50 +497,16 @@ body.rice-paused .verse-cursor { animation-play-state: paused; }
 .wave-canvas { width: 100%; flex: 1; min-height: 60px; display: block; }
 
 /* ==========================================================================
-   AGENDA.SERVICE — upcoming events (DataLayer 'events'/'calendars', may not
-   exist yet) + due tasks ('tasks', shared with kern.log/main.html) in the
-   next 7 days. Read-only. Same fade-mask/scroll treatment as kern.log's
-   .klog-list, so the two functional list panels feel like one system.
+   SYSMON — ambient htop-style bars. Values are random-walked by the shared
+   tick timer; the smoothing itself is a CSS transition on transform, not
+   per-frame JS, so it stays cheap.
    ========================================================================== */
-.upc-body { position: relative; flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
-.upc-list {
-  flex: 1; min-height: 90px;
-  display: flex; flex-direction: column; gap: 2px;
-  overflow-y: auto; overflow-x: hidden;
-  padding-right: 2px;
-  font-size: 10px; line-height: 1.5;
-  mask-image: linear-gradient(to bottom, transparent 0, black 14px, black calc(100% - 4px), transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 14px, black calc(100% - 4px), transparent 100%);
-  scrollbar-width: none;
-}
-.upc-list::-webkit-scrollbar { width: 0; height: 0; }
-
-.upc-day {
-  margin-top: 7px;
-  display: flex; align-items: center; gap: 5px;
-  font-size: 8.5px; letter-spacing: 0.12em; text-transform: uppercase;
-  color: var(--text-tertiary);
-}
-.upc-day:first-child { margin-top: 0; }
-.upc-day::before { content: '>'; color: var(--rice-red-dim); }
-
-.upc-row {
-  display: flex; align-items: baseline; gap: 7px;
-  padding: 2px 3px; margin: 0 -3px;
-  border-radius: 2px;
-  text-decoration: none; color: inherit;
-  transition: background 0.15s var(--ease-rice), color 0.15s var(--ease-rice);
-}
-.upc-row:hover { background: rgba(255,255,255,0.045); }
-.upc-row:hover .upc-text { color: var(--text-primary); }
-
-.upc-time { flex-shrink: 0; white-space: nowrap; color: var(--rice-red-dim); font-variant-numeric: tabular-nums; font-size: 9px; }
-.upc-dot  { flex-shrink: 0; width: 6px; height: 6px; border-radius: 50%; background: var(--rice-red-dim); }
-.upc-glyph { flex-shrink: 0; width: 7px; text-align: center; color: var(--rice-red); font-size: 10px; line-height: 1; }
-.upc-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); }
-
-.upc-empty { display: flex; align-items: center; gap: 6px; color: var(--text-ambient); }
-.upc-empty::before { content: '>'; color: var(--rice-red-dim); }
+.sysmon-body { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 9px; }
+.sysmon-row { display: flex; align-items: center; gap: 8px; }
+.sysmon-label { width: 58px; flex-shrink: 0; font-size: 8.5px; letter-spacing: 0.08em; color: var(--text-ambient); }
+.sysmon-track { flex: 1; height: 4px; background: var(--rice-border); border-radius: 1px; overflow: hidden; }
+.sysmon-fill { height: 100%; width: 100%; background: var(--rice-red-dim); transform: scaleX(0); transform-origin: left; transition: transform 0.65s var(--ease-rice); }
+.sysmon-val { width: 30px; flex-shrink: 0; text-align: right; font-size: 9px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
 
 /* ==========================================================================
    KERN.LOG — task kernel (backed by the 'tasks' DataLayer collection,
@@ -779,20 +742,24 @@ body.rice-paused .verse-cursor { animation-play-state: paused; }
       </div>
     </div>
 
-    <!-- ===== agenda.service — upcoming events + due tasks (live, 'events'/'calendars'/'tasks') ===== -->
-    <div class="proc-win proc-win--data rice-a-upcoming rice-stagger" data-proc>
+    <!-- ===== sysmon — ambient htop-style bars ===== -->
+    <div class="proc-win proc-win--ambient rice-a-sysmon rice-stagger" data-proc>
       <div class="proc-head">
         <span class="hud-led" aria-hidden="true"></span>
-        <span class="proc-name">agenda.service</span>
-        <span class="proc-glyph" aria-hidden="true">▤▤▤</span>
-        <span class="proc-meta" id="upcomingMeta">NEXT 7D</span>
+        <span class="proc-name">sysmon</span>
+        <span class="proc-glyph" aria-hidden="true">▚▚▚</span>
+        <span class="proc-meta">HTOP</span>
       </div>
       <span class="hud-corner tl" aria-hidden="true"></span>
       <span class="hud-corner tr" aria-hidden="true"></span>
       <span class="hud-corner bl" aria-hidden="true"></span>
       <span class="hud-corner br" aria-hidden="true"></span>
-      <div class="proc-body upc-body">
-        <div class="upc-list" id="riceUpcomingList"></div>
+      <div class="proc-body">
+        <div class="sysmon-body" id="riceSysmonBody" aria-hidden="true">
+          <div class="sysmon-row"><span class="sysmon-label">CORE_LOAD</span><span class="sysmon-track"><span class="sysmon-fill" data-sysmon="core"></span></span><span class="sysmon-val" data-sysmon-val="core">0%</span></div>
+          <div class="sysmon-row"><span class="sysmon-label">MEM</span><span class="sysmon-track"><span class="sysmon-fill" data-sysmon="mem"></span></span><span class="sysmon-val" data-sysmon-val="mem">0%</span></div>
+          <div class="sysmon-row"><span class="sysmon-label">NET_IO</span><span class="sysmon-track"><span class="sysmon-fill" data-sysmon="net"></span></span><span class="sysmon-val" data-sysmon-val="net">0%</span></div>
+        </div>
       </div>
     </div>
 
@@ -1938,10 +1905,10 @@ body.rice-paused .verse-cursor { animation-play-state: paused; }
      tile count-up both register a job here instead of each running their
      own rAF chain, per spec ("un solo rAF compartido para TODAS las
      animaciones JS", not one per widget).
-   - ONE setInterval "tick" (`tickJobs`) — typing and kern.log line
-     emission are throttled, timer-driven effects, not per-frame work, so
-     they share a single low-frequency clock instead of each widget
-     running its own setInterval.
+   - ONE setInterval "tick" (`tickJobs`) — typing, kern.log line emission
+     and sysmon value jitter are all throttled, timer-driven effects, not
+     per-frame work, so they share a single low-frequency clock instead of
+     each widget running its own setInterval.
    Both stop doing work (but keep the underlying timer/rAF alive so they
    can resume cleanly) while the tab is hidden.
    ========================================================================== */
@@ -1956,7 +1923,7 @@ body.rice-paused .verse-cursor { animation-play-state: paused; }
      SHARED SCHEDULERS
      ============================================================ */
   var rafJobs = [];  // { draw(ts) } — canvas + count-up
-  var tickJobs = []; // { tick(nowMs) } — typing + kern.log
+  var tickJobs = []; // { tick(nowMs) } — typing + kern.log + sysmon
 
   function rafLoop(ts) {
     requestAnimationFrame(rafLoop);
@@ -2201,9 +2168,47 @@ body.rice-paused .verse-cursor { animation-play-state: paused; }
     }).observe(corrStrengthEl, { childList: true, characterData: true, subtree: true });
   }
 
-  /* kern.log and agenda.service are no longer decorative — they're wired
-     up in their own dedicated script blocks below (DataLayer-backed, not
-     part of this purely-presentational motion layer). */
+  /* kern.log is no longer decorative — it's the task kernel now, wired up
+     in its own dedicated script block below (DataLayer-backed, not part
+     of this purely-presentational motion layer). */
+
+  /* ============================================================
+     SYSMON — ambient htop-style bars, clearly ambient (never real
+     personal stats). Values are a clamped random walk updated on the
+     shared tick; the smoothing between updates is a CSS transition on
+     transform, not per-frame JS, so it stays cheap.
+     ============================================================ */
+  (function sysmon() {
+    var root = $('riceSysmonBody');
+    if (!root) return;
+    var fills = root.querySelectorAll('[data-sysmon]');
+    if (!fills.length) return;
+    var state = {};
+    fills.forEach(function (el) { state[el.getAttribute('data-sysmon')] = 18 + Math.random() * 34; });
+    function paint() {
+      fills.forEach(function (el) {
+        var key = el.getAttribute('data-sysmon');
+        var v = state[key];
+        el.style.transform = 'scaleX(' + (v / 100).toFixed(3) + ')';
+        var valEl = root.querySelector('[data-sysmon-val="' + key + '"]');
+        if (valEl) valEl.textContent = Math.round(v) + '%';
+      });
+    }
+    paint();
+    var acc = 0;
+    var interval = reduceMotion ? 1400 : 700;
+    tickJobs.push({
+      tick: function () {
+        acc += TICK_MS;
+        if (acc < interval) return;
+        acc = 0;
+        Object.keys(state).forEach(function (key) {
+          state[key] = Math.max(4, Math.min(96, state[key] + (Math.random() - 0.5) * 16));
+        });
+        paint();
+      }
+    });
+  })();
 
   /* ============================================================
      WAVEFORM.OSC — canvas oscilloscope, drawn by the ONE shared rAF loop
@@ -2461,219 +2466,6 @@ body.rice-paused .verse-cursor { animation-play-state: paused; }
       loaded = true;
       render();
       console.warn('[kern.log] tasks init failed', e);
-    });
-  });
-})();
-</script>
-
-<script>
-/* ==========================================================================
-   AGENDA.SERVICE — upcoming 7 days: the calendar's 'events' collection
-   (+ 'calendars' for color/visibility) combined with due-but-not-done
-   'tasks' (the same collection kern.log above reads/writes). Read-only —
-   never calls DataLayer.put()/remove() on any of the three.
-
-   'events'/'calendars' are written by main.html's calendar section
-   (calendarId/title/start/end/allDay/notes, and id/name/color/visible —
-   start/end are always local "YYYY-MM-DDTHH:MM" strings, allDay included).
-   Date/time here is pulled with the exact same eventDateOnly/eventTimeOnly
-   string-slice convention main.html's calendar code uses instead of
-   `new Date(str)`, so the two pages can never disagree on which day an
-   event falls on. Both collections are young enough that a fresh/limited
-   install may not have written to them yet — DataLayer.list() already
-   never throws (it just serves an empty cache on any failure), but each
-   call still gets its own .catch() so one collection misbehaving can't
-   blank out the other two.
-
-   Not gated behind login, same as kern.log: this page stays viewable
-   without a session, so a missing session just leaves list()/subscribe()
-   degraded rather than redirecting away from Home.
-   ========================================================================== */
-(function () {
-  'use strict';
-
-  var listEl = document.getElementById('riceUpcomingList');
-  var metaEl = document.getElementById('upcomingMeta');
-  if (!listEl) return;
-
-  var WINDOW_DAYS = 7;
-  var eventsCache = [];
-  var calendarsCache = [];
-  var tasksCache = [];
-  var loaded = false;
-
-  function pad2(n) { return String(n).padStart(2, '0'); }
-  function dateKey(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
-  function eventDateOnly(str) { return (typeof str === 'string' && str.length >= 10) ? str.slice(0, 10) : null; }
-  function eventTimeOnly(str) { return (typeof str === 'string' && str.length > 10) ? str.slice(11, 16) : null; }
-
-  var WEEKDAY_SHORT = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-  var MONTH_SHORT = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-
-  // "Hoy"/"Mañana" special-cased; otherwise "Mié 6 ago" — CSS uppercases
-  // the whole thing (.upc-day), same JS-writes-proper-case /
-  // CSS-displays-uppercase split #homeDate already uses.
-  function dayHeaderLabel(key, win) {
-    if (key === win.todayKey) return 'Hoy';
-    if (key === win.tomorrowKey) return 'Mañana';
-    var parts = key.split('-');
-    var d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-    return WEEKDAY_SHORT[d.getDay()] + ' ' + d.getDate() + ' ' + MONTH_SHORT[d.getMonth()];
-  }
-
-  function computeWindow() {
-    var now = new Date();
-    var todayKey = dateKey(now);
-    var nowStamp = todayKey + 'T' + pad2(now.getHours()) + ':' + pad2(now.getMinutes());
-    var tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-    var end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + WINDOW_DAYS, now.getHours(), now.getMinutes());
-    return { todayKey: todayKey, nowStamp: nowStamp, tomorrowKey: dateKey(tomorrow), endKey: dateKey(end) };
-  }
-
-  function buildItems() {
-    var win = computeWindow();
-    var items = [];
-    var calendarsById = {};
-    calendarsCache.forEach(function (c) { if (c && c.id) calendarsById[c.id] = c; });
-
-    eventsCache.forEach(function (ev) {
-      if (!ev) return;
-      var sKey = eventDateOnly(ev.start);
-      if (!sKey || sKey < win.todayKey || sKey > win.endKey) return;
-      var cal = ev.calendarId ? calendarsById[ev.calendarId] : null;
-      if (cal && cal.visible === false) return; // orphaned calendarId fails open, same as main.html
-      var stamp = ev.start;
-      if (!ev.allDay && stamp < win.nowStamp) return; // timed event already happened today
-      items.push({
-        kind: 'event',
-        dateKey: sKey,
-        sortKey: stamp,
-        timeLabel: ev.allDay ? 'todo el día' : (eventTimeOnly(stamp) || '—'),
-        title: ev.title || '(sin título)',
-        color: (cal && cal.color) || null,
-      });
-    });
-
-    tasksCache.forEach(function (t) {
-      if (!t || t.done || !t.dueDate) return;
-      if (t.dueDate < win.todayKey || t.dueDate > win.endKey) return;
-      items.push({
-        kind: 'task',
-        dateKey: t.dueDate,
-        sortKey: t.dueDate + 'T23:59', // day item — sorts after that day's timed events
-        timeLabel: '—',
-        title: t.text || '(sin título)',
-      });
-    });
-
-    items.sort(function (a, b) { return a.sortKey < b.sortKey ? -1 : a.sortKey > b.sortKey ? 1 : 0; });
-    return { items: items, win: win };
-  }
-
-  function emptyLine(text) {
-    var el = document.createElement('div');
-    el.className = 'upc-empty';
-    el.textContent = text;
-    return el;
-  }
-
-  // calendar.html was merged into main.html (below task.manager) and no
-  // longer exists as its own page — both events and tasks route to the
-  // calendar section there. ?date= is passed for whenever that section
-  // reads it; #calendarSection scrolls straight to it today regardless.
-  function buildRow(item) {
-    var a = document.createElement('a');
-    a.className = 'upc-row';
-    a.href = 'main.html?date=' + item.dateKey + '#calendarSection';
-    a.setAttribute('aria-label', (item.kind === 'task' ? 'Tarea: ' : 'Evento: ') + item.title);
-
-    var time = document.createElement('span');
-    time.className = 'upc-time';
-    time.textContent = item.timeLabel;
-    a.appendChild(time);
-
-    if (item.kind === 'event') {
-      var dot = document.createElement('span');
-      dot.className = 'upc-dot';
-      dot.style.background = item.color || 'var(--rice-red-dim)';
-      a.appendChild(dot);
-    } else {
-      var glyph = document.createElement('span');
-      glyph.className = 'upc-glyph';
-      glyph.textContent = '▪';
-      a.appendChild(glyph);
-    }
-
-    var text = document.createElement('span');
-    text.className = 'upc-text';
-    text.textContent = item.title;
-    a.appendChild(text);
-
-    return a;
-  }
-
-  function render() {
-    listEl.innerHTML = '';
-    if (!loaded) {
-      listEl.appendChild(emptyLine('cargando agenda…'));
-      if (metaEl) metaEl.textContent = '···';
-      return;
-    }
-    var built = buildItems();
-    var items = built.items;
-    if (!items.length) {
-      listEl.appendChild(emptyLine('nada agendado en los próximos 7 días'));
-    } else {
-      var lastKey = null;
-      items.forEach(function (item) {
-        if (item.dateKey !== lastKey) {
-          lastKey = item.dateKey;
-          var header = document.createElement('div');
-          header.className = 'upc-day';
-          header.textContent = dayHeaderLabel(item.dateKey, built.win);
-          listEl.appendChild(header);
-        }
-        listEl.appendChild(buildRow(item));
-      });
-    }
-    if (metaEl) metaEl.textContent = items.length + ' · 7D';
-  }
-
-  render(); // "cargando agenda…" placeholder until DataLayer resolves below
-
-  // Low-frequency recompute so the window (and Hoy/Mañana rollover) tracks
-  // real time — a timer, not a per-frame loop, per spec.
-  setInterval(function () { if (loaded) render(); }, 60000);
-  document.addEventListener('visibilitychange', function () {
-    if (!document.hidden && loaded) render();
-  });
-
-  document.addEventListener('DOMContentLoaded', function () {
-    if (typeof DataLayer === 'undefined') { loaded = true; render(); return; }
-    DataLayer.init().then(function () {
-      return Promise.all([
-        DataLayer.list('events').then(function (rows) { eventsCache = rows || []; }).catch(function (e) { eventsCache = []; console.warn('[agenda.service] events unavailable', e); }),
-        DataLayer.list('calendars').then(function (rows) { calendarsCache = rows || []; }).catch(function (e) { calendarsCache = []; console.warn('[agenda.service] calendars unavailable', e); }),
-        DataLayer.list('tasks').then(function (rows) { tasksCache = rows || []; }).catch(function (e) { tasksCache = []; console.warn('[agenda.service] tasks unavailable', e); }),
-      ]);
-    }).then(function () {
-      loaded = true;
-      render();
-      try {
-        DataLayer.subscribe('events', function () {
-          DataLayer.list('events').then(function (rows) { eventsCache = rows || []; render(); }).catch(function () {});
-        });
-        DataLayer.subscribe('calendars', function () {
-          DataLayer.list('calendars').then(function (rows) { calendarsCache = rows || []; render(); }).catch(function () {});
-        });
-        DataLayer.subscribe('tasks', function () {
-          DataLayer.list('tasks').then(function (rows) { tasksCache = rows || []; render(); }).catch(function () {});
-        });
-      } catch (e) { console.warn('[agenda.service] subscribe failed', e); }
-    }).catch(function (e) {
-      loaded = true;
-      render();
-      console.warn('[agenda.service] init failed', e);
     });
   });
 })();
