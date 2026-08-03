@@ -309,6 +309,32 @@ body::after {
 .rd-shelf-title { font-size: 12px; font-weight: 600; color: var(--text-primary); margin-top: 8px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .rd-shelf-author { font-size: 10.5px; color: var(--text-tertiary); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* ---------- shelf rating badge ---------- */
+.rd-shelf-cover-wrap { position: relative; }
+.rd-shelf-badge {
+  position: absolute; top: 6px; right: 6px; display: flex; align-items: baseline; gap: 3px;
+  background: rgba(10,10,11,0.72); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,0.14); border-radius: 8px; padding: 3px 7px;
+  font-size: 12px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; line-height: 1;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+.rd-shelf-badge-max { font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.65); }
+.rd-shelf-badge-times { font-size: 9px; font-weight: 700; color: var(--success); margin-left: 2px; padding-left: 4px; border-left: 1px solid rgba(255,255,255,0.22); }
+
+/* ---------- ratings stats card ---------- */
+.rd-ratings-metrics { display: flex; align-items: flex-end; gap: 22px; margin-bottom: 18px; }
+.rd-ratings-metric-val { font-size: 28px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; line-height: 1; }
+.rd-ratings-metric-secondary .rd-ratings-metric-val { font-size: 19px; color: var(--text-tertiary); }
+.rd-ratings-metric-label { font-size: 9.5px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700; margin-top: 6px; }
+.rd-ratings-metric-sub { font-size: 10.5px; color: var(--text-tertiary); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.rd-ratings-divider { width: 1px; align-self: stretch; background: rgba(255,255,255,0.08); }
+.rd-ratings-hist { display: flex; align-items: flex-end; gap: 8px; height: 64px; }
+.rd-ratings-hist-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 6px; min-width: 0; }
+.rd-ratings-hist-bar-track { width: 100%; height: 100%; display: flex; align-items: flex-end; }
+.rd-ratings-hist-bar { width: 100%; background: var(--success); border-radius: 4px 4px 2px 2px; min-height: 3px; transition: height 0.3s ease; }
+.rd-ratings-hist-label { font-size: 9px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+.rd-ratings-empty { font-size: 12.5px; color: var(--text-tertiary); font-style: italic; text-align: center; padding: 20px 10px; }
+
 /* ---------- book form + goal modal ---------- */
 .rd-modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
 .rd-modal-bg.show { display: flex; }
@@ -329,6 +355,31 @@ body::after {
 .rd-modal-cancel:hover { background: rgba(255,255,255,0.05); }
 .rd-modal-delete { display: block; width: 100%; text-align: center; margin-top: 14px; font-size: 12px; color: var(--danger); cursor: pointer; text-decoration: underline; background: none; border: none; font-family: inherit; padding: 6px; }
 .rd-modal-inline-status { font-size: 11px; color: var(--text-tertiary); margin-top: 4px; min-height: 14px; }
+
+/* ---------- rating + review (shown only when status = finished) ---------- */
+.rd-rating-section { margin-bottom: 12px; display: flex; flex-direction: column; gap: 12px; }
+.rd-rating-slider-row { display: flex; align-items: center; gap: 14px; }
+.rd-rating-slider { flex: 1; height: 28px; accent-color: var(--success); cursor: pointer; }
+.rd-rating-value { font-size: 17px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; min-width: 46px; text-align: right; }
+.rd-review-textarea { min-height: 90px; resize: vertical; padding-top: 10px; padding-bottom: 10px; }
+.rd-reads-history-section { margin-top: 4px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08); }
+.rd-reads-list { display: flex; flex-direction: column; gap: 8px; }
+.rd-read-entry { background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 10px 12px; }
+.rd-read-entry-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rd-read-entry-num { font-size: 11.5px; font-weight: 700; color: var(--text-primary); }
+.rd-read-entry-rating { font-size: 11.5px; font-weight: 700; color: var(--success); font-variant-numeric: tabular-nums; }
+.rd-read-entry-date { font-size: 10.5px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; margin-left: auto; }
+.rd-read-entry-review { font-size: 12px; color: var(--text-secondary); margin-top: 6px; line-height: 1.4; }
+.rd-read-entry-noreview { font-style: italic; color: var(--text-tertiary); }
+.rd-read-entry-actions { display: flex; gap: 6px; margin-top: 8px; justify-content: flex-end; }
+.rd-read-entry-editing .rd-rating-slider-row { margin-top: 8px; }
+.rd-read-entry-editing .rd-review-textarea { margin-top: 8px; min-height: 70px; }
+.rd-read-entry-confirm-text { font-size: 12px; color: var(--text-secondary); }
+.rd-read-entry-editing .rd-modal-cancel, .rd-read-entry-confirm .rd-modal-cancel,
+.rd-read-entry-editing .hb-save-btn, .rd-read-entry-confirm .hb-save-btn { flex: none; padding: 7px 14px; font-size: 12px; align-self: auto; }
+.hb-save-btn.rd-danger-btn { background: linear-gradient(180deg,#FF8A8A,#E85555); border-color: rgba(255,107,107,0.85); }
+.rd-reread-btn { margin-top: 4px; width: 100%; border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.03); color: var(--text-secondary); font-family: inherit; font-size: 12.5px; font-weight: 600; padding: 9px 12px; border-radius: 10px; cursor: pointer; }
+.rd-reread-btn:hover { background: rgba(255,255,255,0.07); color: var(--text-primary); }
 </style>
 </head>
 <body>
@@ -512,6 +563,13 @@ body::after {
             <div id="rdShelfGrid" class="rd-shelf-grid"></div>
           </div>
         </div>
+
+        <div class="hb-card">
+          <div class="rd-goal-card-head">
+            <span class="hb-chart-eye">Puntajes</span>
+          </div>
+          <div id="rdRatingsBody"></div>
+        </div>
       </div>
     </div>
 
@@ -543,6 +601,28 @@ body::after {
         <button type="button" data-status="finished">Terminado</button>
       </div>
     </div>
+
+    <div class="rd-rating-section" id="rdRatingSection" style="display:none">
+      <div class="rd-modal-field">
+        <span class="hb-field-label">Puntaje</span>
+        <div class="rd-rating-slider-row">
+          <input type="range" min="1" max="10" step="1" value="5" class="rd-rating-slider" id="rdRatingSlider">
+          <span class="rd-rating-value" id="rdRatingValue">—</span>
+        </div>
+      </div>
+      <div class="rd-modal-field">
+        <span class="hb-field-label">Reseña (opcional)</span>
+        <textarea id="rdReviewInput" class="hb-input rd-review-textarea" maxlength="4000" placeholder="¿Qué te pareció el libro?"></textarea>
+      </div>
+
+      <div class="rd-reads-history-section" id="rdReadsHistorySection" style="display:none">
+        <span class="hb-field-label" style="display:block;margin-bottom:8px">Historial de lecturas</span>
+        <div id="rdReadsHistoryList" class="rd-reads-list"></div>
+      </div>
+
+      <button type="button" class="rd-reread-btn" id="rdRereadBtn" style="display:none">↺ Releer libro</button>
+    </div>
+
     <div class="rd-modal-field">
       <span class="hb-field-label">Portada</span>
       <div class="rd-cover-pick-row">
@@ -1147,6 +1227,33 @@ body::after {
   function rdBookPagesRead(bookId) {
     return state.reading.logs.filter((s) => s.bookId === bookId).reduce((sum, s) => sum + (Number(s.pages) || 0), 0);
   }
+  // ---------- reads/ratings pure helpers ----------
+  // Centralizes "current rating" everywhere: a book mid-reread (status
+  // 'reading' but reads.length > 0) still counts toward stats/badges with
+  // its last CLOSED read until the new one is saved.
+  function rdLastRead(book) {
+    const reads = book && book.reads;
+    return (reads && reads.length) ? reads[reads.length - 1] : null;
+  }
+  function rdBookCurrentRating(book) {
+    const last = rdLastRead(book);
+    return last ? last.rating : null;
+  }
+  function rdBooksRated() {
+    return state.reading.books.filter((b) => b.reads && b.reads.length);
+  }
+  function rdAverageRating(books) {
+    if (!books.length) return null;
+    const sum = books.reduce((s, b) => s + rdBookCurrentRating(b), 0);
+    return sum / books.length;
+  }
+  const RD_RATING_BUCKETS = [[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]];
+  function rdRatingDistribution(books) {
+    return RD_RATING_BUCKETS.map(([lo, hi]) => books.filter((b) => {
+      const r = rdBookCurrentRating(b);
+      return r >= lo && r <= hi;
+    }).length);
+  }
   function rdWeekSeries(logsByDate) { return currentWeekKeys().map((k) => rdPagesForDate(logsByDate, k)); }
   function rdMonthSeries() {
     return last6Months().map((d) => {
@@ -1471,18 +1578,32 @@ body::after {
   }
   function rdShelfCardHtml(book) {
     const cover = book.coverUrl ? '<img class="rd-shelf-cover" src="' + escapeHtml(book.coverUrl) + '" alt="">' : rdSpineHtml(book, 'rd-shelf-spine');
+    const lastRead = rdLastRead(book);
+    const badge = lastRead
+      ? '<div class="rd-shelf-badge">' + lastRead.rating + '<span class="rd-shelf-badge-max">/10</span>' +
+        (book.reads.length > 1 ? '<span class="rd-shelf-badge-times">' + book.reads.length + '×</span>' : '') +
+        '</div>'
+      : '';
     return '<div class="rd-shelf-card" data-edit-book="' + book.id + '">' +
-      cover +
+      '<div class="rd-shelf-cover-wrap">' + cover + badge + '</div>' +
       '<div class="rd-shelf-title">' + escapeHtml(book.title) + '</div>' +
       '<div class="rd-shelf-author">' + escapeHtml(book.author || '') + '</div>' +
     '</div>';
   }
+  // Quick status-select in a library row can't collect a mandatory rating
+  // inline, so finishing this way is redirected into the full modal instead
+  // of completing silently (Part 3 of the rating/reread spec).
   function rdChangeBookStatus(id, newStatus) {
     const book = state.reading.books.find((b) => b.id === id);
     if (!book) return;
+    if (newStatus === 'finished') {
+      renderReadingLibrary(); // reset the <select> back to book.status before handing off — cancelling the modal must leave status unchanged
+      rdOpenBookModal(id, true);
+      return;
+    }
     book.status = newStatus;
     if (newStatus === 'reading' && !book.startedAt) book.startedAt = todayStr();
-    book.finishedAt = newStatus === 'finished' ? todayStr() : null;
+    book.finishedAt = null;
     persistBookFull(book);
     renderReading();
   }
@@ -1515,6 +1636,13 @@ body::after {
   let rdEditingBookId = null;
   let rdPendingCoverFile = null;
   let rdPendingCoverPreviewUrl = null;
+  // Whether the user has explicitly moved the slider (or it was preloaded
+  // from an existing read) — the slider always carries *some* numeric
+  // value, so this flag (not the value itself) is what makes a rating
+  // "real" for the mandatory-score-on-finish check.
+  let rdRatingTouched = false;
+  let rdEditingReadEntryId = null;
+  let rdConfirmingDeleteReadId = null;
   function rdSetBookStatusSeg(status) {
     $('rdBookStatusSeg').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.status === status));
   }
@@ -1522,15 +1650,145 @@ body::after {
     const active = $('rdBookStatusSeg').querySelector('button.active');
     return active ? active.dataset.status : 'reading';
   }
-  $('rdBookStatusSeg').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => rdSetBookStatusSeg(b.dataset.status)));
+  function rdUpdateRatingSectionVisibility() {
+    $('rdRatingSection').style.display = rdGetBookStatusSeg() === 'finished' ? '' : 'none';
+  }
+  $('rdBookStatusSeg').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
+    rdSetBookStatusSeg(b.dataset.status);
+    rdUpdateRatingSectionVisibility();
+    $('rdBookFormError').textContent = '';
+  }));
   function rdUpdateCoverPreview(url) {
     const img = $('rdCoverPreview'), empty = $('rdCoverPreviewEmpty');
     if (url) { img.src = url; img.style.display = ''; empty.style.display = 'none'; }
     else { img.style.display = 'none'; empty.style.display = ''; }
   }
-  function rdOpenBookModal(id) {
+  // Preloads the top slider/review from the book's last CLOSED read (only
+  // when it's currently finished — an in-progress reread must start blank,
+  // forcing a fresh explicit score once it's closed again).
+  function rdPreloadRatingFields(book) {
+    const lastRead = book ? rdLastRead(book) : null;
+    const preload = (book && book.status === 'finished' && lastRead) ? lastRead : null;
+    rdRatingTouched = !!preload;
+    $('rdRatingSlider').value = preload ? preload.rating : 5;
+    $('rdRatingValue').textContent = preload ? (preload.rating + ' / 10') : '—';
+    $('rdReviewInput').value = preload ? (preload.review || '') : '';
+  }
+  function rdReadEntrySnippet(review) {
+    const text = String(review || '').trim();
+    if (!text) return '<span class="rd-read-entry-noreview">Sin reseña.</span>';
+    return escapeHtml(text.length > 140 ? text.slice(0, 140).trim() + '…' : text);
+  }
+  function rdReadsHistoryHtml(book) {
+    const reads = book.reads || [];
+    return reads.map((r, i) => {
+      if (rdEditingReadEntryId === r.id) {
+        return '<div class="rd-read-entry rd-read-entry-editing" data-read-id="' + r.id + '">' +
+          '<div class="rd-read-entry-head"><span class="rd-read-entry-num">Lectura ' + (i + 1) + '</span></div>' +
+          '<div class="rd-rating-slider-row">' +
+            '<input type="range" min="1" max="10" step="1" class="rd-rating-slider" id="rdEditReadSlider" value="' + r.rating + '">' +
+            '<span class="rd-rating-value" id="rdEditReadValue">' + r.rating + ' / 10</span>' +
+          '</div>' +
+          '<textarea class="hb-input rd-review-textarea" id="rdEditReadReview" maxlength="4000">' + escapeHtml(r.review || '') + '</textarea>' +
+          '<div class="rd-read-entry-actions">' +
+            '<button type="button" class="rd-modal-cancel" data-read-cancel="' + r.id + '">Cancelar</button>' +
+            '<button type="button" class="hb-save-btn" data-read-save="' + r.id + '">Guardar</button>' +
+          '</div>' +
+        '</div>';
+      }
+      if (rdConfirmingDeleteReadId === r.id) {
+        return '<div class="rd-read-entry rd-read-entry-confirm" data-read-id="' + r.id + '">' +
+          '<div class="rd-read-entry-head"><span class="rd-read-entry-num">Lectura ' + (i + 1) + '</span></div>' +
+          '<div class="rd-read-entry-confirm-text">¿Eliminar esta lectura del historial?</div>' +
+          '<div class="rd-read-entry-actions">' +
+            '<button type="button" class="rd-modal-cancel" data-read-cancel-delete="' + r.id + '">Cancelar</button>' +
+            '<button type="button" class="hb-save-btn rd-danger-btn" data-read-confirm-delete="' + r.id + '">Eliminar</button>' +
+          '</div>' +
+        '</div>';
+      }
+      return '<div class="rd-read-entry" data-read-id="' + r.id + '">' +
+        '<div class="rd-read-entry-head">' +
+          '<span class="rd-read-entry-num">Lectura ' + (i + 1) + '</span>' +
+          '<span class="rd-read-entry-rating">' + r.rating + '/10</span>' +
+          '<span class="rd-read-entry-date">' + escapeHtml(r.finishedAt || '') + '</span>' +
+        '</div>' +
+        '<div class="rd-read-entry-review">' + rdReadEntrySnippet(r.review) + '</div>' +
+        '<div class="rd-read-entry-actions">' +
+          '<button type="button" class="rd-icon-btn" data-read-edit="' + r.id + '" title="Editar" aria-label="Editar">✎</button>' +
+          '<button type="button" class="rd-icon-btn rd-danger" data-read-delete="' + r.id + '" title="Eliminar" aria-label="Eliminar">🗑</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+  function rdRenderReadsSection(book) {
+    const hasReads = !!(book && book.reads && book.reads.length);
+    $('rdReadsHistorySection').style.display = hasReads ? '' : 'none';
+    $('rdReadsHistoryList').innerHTML = hasReads ? rdReadsHistoryHtml(book) : '';
+    $('rdRereadBtn').style.display = (book && book.status === 'finished') ? '' : 'none';
+    if (hasReads) rdBindReadsHistoryEvents(book.id);
+  }
+  function rdBindReadsHistoryEvents(bookId) {
+    document.querySelectorAll('#rdReadsHistoryList [data-read-edit]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        rdEditingReadEntryId = btn.dataset.readEdit;
+        rdConfirmingDeleteReadId = null;
+        rdRenderReadsSection(state.reading.books.find((b) => b.id === bookId));
+      });
+    });
+    document.querySelectorAll('#rdReadsHistoryList [data-read-cancel]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        rdEditingReadEntryId = null;
+        rdRenderReadsSection(state.reading.books.find((b) => b.id === bookId));
+      });
+    });
+    document.querySelectorAll('#rdReadsHistoryList [data-read-save]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const book = state.reading.books.find((b) => b.id === bookId);
+        const entry = book && (book.reads || []).find((r) => r.id === btn.dataset.readSave);
+        if (!entry) return;
+        entry.rating = parseInt($('rdEditReadSlider').value, 10);
+        entry.review = $('rdEditReadReview').value.trim();
+        rdEditingReadEntryId = null;
+        persistBookFull(book);
+        renderReading();
+        rdRenderReadsSection(book);
+        rdPreloadRatingFields(book);
+      });
+    });
+    document.querySelectorAll('#rdReadsHistoryList [data-read-delete]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        rdConfirmingDeleteReadId = btn.dataset.readDelete;
+        rdEditingReadEntryId = null;
+        rdRenderReadsSection(state.reading.books.find((b) => b.id === bookId));
+      });
+    });
+    document.querySelectorAll('#rdReadsHistoryList [data-read-cancel-delete]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        rdConfirmingDeleteReadId = null;
+        rdRenderReadsSection(state.reading.books.find((b) => b.id === bookId));
+      });
+    });
+    document.querySelectorAll('#rdReadsHistoryList [data-read-confirm-delete]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const book = state.reading.books.find((b) => b.id === bookId);
+        if (!book) return;
+        book.reads = (book.reads || []).filter((r) => r.id !== btn.dataset.readConfirmDelete);
+        if (book.status === 'finished') { const last = rdLastRead(book); book.finishedAt = last ? last.finishedAt : null; }
+        rdConfirmingDeleteReadId = null;
+        persistBookFull(book);
+        renderReading();
+        rdRenderReadsSection(book);
+        rdPreloadRatingFields(book);
+      });
+    });
+    const editSlider = $('rdEditReadSlider');
+    if (editSlider) editSlider.addEventListener('input', () => { $('rdEditReadValue').textContent = editSlider.value + ' / 10'; });
+  }
+  function rdOpenBookModal(id, forceFinish) {
     rdEditingBookId = id || null;
     rdPendingCoverFile = null;
+    rdEditingReadEntryId = null;
+    rdConfirmingDeleteReadId = null;
     if (rdPendingCoverPreviewUrl) { URL.revokeObjectURL(rdPendingCoverPreviewUrl); rdPendingCoverPreviewUrl = null; }
     const book = id ? state.reading.books.find((b) => b.id === id) : null;
 
@@ -1544,8 +1802,11 @@ body::after {
     $('rdBookDeleteBtn').style.display = book ? '' : 'none';
     $('rdCoverFileInput').value = '';
 
-    rdSetBookStatusSeg(book ? book.status : 'reading');
+    rdSetBookStatusSeg(forceFinish ? 'finished' : (book ? book.status : 'reading'));
     rdUpdateCoverPreview(book ? book.coverUrl : null);
+    rdPreloadRatingFields(book);
+    rdUpdateRatingSectionVisibility();
+    rdRenderReadsSection(book);
 
     $('rdBookModalBg').classList.add('show');
     setTimeout(() => $('rdBookTitleInput').focus(), 0);
@@ -1553,9 +1814,26 @@ body::after {
   function rdCloseBookModal() {
     $('rdBookModalBg').classList.remove('show');
     rdEditingBookId = null;
+    rdEditingReadEntryId = null;
+    rdConfirmingDeleteReadId = null;
   }
   $('rdAddBookBtn').addEventListener('click', () => rdOpenBookModal(null));
   $('rdBookCancelBtn').addEventListener('click', rdCloseBookModal);
+  $('rdRatingSlider').addEventListener('input', () => {
+    rdRatingTouched = true;
+    $('rdRatingValue').textContent = $('rdRatingSlider').value + ' / 10';
+  });
+  $('rdRereadBtn').addEventListener('click', () => {
+    if (!rdEditingBookId) return;
+    const book = state.reading.books.find((b) => b.id === rdEditingBookId);
+    if (!book) return;
+    book.status = 'reading';
+    book.startedAt = todayStr();
+    book.finishedAt = null; // reads[] stays intact — the reread only counts once it's closed again
+    persistBookFull(book);
+    rdCloseBookModal();
+    renderReading();
+  });
   $('rdCoverPickBtn').addEventListener('click', () => $('rdCoverFileInput').click());
   $('rdCoverFileInput').addEventListener('change', () => {
     const file = $('rdCoverFileInput').files[0];
@@ -1583,6 +1861,7 @@ body::after {
     if (!title) { err.textContent = 'El título es obligatorio.'; return; }
     if (!author) { err.textContent = 'El autor es obligatorio.'; return; }
     if (pagesRaw && !(totalPages > 0)) { err.textContent = 'Páginas totales inválido.'; return; }
+    if (status === 'finished' && !rdRatingTouched) { err.textContent = 'Puntuá el libro antes de marcarlo como terminado.'; return; }
 
     const existing = rdEditingBookId ? state.reading.books.find((b) => b.id === rdEditingBookId) : null;
 
@@ -1603,7 +1882,29 @@ body::after {
     const id = rdEditingBookId || rdId('b');
     let startedAt = existing ? existing.startedAt : null;
     if (status === 'reading' && !startedAt) startedAt = todayStr();
-    const finishedAt = status === 'finished' ? todayStr() : null;
+
+    // Closing a NEW read (first finish, or a reread that was 'reading')
+    // appends a reads[] entry; editing an ALREADY-finished book updates its
+    // last entry in place instead of piling up duplicates.
+    let reads = (existing && existing.reads) ? existing.reads.slice() : [];
+    let finishedAt = null;
+    if (status === 'finished') {
+      const rating = parseInt($('rdRatingSlider').value, 10);
+      const review = $('rdReviewInput').value.trim();
+      const wasFinished = !!(existing && existing.status === 'finished');
+      if (wasFinished && reads.length) {
+        const last = reads[reads.length - 1];
+        last.rating = rating;
+        last.review = review;
+        finishedAt = last.finishedAt;
+      } else {
+        // Legacy finished book with no reads yet keeps its original
+        // finishedAt instead of jumping to today just because it's being rated now.
+        const entryFinishedAt = (wasFinished && existing.finishedAt) ? existing.finishedAt : todayStr();
+        reads.push({ id: rdId('r'), rating: rating, review: review, finishedAt: entryFinishedAt, createdAt: Date.now() });
+        finishedAt = entryFinishedAt;
+      }
+    }
 
     const bookData = {
       title: title,
@@ -1613,6 +1914,7 @@ body::after {
       coverUrl: coverUrl,
       startedAt: startedAt,
       finishedAt: finishedAt,
+      reads: reads,
       createdAt: existing ? existing.createdAt : Date.now(),
     };
     if (existing) {
@@ -1657,6 +1959,51 @@ body::after {
     $('rdStatLongestStreak').textContent = 'récord: ' + rdComputeLongestStreak(logsByDate);
     $('rdStatPagesToday').textContent = rdPagesForDate(logsByDate, todayStr());
   }
+  function renderReadingRatings() {
+    const body = $('rdRatingsBody');
+    const rated = rdBooksRated();
+    if (!rated.length) {
+      body.innerHTML = '<div class="rd-ratings-empty">Puntuá tus libros terminados para ver estadísticas.</div>';
+      return;
+    }
+    const y = String(new Date().getFullYear());
+    const ratedThisYear = rated.filter((b) => { const last = rdLastRead(b); return last.finishedAt && last.finishedAt.slice(0, 4) === y; });
+    const overallAvg = rdAverageRating(rated);
+    const dist = rdRatingDistribution(rated);
+    const maxCount = Math.max.apply(null, dist.concat([1]));
+    const bucketLabels = ['1-2', '3-4', '5-6', '7-8', '9-10'];
+
+    const yearMetric = ratedThisYear.length
+      ? '<div class="rd-ratings-metric">' +
+          '<div class="rd-ratings-metric-val">' + rdAverageRating(ratedThisYear).toFixed(1) + '</div>' +
+          '<div class="rd-ratings-metric-label">' + y + '</div>' +
+          '<div class="rd-ratings-metric-sub">' + ratedThisYear.length + ' libro' + (ratedThisYear.length === 1 ? '' : 's') + '</div>' +
+        '</div>'
+      : '<div class="rd-ratings-metric rd-ratings-metric-secondary">' +
+          '<div class="rd-ratings-metric-val">—</div>' +
+          '<div class="rd-ratings-metric-label">' + y + '</div>' +
+          '<div class="rd-ratings-metric-sub">sin datos</div>' +
+        '</div>';
+
+    body.innerHTML =
+      '<div class="rd-ratings-metrics">' +
+        yearMetric +
+        '<div class="rd-ratings-divider"></div>' +
+        '<div class="rd-ratings-metric">' +
+          '<div class="rd-ratings-metric-val">' + overallAvg.toFixed(1) + '</div>' +
+          '<div class="rd-ratings-metric-label">Histórico</div>' +
+          '<div class="rd-ratings-metric-sub">' + rated.length + ' libro' + (rated.length === 1 ? '' : 's') + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="rd-ratings-hist">' +
+        dist.map((count, i) =>
+          '<div class="rd-ratings-hist-col" title="' + count + ' libro' + (count === 1 ? '' : 's') + '">' +
+            '<div class="rd-ratings-hist-bar-track"><div class="rd-ratings-hist-bar" style="height:' + (count ? Math.max(8, (count / maxCount) * 100) : 0) + '%"></div></div>' +
+            '<div class="rd-ratings-hist-label">' + bucketLabels[i] + '</div>' +
+          '</div>'
+        ).join('') +
+      '</div>';
+  }
   function renderReading() {
     renderReadingStats();
     renderReadingGoal();
@@ -1664,6 +2011,7 @@ body::after {
     renderReadingCalendar();
     renderReadingChart();
     renderReadingLibrary();
+    renderReadingRatings();
   }
 
   /* ============================================================
