@@ -320,6 +320,7 @@ body::after {
 }
 .rd-shelf-badge-max { font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.65); }
 .rd-shelf-badge-times { font-size: 9px; font-weight: 700; color: var(--success); margin-left: 2px; padding-left: 4px; border-left: 1px solid rgba(255,255,255,0.22); }
+.rd-shelf-date { font-size: 10px; color: var(--text-tertiary); margin-top: 2px; font-variant-numeric: tabular-nums; }
 
 /* ---------- ratings stats card ---------- */
 .rd-ratings-metrics { display: flex; align-items: flex-end; gap: 22px; margin-bottom: 18px; }
@@ -362,6 +363,8 @@ body::after {
 .rd-rating-slider { flex: 1; height: 28px; accent-color: var(--success); cursor: pointer; }
 .rd-rating-value { font-size: 17px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; min-width: 46px; text-align: right; }
 .rd-review-textarea { min-height: 90px; resize: vertical; padding-top: 10px; padding-bottom: 10px; }
+.rd-date-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.rd-date-row .rd-modal-field { flex: 1; min-width: 130px; margin-bottom: 0; }
 .rd-reads-history-section { margin-top: 4px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08); }
 .rd-reads-list { display: flex; flex-direction: column; gap: 8px; }
 .rd-read-entry { background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 10px 12px; }
@@ -374,6 +377,7 @@ body::after {
 .rd-read-entry-actions { display: flex; gap: 6px; margin-top: 8px; justify-content: flex-end; }
 .rd-read-entry-editing .rd-rating-slider-row { margin-top: 8px; }
 .rd-read-entry-editing .rd-review-textarea { margin-top: 8px; min-height: 70px; }
+.rd-read-entry-editing .rd-date-row { margin-top: 8px; }
 .rd-read-entry-confirm-text { font-size: 12px; color: var(--text-secondary); }
 .rd-read-entry-editing .rd-modal-cancel, .rd-read-entry-confirm .rd-modal-cancel,
 .rd-read-entry-editing .hb-save-btn, .rd-read-entry-confirm .hb-save-btn { flex: none; padding: 7px 14px; font-size: 12px; align-self: auto; }
@@ -613,6 +617,16 @@ body::after {
       <div class="rd-modal-field">
         <span class="hb-field-label">Reseña (opcional)</span>
         <textarea id="rdReviewInput" class="hb-input rd-review-textarea" maxlength="4000" placeholder="¿Qué te pareció el libro?"></textarea>
+      </div>
+      <div class="rd-date-row">
+        <div class="rd-modal-field">
+          <span class="hb-field-label">Empecé (opcional)</span>
+          <input type="date" id="rdReadStartInput" class="hb-input">
+        </div>
+        <div class="rd-modal-field">
+          <span class="hb-field-label">Terminé</span>
+          <input type="date" id="rdReadEndInput" class="hb-input">
+        </div>
       </div>
 
       <div class="rd-reads-history-section" id="rdReadsHistorySection" style="display:none">
@@ -1254,6 +1268,22 @@ body::after {
       return r >= lo && r <= hi;
     }).length);
   }
+  const RD_MONTHS_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  function rdFormatMonthYear(dstr) {
+    if (!dstr) return '';
+    const parts = dstr.split('-').map(Number);
+    if (!parts[0] || !parts[1]) return '';
+    return RD_MONTHS_ES[parts[1] - 1] + ' ' + parts[0];
+  }
+  // Compact "Mes Año – Mes Año" summary for a read's history-list row; falls
+  // back to just the end month when there's no start date, and collapses to
+  // one month when both fall in the same month (avoids "Junio 2024 – Junio 2024").
+  function rdReadDateRange(read) {
+    const end = rdFormatMonthYear(read.finishedAt);
+    const start = rdFormatMonthYear(read.startedAt);
+    if (!start || start === end) return end;
+    return start + ' – ' + end;
+  }
   function rdWeekSeries(logsByDate) { return currentWeekKeys().map((k) => rdPagesForDate(logsByDate, k)); }
   function rdMonthSeries() {
     return last6Months().map((d) => {
@@ -1584,10 +1614,12 @@ body::after {
         (book.reads.length > 1 ? '<span class="rd-shelf-badge-times">' + book.reads.length + '×</span>' : '') +
         '</div>'
       : '';
+    const dateLine = lastRead ? '<div class="rd-shelf-date">' + escapeHtml(rdFormatMonthYear(lastRead.finishedAt)) + '</div>' : '';
     return '<div class="rd-shelf-card" data-edit-book="' + book.id + '">' +
       '<div class="rd-shelf-cover-wrap">' + cover + badge + '</div>' +
       '<div class="rd-shelf-title">' + escapeHtml(book.title) + '</div>' +
       '<div class="rd-shelf-author">' + escapeHtml(book.author || '') + '</div>' +
+      dateLine +
     '</div>';
   }
   // Quick status-select in a library row can't collect a mandatory rating
@@ -1674,6 +1706,16 @@ body::after {
     $('rdRatingValue').textContent = preload ? (preload.rating + ' / 10') : '—';
     $('rdReviewInput').value = preload ? (preload.review || '') : '';
   }
+  // Same "only preload from a CLOSED read" gate as rdPreloadRatingFields.
+  // Otherwise: end defaults to today, start defaults to the book's global
+  // startedAt (set when it entered "Leyendo" — see rdOpenBookModal/reread) —
+  // both stay freely editable either way.
+  function rdPreloadDateFields(book) {
+    const lastRead = book ? rdLastRead(book) : null;
+    const preload = (book && book.status === 'finished' && lastRead) ? lastRead : null;
+    $('rdReadStartInput').value = preload ? (preload.startedAt || '') : ((book && book.startedAt) || '');
+    $('rdReadEndInput').value = preload ? (preload.finishedAt || '') : todayStr();
+  }
   function rdReadEntrySnippet(review) {
     const text = String(review || '').trim();
     if (!text) return '<span class="rd-read-entry-noreview">Sin reseña.</span>';
@@ -1690,6 +1732,11 @@ body::after {
             '<span class="rd-rating-value" id="rdEditReadValue">' + r.rating + ' / 10</span>' +
           '</div>' +
           '<textarea class="hb-input rd-review-textarea" id="rdEditReadReview" maxlength="4000">' + escapeHtml(r.review || '') + '</textarea>' +
+          '<div class="rd-date-row">' +
+            '<div class="rd-modal-field"><span class="hb-field-label">Empecé</span><input type="date" class="hb-input" id="rdEditReadStart" value="' + (r.startedAt || '') + '"></div>' +
+            '<div class="rd-modal-field"><span class="hb-field-label">Terminé</span><input type="date" class="hb-input" id="rdEditReadEnd" value="' + (r.finishedAt || '') + '"></div>' +
+          '</div>' +
+          '<div class="rd-field-error" id="rdEditReadError"></div>' +
           '<div class="rd-read-entry-actions">' +
             '<button type="button" class="rd-modal-cancel" data-read-cancel="' + r.id + '">Cancelar</button>' +
             '<button type="button" class="hb-save-btn" data-read-save="' + r.id + '">Guardar</button>' +
@@ -1710,7 +1757,7 @@ body::after {
         '<div class="rd-read-entry-head">' +
           '<span class="rd-read-entry-num">Lectura ' + (i + 1) + '</span>' +
           '<span class="rd-read-entry-rating">' + r.rating + '/10</span>' +
-          '<span class="rd-read-entry-date">' + escapeHtml(r.finishedAt || '') + '</span>' +
+          '<span class="rd-read-entry-date">' + escapeHtml(rdReadDateRange(r)) + '</span>' +
         '</div>' +
         '<div class="rd-read-entry-review">' + rdReadEntrySnippet(r.review) + '</div>' +
         '<div class="rd-read-entry-actions">' +
@@ -1746,13 +1793,25 @@ body::after {
         const book = state.reading.books.find((b) => b.id === bookId);
         const entry = book && (book.reads || []).find((r) => r.id === btn.dataset.readSave);
         if (!entry) return;
+        const start = $('rdEditReadStart').value || null;
+        const end = $('rdEditReadEnd').value;
+        const errEl = $('rdEditReadError');
+        if (!end) { errEl.textContent = 'Indicá cuándo terminaste el libro.'; return; }
+        if (start && start > end) { errEl.textContent = 'La fecha de inicio no puede ser posterior a la de fin.'; return; }
         entry.rating = parseInt($('rdEditReadSlider').value, 10);
         entry.review = $('rdEditReadReview').value.trim();
+        entry.startedAt = start;
+        entry.finishedAt = end;
+        // Editing any entry (not just the last) can shift book.finishedAt —
+        // rdLastRead always points at the array's tail, so this is a no-op
+        // when the edited entry isn't the most recent one.
+        if (book.status === 'finished') { const last = rdLastRead(book); book.finishedAt = last ? last.finishedAt : null; }
         rdEditingReadEntryId = null;
         persistBookFull(book);
         renderReading();
         rdRenderReadsSection(book);
         rdPreloadRatingFields(book);
+        rdPreloadDateFields(book);
       });
     });
     document.querySelectorAll('#rdReadsHistoryList [data-read-delete]').forEach((btn) => {
@@ -1779,6 +1838,7 @@ body::after {
         renderReading();
         rdRenderReadsSection(book);
         rdPreloadRatingFields(book);
+        rdPreloadDateFields(book);
       });
     });
     const editSlider = $('rdEditReadSlider');
@@ -1805,6 +1865,7 @@ body::after {
     rdSetBookStatusSeg(forceFinish ? 'finished' : (book ? book.status : 'reading'));
     rdUpdateCoverPreview(book ? book.coverUrl : null);
     rdPreloadRatingFields(book);
+    rdPreloadDateFields(book);
     rdUpdateRatingSectionVisibility();
     rdRenderReadsSection(book);
 
@@ -1862,6 +1923,8 @@ body::after {
     if (!author) { err.textContent = 'El autor es obligatorio.'; return; }
     if (pagesRaw && !(totalPages > 0)) { err.textContent = 'Páginas totales inválido.'; return; }
     if (status === 'finished' && !rdRatingTouched) { err.textContent = 'Puntuá el libro antes de marcarlo como terminado.'; return; }
+    if (status === 'finished' && !$('rdReadEndInput').value) { err.textContent = 'Indicá cuándo terminaste el libro.'; return; }
+    if (status === 'finished' && $('rdReadStartInput').value && $('rdReadStartInput').value > $('rdReadEndInput').value) { err.textContent = 'La fecha de inicio no puede ser posterior a la de fin.'; return; }
 
     const existing = rdEditingBookId ? state.reading.books.find((b) => b.id === rdEditingBookId) : null;
 
@@ -1891,19 +1954,22 @@ body::after {
     if (status === 'finished') {
       const rating = parseInt($('rdRatingSlider').value, 10);
       const review = $('rdReviewInput').value.trim();
+      const readStart = $('rdReadStartInput').value || null;
+      const readEnd = $('rdReadEndInput').value;
       const wasFinished = !!(existing && existing.status === 'finished');
       if (wasFinished && reads.length) {
         const last = reads[reads.length - 1];
         last.rating = rating;
         last.review = review;
-        finishedAt = last.finishedAt;
+        last.startedAt = readStart;
+        last.finishedAt = readEnd;
       } else {
-        // Legacy finished book with no reads yet keeps its original
-        // finishedAt instead of jumping to today just because it's being rated now.
-        const entryFinishedAt = (wasFinished && existing.finishedAt) ? existing.finishedAt : todayStr();
-        reads.push({ id: rdId('r'), rating: rating, review: review, finishedAt: entryFinishedAt, createdAt: Date.now() });
-        finishedAt = entryFinishedAt;
+        reads.push({ id: rdId('r'), rating: rating, review: review, startedAt: readStart, finishedAt: readEnd, createdAt: Date.now() });
       }
+      finishedAt = readEnd;
+      // The per-read startedAt now owns this date — clear the book-level
+      // "currently reading since" marker so the next reread starts fresh.
+      startedAt = null;
     }
 
     const bookData = {
