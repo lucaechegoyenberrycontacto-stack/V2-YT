@@ -36,6 +36,9 @@
   --rice-red-glow:   rgba(180,18,26,0.35);
   --rice-red-border: rgba(180,18,26,0.28);
   --rice-red-border-strong: rgba(180,18,26,0.5);
+  --rice-red-wash:   rgba(180,18,26,0.14);
+
+  --danger: #FF6B6B;
 
   --text-primary:   #EDEDED;
   --text-secondary: #9A9A9E;
@@ -513,6 +516,331 @@ body.rice-boot .rice-stagger {
   .proc-body { padding: 12px; }
   .tk-add-extra { grid-template-columns: 1fr; }
 }
+
+/* ==========================================================================
+   CALENDAR SECTION — ported verbatim from the standalone calendar.html
+   (same page family, so the shared primitives above — hud-led, hud-corner,
+   rice-stagger, proc-win/-head/-name/-trace/-glyph/-meta/-body, hidden —
+   are reused as-is; only calendar-specific selectors are new below).
+
+   One deliberate change from the standalone page: the accent-color picker
+   used to write --rice-red (there: --cal-accent) onto <html>, repainting
+   the WHOLE page. Now that this section shares a page with task.manager
+   (always solid red, no picker), that global write would also recolor
+   the tasks module above it — so applyAccent() now scopes its five
+   custom-property writes to #calendarSection instead of documentElement.
+   CSS custom properties inherit down the DOM tree regardless of the
+   fixed-position popover/modals' visual position, so this is invisible
+   to anything inside #calendarSection and inert to anything outside it.
+   PHASE 1 SCOPE unchanged: Month view is fully built; Day/Week/Year are
+   wired into the switcher but render a "phase 2" placeholder.
+   ========================================================================== */
+#calendarSection { margin-top: 24px; }
+
+.cal-shell { max-width: 1520px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--rice-gutter); }
+
+.cal-header { display: flex; flex-direction: column; gap: 8px; padding: 0 2px; }
+.cal-header-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.cal-title-block { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.cal-drawer-btn {
+  display: none; width: 30px; height: 30px; flex-shrink: 0;
+  align-items: center; justify-content: center;
+  border: 1px solid var(--rice-border); background: var(--rice-panel); color: var(--text-secondary);
+  border-radius: var(--rice-radius); cursor: pointer; font-size: 13px;
+}
+.cal-title { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: 0.04em; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-title-dim { color: var(--text-tertiary); font-weight: 500; }
+
+.cal-header-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.cal-icon-btn {
+  width: 32px; height: 32px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--rice-border); background: var(--rice-panel); color: var(--text-secondary);
+  border-radius: var(--rice-radius); cursor: pointer; font-size: 15px;
+  transition: border-color 0.15s var(--ease-rice), color 0.15s var(--ease-rice), background 0.15s var(--ease-rice);
+}
+.cal-icon-btn:hover { border-color: var(--rice-red-border-strong); color: var(--text-primary); background: rgba(255,255,255,0.06); }
+.cal-new-btn {
+  padding: 8px 14px;
+  border: 1px solid var(--rice-red-border-strong); border-radius: var(--rice-radius);
+  background: var(--rice-red-wash); color: var(--text-primary);
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  cursor: pointer; white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+.cal-new-btn:hover { background: var(--rice-red-border); border-color: var(--rice-red); }
+.cal-new-btn:active { transform: translateY(1px); }
+
+.cal-header-bottom { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.cal-nav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cal-nav-btn {
+  width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--rice-border); background: var(--rice-panel); color: var(--text-secondary);
+  border-radius: var(--rice-radius); cursor: pointer; font-size: 14px;
+  transition: border-color 0.15s, color 0.15s;
+}
+.cal-nav-btn:hover { border-color: var(--rice-red-border-strong); color: var(--text-primary); }
+.cal-today-btn {
+  padding: 7px 12px;
+  border: 1px solid var(--rice-border); background: var(--rice-panel); color: var(--text-secondary);
+  border-radius: var(--rice-radius); cursor: pointer;
+  font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  transition: border-color 0.15s, color 0.15s;
+}
+.cal-today-btn:hover { border-color: var(--rice-red-border-strong); color: var(--text-primary); }
+.cal-period-label { margin-left: 2px; font-size: 13px; font-weight: 600; color: var(--text-primary); letter-spacing: 0.02em; white-space: nowrap; }
+
+.cal-view-seg { display: inline-flex; border: 1px solid var(--rice-border); border-radius: var(--rice-radius); overflow: hidden; flex-shrink: 0; }
+.cal-seg-btn {
+  border: 0; background: transparent; color: var(--text-tertiary);
+  font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 8px 13px; cursor: pointer; transition: background 0.15s, color 0.15s;
+}
+.cal-seg-btn.active { background: var(--rice-red-border); color: var(--text-primary); }
+.cal-seg-btn:hover:not(.active) { color: var(--text-secondary); background: rgba(255,255,255,0.04); }
+
+/* ---- accent picker popover — top-level child of #calendarSection (not
+   nested under .cal-header) for the same stacking-context reason every
+   other rice-stagger panel in this file avoids nesting popovers: the
+   boot-cascade animation leaves a residual transform on its element,
+   which quietly starts a new stacking context that would trap this
+   popover's z-index below .cal-main (a later, also-transformed sibling). ---- */
+.cal-popover-backdrop { display: none; }
+.cal-popover-backdrop.show { display: block; position: fixed; inset: 0; z-index: 118; }
+.cal-accent-popover {
+  display: none; position: fixed; z-index: 119;
+  width: 190px; background: var(--rice-black-2); border: 1px solid var(--rice-border); border-radius: var(--rice-radius);
+  box-shadow: 0 16px 50px rgba(0,0,0,0.55); padding: 12px;
+}
+.cal-accent-popover.show { display: block; }
+.cal-popover-head { font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 10px; }
+.cal-accent-swatches { display: flex; gap: 9px; flex-wrap: wrap; }
+.cal-accent-swatch {
+  width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent;
+  background: var(--sw-color); cursor: pointer; padding: 0;
+  transition: transform 0.12s var(--ease-rice), border-color 0.15s;
+}
+.cal-accent-swatch:hover { transform: scale(1.08); }
+.cal-accent-swatch.active { border-color: var(--text-primary); transform: scale(1.14); }
+
+/* ---- body layout: sidebar + main ---- */
+.cal-body { display: flex; align-items: flex-start; gap: var(--rice-gutter); min-height: 0; }
+
+.cal-sidebar { width: 232px; flex-shrink: 0; }
+.cal-sidebar-body { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; max-height: calc(100vh - 220px); }
+.cal-cal-list { display: flex; flex-direction: column; gap: 2px; }
+.cal-cal-row { display: flex; align-items: center; gap: 9px; padding: 7px 6px; border-radius: var(--rice-radius); transition: background 0.15s; }
+.cal-cal-row:hover { background: rgba(255,255,255,0.04); }
+.cal-cal-dot { width: 12px; height: 12px; border-radius: 3px; border: 0; flex-shrink: 0; cursor: pointer; padding: 0; }
+.cal-cal-name { flex: 1; min-width: 0; font-size: 12px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; background: none; border: 0; text-align: left; font-family: var(--font-mono); padding: 0; }
+
+.cal-check {
+  appearance: none; -webkit-appearance: none;
+  width: 15px; height: 15px; flex-shrink: 0;
+  border: 1px solid var(--rice-border-2); background: rgba(0,0,0,0.3); border-radius: 2px;
+  position: relative; cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+.cal-check:checked { background: var(--rice-red-border); border-color: var(--rice-red); }
+.cal-check:checked::after {
+  content: '✓'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 10px; color: var(--rice-red);
+}
+
+.cal-add-cal-btn {
+  width: 100%; padding: 8px;
+  border: 1px dashed var(--rice-border-2); border-radius: var(--rice-radius);
+  background: transparent; color: var(--text-tertiary);
+  font-family: var(--font-mono); font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  cursor: pointer; transition: color 0.2s, border-color 0.2s;
+}
+.cal-add-cal-btn:hover { color: var(--text-primary); border-color: var(--rice-red-border-strong); }
+
+.cal-sidebar-sep { height: 1px; background: var(--rice-border); margin: 2px 0; }
+.cal-task-toggle-row { display: flex; align-items: center; gap: 9px; padding: 7px 6px; font-size: 10.5px; color: var(--text-tertiary); letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; }
+
+.cal-drawer-backdrop { display: none; }
+
+.cal-main { flex: 1; min-width: 0; min-height: 620px; }
+.cal-view-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.cal-loading-msg { text-align: center; font-size: 11.5px; color: var(--text-tertiary); padding: 60px 0; font-family: var(--font-mono); flex: 1; }
+
+/* ---- month grid ---- */
+.cal-month-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr); grid-auto-rows: minmax(92px, 1fr);
+  gap: 1px; background: var(--rice-border); border: 1px solid var(--rice-border);
+  flex: 1;
+}
+.cal-month-dow {
+  background: rgba(255,255,255,0.03); padding: 6px 8px;
+  font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-tertiary);
+}
+.cal-day-cell {
+  background: var(--rice-black-2); padding: 5px 6px 6px;
+  display: flex; flex-direction: column; gap: 3px;
+  cursor: pointer; position: relative; min-width: 0;
+  transition: background 0.15s;
+}
+.cal-day-cell:hover { background: rgba(255,255,255,0.035); }
+.cal-day-cell.cal-day-other { background: rgba(0,0,0,0.4); }
+.cal-day-cell.cal-day-other .cal-day-num { color: var(--text-ambient); }
+.cal-day-cell.cal-drop-target { background: var(--rice-red-wash); box-shadow: inset 0 0 0 1px var(--rice-red-border-strong); }
+.cal-day-num {
+  width: 20px; height: 20px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600; color: var(--text-secondary); font-variant-numeric: tabular-nums;
+}
+.cal-day-cell.cal-day-today .cal-day-num { color: var(--rice-black-2); background: var(--rice-red); border-radius: 50%; font-weight: 700; }
+.cal-day-pills { display: flex; flex-direction: column; gap: 2px; min-height: 0; overflow: hidden; flex: 1; }
+
+.cal-pill {
+  display: flex; align-items: center; gap: 4px;
+  padding: 2px 5px; border-radius: 2px; border-left: 2px solid var(--pill-color, var(--text-tertiary));
+  font-size: 9.5px; line-height: 1.6; color: var(--text-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  cursor: pointer; transition: filter 0.12s;
+}
+.cal-pill:hover { filter: brightness(1.2); }
+.cal-pill-time { font-variant-numeric: tabular-nums; opacity: 0.85; flex-shrink: 0; }
+.cal-pill-title { overflow: hidden; text-overflow: ellipsis; }
+.cal-pill.cal-dragging { opacity: 0.35; }
+
+.cal-pill-task { background: rgba(255,255,255,0.045); border-left-color: var(--text-tertiary); }
+.cal-pill-task .cal-pill-check { flex-shrink: 0; color: var(--rice-red-dim); font-weight: 700; }
+.cal-pill-task.cal-pill-task-done { opacity: 0.55; }
+.cal-pill-task.cal-pill-task-done .cal-pill-title { text-decoration: line-through; text-decoration-color: var(--text-tertiary); }
+.cal-pill-task.cal-pill-task-done .cal-pill-check { color: var(--success); }
+
+.cal-day-more {
+  align-self: flex-start; margin-top: 1px;
+  border: 0; background: transparent; color: var(--text-tertiary);
+  font-family: var(--font-mono); font-size: 9px; font-weight: 600; letter-spacing: 0.03em;
+  cursor: pointer; padding: 0;
+}
+.cal-day-more:hover { color: var(--text-primary); }
+
+/* ---- placeholder — week/day/year (phase 2) ---- */
+.cal-placeholder { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 40px 20px; text-align: center; }
+.cal-placeholder-glyph { font-size: 11px; letter-spacing: 0.14em; color: var(--rice-red-dim); text-transform: uppercase; }
+.cal-placeholder-msg { font-size: 11.5px; color: var(--text-tertiary); line-height: 1.7; max-width: 360px; }
+.cal-placeholder-msg b { color: var(--text-secondary); }
+
+/* ---- modals — event form, calendar form, day detail ---- */
+.modal-bg {
+  position: fixed; inset: 0; z-index: 120; display: none;
+  align-items: center; justify-content: center; padding: 20px;
+  background: rgba(0,0,0,0.65); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+.modal-bg.show { display: flex; }
+.modal { width: 100%; max-width: 440px; max-height: 88vh; overflow-y: auto; background: var(--rice-black-2); border: 1px solid var(--rice-border); border-radius: var(--rice-radius); box-shadow: 0 24px 70px rgba(0,0,0,0.6); }
+.modal-head { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--rice-border); background: rgba(255,255,255,0.022); }
+.modal-title { flex: 1; min-width: 0; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.modal-meta { flex-shrink: 0; font-size: 8.5px; letter-spacing: 0.08em; color: var(--text-tertiary); }
+.modal-close { border: 1px solid var(--rice-border); background: transparent; color: var(--text-tertiary); font-family: var(--font-mono); font-size: 11px; line-height: 1; cursor: pointer; padding: 4px 8px; border-radius: var(--rice-radius); transition: border-color 0.15s, color 0.15s; }
+.modal-close:hover { border-color: var(--rice-red-border-strong); color: var(--text-primary); }
+.modal-body { padding: 16px; }
+
+.field { margin-bottom: 14px; }
+.field-label { font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 7px; display: block; }
+.field-label::before { content: '// '; color: var(--rice-red-dim); }
+.field-row { display: flex; gap: 8px; align-items: center; }
+.set-input {
+  flex: 1; min-width: 0; padding: 10px 12px;
+  border: 1px solid var(--rice-border); border-radius: var(--rice-radius);
+  background: rgba(0,0,0,0.35); color: var(--text-primary);
+  font-family: var(--font-mono); font-size: 13px; outline: none; transition: border-color 0.2s;
+}
+.set-input:focus { border-color: var(--rice-red-border-strong); }
+.set-input::placeholder { color: var(--text-tertiary); }
+.set-input[type="date"], .set-input[type="time"] { color-scheme: dark; }
+.cal-time-input { flex: 0 0 auto; width: 104px; }
+.cal-textarea { resize: vertical; font-family: var(--font-mono); line-height: 1.5; min-height: 60px; }
+
+.cal-field-row-between { display: flex; align-items: center; justify-content: space-between; }
+.cal-switch { width: 38px; height: 22px; border-radius: 11px; border: 1px solid var(--rice-border-2); background: rgba(0,0,0,0.35); position: relative; cursor: pointer; transition: background 0.2s, border-color 0.2s; flex-shrink: 0; padding: 0; }
+.cal-switch-knob { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--text-tertiary); transition: transform 0.2s var(--ease-rice), background 0.2s; }
+.cal-switch.on { border-color: var(--rice-red-border-strong); background: var(--rice-red-border); }
+.cal-switch.on .cal-switch-knob { transform: translateX(16px); background: var(--rice-red); }
+
+.cal-select-swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.cal-select-swatch {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 10px; border: 1px solid var(--rice-border); border-radius: var(--rice-radius);
+  background: rgba(255,255,255,0.02); color: var(--text-secondary);
+  font-family: var(--font-mono); font-size: 11px; cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.cal-select-swatch::before { content: ''; width: 8px; height: 8px; border-radius: 2px; background: var(--sw-color); flex-shrink: 0; }
+.cal-select-swatch.active { border-color: var(--sw-color); color: var(--text-primary); background: rgba(255,255,255,0.05); }
+
+.cal-color-swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.cal-color-swatch { width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; transition: transform 0.12s, border-color 0.15s; }
+.cal-color-swatch.active { border-color: var(--text-primary); transform: scale(1.12); }
+
+.cal-modal-actions { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+.cal-modal-actions-right { display: flex; gap: 8px; margin-left: auto; }
+.cal-delete-btn {
+  border: 1px solid rgba(255,107,107,0.35); background: transparent; color: var(--text-tertiary);
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+  padding: 9px 12px; border-radius: var(--rice-radius); cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.cal-delete-btn:hover { color: var(--danger); border-color: var(--danger); background: rgba(255,107,107,0.08); }
+.cal-cancel-btn {
+  border: 1px solid var(--rice-border); background: transparent; color: var(--text-tertiary);
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+  padding: 9px 14px; border-radius: var(--rice-radius); cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.cal-cancel-btn:hover { color: var(--text-primary); border-color: var(--rice-border-2); }
+.set-save {
+  padding: 9px 16px; border: 1px solid var(--rice-red-border-strong); border-radius: var(--rice-radius);
+  background: var(--rice-red-border); color: var(--text-primary);
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  cursor: pointer; transition: background 0.15s;
+}
+.set-save:hover { background: var(--rice-red-glow); }
+
+.cal-day-modal-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; max-height: 50vh; overflow-y: auto; }
+.cal-day-modal-list .cal-pill { white-space: normal; font-size: 12px; padding: 8px 10px; }
+.cal-empty-note { text-align: center; font-size: 11.5px; color: var(--text-tertiary); padding: 20px 0; }
+.cal-day-modal-new { width: 100%; }
+
+/* ---- calendar responsive ---- */
+@media (max-width: 1180px) { .cal-sidebar { width: 202px; } }
+
+@media (max-width: 900px) {
+  .cal-body { flex-direction: column; }
+  .cal-drawer-btn { display: inline-flex; }
+  /* Standalone `translate` (not `transform`) on purpose — same reason as
+     the boot-cascade note above: .cal-sidebar is also a .rice-stagger
+     panel, whose animation permanently owns `transform` (translateY(0))
+     once it ends. `translate` composes independently and isn't touched. */
+  .cal-sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0; width: 264px; z-index: 110;
+    translate: -100% 0; transition: translate 0.25s var(--ease-rice);
+    border-radius: 0; padding-top: env(safe-area-inset-top);
+  }
+  .cal-sidebar.cal-drawer-open { translate: 0 0; }
+  .cal-sidebar-body { max-height: none; height: 100%; }
+  .cal-drawer-backdrop.show { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 105; }
+}
+
+@media (max-width: 640px) {
+  .cal-month-grid { grid-auto-rows: minmax(56px, 1fr); }
+  .cal-day-num { font-size: 9.5px; width: 16px; height: 16px; }
+  .cal-pill { font-size: 8.5px; padding: 1px 3px; }
+  .cal-pill-time { display: none; }
+  .cal-title { font-size: 13px; }
+  .cal-new-btn { padding: 7px 10px; font-size: 9px; }
+  .cal-period-label { font-size: 11px; }
+  .cal-main { min-height: 0; }
+}
+
+@media (max-width: 480px) {
+  .cal-month-dow { font-size: 7.5px; padding: 4px 2px; }
+  .cal-day-cell { padding: 3px 3px 4px; }
+}
 </style>
 </head>
 <body>
@@ -611,6 +939,201 @@ body.rice-boot .rice-stagger {
   </div>
 
 </div>
+
+<div id="calendarSection">
+  <div class="cal-shell">
+
+    <div class="cal-header rice-stagger" style="--i:4">
+      <div class="cal-header-top">
+        <div class="cal-title-block">
+          <button class="cal-drawer-btn" id="calDrawerBtn" type="button" aria-label="Toggle calendars panel">☰</button>
+          <span class="hud-led" aria-hidden="true"></span>
+          <h1 class="cal-title">&gt; CALENDAR <span class="cal-title-dim">// LUCA</span></h1>
+        </div>
+        <div class="cal-header-actions">
+          <button class="cal-icon-btn" id="calAccentBtn" type="button" aria-label="Accent color" title="Accent color">◐</button>
+          <button class="cal-new-btn" id="calNewEventBtn" type="button">+ New event</button>
+        </div>
+      </div>
+      <div class="cal-header-bottom">
+        <div class="cal-nav">
+          <button class="cal-nav-btn" id="calPrevBtn" type="button" aria-label="Previous month">‹</button>
+          <button class="cal-today-btn" id="calTodayBtn" type="button">Today</button>
+          <button class="cal-nav-btn" id="calNextBtn" type="button" aria-label="Next month">›</button>
+          <span class="cal-period-label" id="calPeriodLabel">—</span>
+        </div>
+        <div class="cal-view-seg" id="calViewSeg" role="group" aria-label="View">
+          <button type="button" class="cal-seg-btn" data-view="day">Day</button>
+          <button type="button" class="cal-seg-btn" data-view="week">Week</button>
+          <button type="button" class="cal-seg-btn active" data-view="month">Month</button>
+          <button type="button" class="cal-seg-btn" data-view="year">Year</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="cal-body">
+      <aside class="cal-sidebar proc-win proc-win--data rice-stagger" style="--i:5" id="calSidebar" data-proc>
+        <div class="proc-head">
+          <span class="hud-led" aria-hidden="true"></span>
+          <span class="proc-name">calendars.list</span>
+          <span class="proc-meta" id="calSidebarMeta">0</span>
+        </div>
+        <div class="proc-body cal-sidebar-body">
+          <div class="cal-cal-list" id="calList"></div>
+          <button class="cal-add-cal-btn" id="calAddCalBtn" type="button">+ New calendar</button>
+          <div class="cal-sidebar-sep"></div>
+          <label class="cal-task-toggle-row">
+            <input type="checkbox" id="calShowTasksToggle" class="cal-check" checked>
+            <span>Tasks</span>
+          </label>
+        </div>
+      </aside>
+      <div class="cal-drawer-backdrop" id="calDrawerBackdrop"></div>
+
+      <main class="cal-main proc-win proc-win--data rice-stagger" style="--i:6" id="calMainWin" data-proc>
+        <div class="proc-head">
+          <span class="hud-led" aria-hidden="true"></span>
+          <span class="proc-name" id="calViewProcName">month.grid</span>
+          <svg class="proc-trace" viewBox="0 0 28 14" aria-hidden="true"><path d="M1 7 H10 V2 H27"></path><circle cx="27" cy="2" r="1.6"></circle></svg>
+          <span class="proc-meta" id="calViewMeta">—</span>
+        </div>
+        <span class="hud-corner tl" aria-hidden="true"></span>
+        <span class="hud-corner tr" aria-hidden="true"></span>
+        <span class="hud-corner bl" aria-hidden="true"></span>
+        <span class="hud-corner br" aria-hidden="true"></span>
+        <div class="proc-body cal-view-body" id="calViewBody">
+          <div class="cal-loading-msg">Loading calendar…</div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- accent color popover — top-level child of #calendarSection, not
+       nested under .cal-header; see the CSS comment above .cal-popover-backdrop. -->
+  <div class="cal-popover-backdrop" id="calAccentBackdrop"></div>
+  <div class="cal-accent-popover" id="calAccentPopover">
+    <div class="cal-popover-head">// Accent color</div>
+    <div class="cal-accent-swatches" id="calAccentSwatches"></div>
+  </div>
+
+  <!-- event.new / event.edit -->
+  <div class="modal-bg" id="calEventModalBg">
+    <div class="modal cal-modal" role="dialog" aria-label="Event">
+      <div class="modal-head">
+        <span class="hud-led" aria-hidden="true"></span>
+        <span class="modal-title" id="calEventModalTitle">event.new</span>
+        <span class="modal-meta" id="calEventModalMeta">NEW</span>
+        <button class="modal-close" id="calEventModalClose" type="button" aria-label="Close">[x]</button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label class="field-label">Title</label>
+          <input class="set-input" id="calEvTitle" type="text" placeholder="Event title" autocomplete="off">
+        </div>
+        <div class="field">
+          <label class="field-label">Calendar</label>
+          <div class="cal-select-swatches" id="calEvCalendarSelect"></div>
+        </div>
+        <div class="field cal-field-row-between">
+          <label class="field-label" style="margin-bottom:0">All day</label>
+          <button type="button" class="cal-switch" id="calEvAllDay" role="switch" aria-checked="false"><span class="cal-switch-knob"></span></button>
+        </div>
+        <div class="field">
+          <label class="field-label">Starts</label>
+          <div class="field-row">
+            <input class="set-input" id="calEvStartDate" type="date">
+            <input class="set-input cal-time-input" id="calEvStartTime" type="time">
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label">Ends</label>
+          <div class="field-row">
+            <input class="set-input" id="calEvEndDate" type="date">
+            <input class="set-input cal-time-input" id="calEvEndTime" type="time">
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label">Notes</label>
+          <textarea class="set-input cal-textarea" id="calEvNotes" rows="3" placeholder="optional"></textarea>
+        </div>
+        <div class="cal-modal-actions">
+          <button class="cal-delete-btn hidden" id="calEvDeleteBtn" type="button">Delete</button>
+          <div class="cal-modal-actions-right">
+            <button class="cal-cancel-btn" id="calEvCancelBtn" type="button">Cancel</button>
+            <button class="set-save" id="calEvSaveBtn" type="button">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- calendar.new / calendar.edit -->
+  <div class="modal-bg" id="calCalModalBg">
+    <div class="modal cal-modal" role="dialog" aria-label="Calendar">
+      <div class="modal-head">
+        <span class="hud-led" aria-hidden="true"></span>
+        <span class="modal-title" id="calCalModalTitle">calendar.new</span>
+        <button class="modal-close" id="calCalModalClose" type="button" aria-label="Close">[x]</button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label class="field-label">Name</label>
+          <input class="set-input" id="calCalName" type="text" placeholder="Calendar name" autocomplete="off">
+        </div>
+        <div class="field">
+          <label class="field-label">Color</label>
+          <div class="cal-color-swatches" id="calCalColorSwatches"></div>
+        </div>
+        <div class="cal-modal-actions">
+          <button class="cal-delete-btn hidden" id="calCalDeleteBtn" type="button">Delete</button>
+          <div class="cal-modal-actions-right">
+            <button class="cal-cancel-btn" id="calCalCancelBtn" type="button">Cancel</button>
+            <button class="set-save" id="calCalSaveBtn" type="button">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- day.detail -->
+  <div class="modal-bg" id="calDayModalBg">
+    <div class="modal cal-modal" role="dialog" aria-label="Day detail">
+      <div class="modal-head">
+        <span class="hud-led" aria-hidden="true"></span>
+        <span class="modal-title" id="calDayModalTitle">day.detail</span>
+        <button class="modal-close" id="calDayModalClose" type="button" aria-label="Close">[x]</button>
+      </div>
+      <div class="modal-body">
+        <div class="cal-day-modal-list" id="calDayModalList"></div>
+        <button class="cal-new-btn cal-day-modal-new" id="calDayModalNewBtn" type="button">+ New event this day</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ==========================================================================
+   SHARED DATALAYER BOOT — this page now hosts two independently-authored
+   modules (task.manager below, and the calendar section) that were each
+   originally written for their own standalone page and so each called
+   DataLayer.init({requireAuth:true}) on their own. Calling init() twice on
+   one page is wasteful (a second Supabase client instance + a second 30s
+   queue-flush timer that never actually gets used) — this single call
+   replaces both; task.manager's and the calendar's own boot sequences
+   (otherwise unchanged) just await this shared promise instead of calling
+   init() themselves.
+   ========================================================================== */
+(function () {
+  'use strict';
+  window.__dlSessionPromise = new Promise(function (resolve) {
+    document.addEventListener('DOMContentLoaded', async function () {
+      if (typeof DataLayer === 'undefined') { resolve(null); return; }
+      const session = await DataLayer.init({ requireAuth: true });
+      resolve(session);
+    });
+  });
+})();
+</script>
 
 <script>
 (function () {
@@ -1100,7 +1623,7 @@ body.rice-boot .rice-stagger {
   // ============================================================
   document.addEventListener('DOMContentLoaded', async function initTasksDataLayer() {
     if (typeof DataLayer === 'undefined') return;
-    const session = await DataLayer.init({ requireAuth: true });
+    const session = await window.__dlSessionPromise; // shared boot — see script above task.manager's markup
     if (!session) return; // redirected to login.html
 
     await migrateGoalsToTasksIfNeeded();
@@ -1136,9 +1659,633 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
 
 <script>
+(function () {
+  'use strict';
+
+  // ---------- accent + calendar color palettes ----------
+  var ACCENTS = { red: '#B4121A', cyan: '#1596A0', amber: '#C98A2E', green: '#3F9D68', violet: '#7B5EC9' };
+  var CAL_COLORS = ['#B4121A', '#3B82F6', '#4FAE7C', '#C98A2E', '#7B5EC9', '#1596A0', '#D6606D', '#8A8F98'];
+  var DOW_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  var MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  var DOW_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  // ---------- state ----------
+  var dlReady = false;
+  var calendarsCache = [];
+  var eventsCache = [];
+  var tasksCache = [];
+  var currentView = 'month';
+  var viewAnchor = new Date(); viewAnchor.setHours(0, 0, 0, 0);
+  var currentAccentKey = 'red';
+  var uiState = { view: 'month', colorAccent: 'red', showTasks: true };
+  var showTasks = true;
+  var editingEventId = null;
+  var editingCalendarId = null;
+
+  var CAL_SEED_LS_FLAG = 'calendars_seeded_v1';
+
+  // ---------- id generators ----------
+  function genEventId() { return 'e_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8); }
+  function genCalId() { return 'c_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8); }
+
+  // ---------- date helpers (plain local calendar dates, same convention as main.html's tasks) ----------
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  function dateKey(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+  function todayKey() { return dateKey(new Date()); }
+  function parseDateKey(key) { var p = key.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); }
+  function eventDateOnly(str) { return (typeof str === 'string' && str.length >= 10) ? str.slice(0, 10) : null; }
+  function eventTimeOnly(str) { return (typeof str === 'string' && str.length > 10) ? str.slice(11, 16) : null; }
+  function combineDateTime(dateStr, timeStr) { return dateStr + 'T' + (timeStr || '00:00'); }
+  function fmtMonthYear(d) { return MONTH_NAMES[d.getMonth()] + ' ' + d.getFullYear(); }
+  function fmtHumanDate(key) {
+    if (!key) return '—';
+    if (key === todayKey()) return 'Today';
+    var t = new Date(); t.setDate(t.getDate() + 1);
+    if (key === dateKey(t)) return 'Tomorrow';
+    var d = parseDateKey(key);
+    return DOW_SHORT[d.getDay()] + ' ' + d.getDate() + ' ' + MONTH_NAMES[d.getMonth()].slice(0, 3);
+  }
+
+  // ---------- accent color application (scoped to #calendarSection — see the
+  // CSS comment above .cal-shell for why this doesn't write to <html>) ----------
+  function hexToRgb(hex) {
+    hex = hex.replace('#', '');
+    return { r: parseInt(hex.slice(0, 2), 16), g: parseInt(hex.slice(2, 4), 16), b: parseInt(hex.slice(4, 6), 16) };
+  }
+  function darken(hex, factor) {
+    var c = hexToRgb(hex);
+    function d(v) { return Math.max(0, Math.round(v * factor)).toString(16).padStart(2, '0'); }
+    return '#' + d(c.r) + d(c.g) + d(c.b);
+  }
+  function applyAccent(key) {
+    var hex = ACCENTS[key] || ACCENTS.red;
+    var c = hexToRgb(hex);
+    var root = document.getElementById('calendarSection').style;
+    root.setProperty('--rice-red', hex);
+    root.setProperty('--rice-red-dim', darken(hex, 0.62));
+    root.setProperty('--rice-red-glow', 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',0.35)');
+    root.setProperty('--rice-red-border', 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',0.28)');
+    root.setProperty('--rice-red-border-strong', 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',0.5)');
+    root.setProperty('--rice-red-wash', 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',0.14)');
+    currentAccentKey = key;
+    document.querySelectorAll('#calAccentSwatches .cal-accent-swatch').forEach(function (el) {
+      el.classList.toggle('active', el.dataset.key === key);
+    });
+  }
+  function buildAccentSwatches() {
+    var wrap = document.getElementById('calAccentSwatches');
+    wrap.innerHTML = '';
+    Object.keys(ACCENTS).forEach(function (key) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'cal-accent-swatch' + (key === currentAccentKey ? ' active' : '');
+      b.style.setProperty('--sw-color', ACCENTS[key]);
+      b.dataset.key = key; b.title = key; b.setAttribute('aria-label', key + ' accent');
+      b.addEventListener('click', function () {
+        applyAccent(key);
+        uiState.colorAccent = key;
+        persistUi();
+        closeAccentPopover();
+      });
+      wrap.appendChild(b);
+    });
+  }
+  function persistUi() { if (dlReady) DataLayer.putSingleton('calendar_ui', uiState); }
+
+  // ---------- seed default calendars (one-shot, idempotent, defensive — same idiom as main.html's tasks migration) ----------
+  async function seedDefaultCalendarsIfNeeded() {
+    try {
+      if (localStorage.getItem(CAL_SEED_LS_FLAG) === '1') return;
+      var flag = await DataLayer.getSingleton('calendars_seed');
+      if (flag && flag.done) { localStorage.setItem(CAL_SEED_LS_FLAG, '1'); return; }
+      var existing = await DataLayer.list('calendars');
+      if (!existing.length) {
+        var defaults = [
+          { name: 'Personal', color: '#B4121A', visible: true },
+          { name: 'Gym', color: '#4FAE7C', visible: true },
+          { name: 'Work', color: '#3B82F6', visible: true },
+        ];
+        for (var i = 0; i < defaults.length; i++) { await DataLayer.put('calendars', genCalId(), defaults[i]); }
+      }
+      await DataLayer.putSingleton('calendars_seed', { done: true, at: Date.now() });
+      localStorage.setItem(CAL_SEED_LS_FLAG, '1');
+    } catch (e) { console.warn('[calendar] seed failed — will retry next load', e); }
+  }
+
+  // ---------- CRUD: events ----------
+  async function saveEvent(payload, id) {
+    try {
+      var eid = id || genEventId();
+      var row = Object.assign({ id: eid }, payload);
+      var idx = eventsCache.findIndex(function (e) { return e.id === eid; });
+      if (idx >= 0) eventsCache[idx] = row; else eventsCache.push(row);
+      renderActiveView();
+      await DataLayer.put('events', eid, payload);
+    } catch (e) { console.warn('[calendar] saveEvent failed', e); }
+  }
+  async function deleteEvent(id) {
+    try {
+      eventsCache = eventsCache.filter(function (e) { return e.id !== id; });
+      renderActiveView();
+      await DataLayer.remove('events', id);
+    } catch (e) { console.warn('[calendar] deleteEvent failed', e); }
+  }
+  async function moveEventToDate(id, newDateKey) {
+    try {
+      var ev = eventsCache.find(function (e) { return e.id === id; });
+      if (!ev || !eventDateOnly(ev.start)) return;
+      var oldStartKey = eventDateOnly(ev.start);
+      var deltaDays = Math.round((parseDateKey(newDateKey) - parseDateKey(oldStartKey)) / 86400000);
+      if (!deltaDays) return;
+      function shift(str) {
+        var dOnly = eventDateOnly(str);
+        if (!dOnly) return str;
+        var tOnly = eventTimeOnly(str);
+        var nd = parseDateKey(dOnly); nd.setDate(nd.getDate() + deltaDays);
+        var nk = dateKey(nd);
+        return tOnly ? combineDateTime(nk, tOnly) : nk;
+      }
+      var payload = { calendarId: ev.calendarId, title: ev.title, notes: ev.notes, allDay: ev.allDay, start: shift(ev.start), end: shift(ev.end) };
+      await saveEvent(payload, id);
+    } catch (e) { console.warn('[calendar] moveEventToDate failed', e); }
+  }
+
+  // ---------- CRUD: calendars ----------
+  async function saveCalendar(payload, id) {
+    try {
+      var cid = id || genCalId();
+      var row = Object.assign({ id: cid }, payload);
+      var idx = calendarsCache.findIndex(function (c) { return c.id === cid; });
+      if (idx >= 0) calendarsCache[idx] = row; else calendarsCache.push(row);
+      renderSidebar(); renderActiveView();
+      await DataLayer.put('calendars', cid, payload);
+    } catch (e) { console.warn('[calendar] saveCalendar failed', e); }
+  }
+  async function deleteCalendar(id) {
+    try {
+      calendarsCache = calendarsCache.filter(function (c) { return c.id !== id; });
+      renderSidebar(); renderActiveView();
+      await DataLayer.remove('calendars', id);
+    } catch (e) { console.warn('[calendar] deleteCalendar failed', e); }
+  }
+  async function toggleCalendarVisibility(cal) {
+    await saveCalendar({ name: cal.name, color: cal.color, visible: !(cal.visible !== false) }, cal.id);
+  }
+
+  // ---------- tasks: read-only + optional done toggle (never changes the tasks row shape) ----------
+  async function toggleTaskDone(task) {
+    try {
+      var nowDone = !task.done;
+      var payload = { text: task.text, subtitle: task.subtitle || '', dueDate: task.dueDate || null, done: nowDone, createdAt: task.createdAt, completedAt: nowDone ? Date.now() : null };
+      var idx = tasksCache.findIndex(function (t) { return t.id === task.id; });
+      if (idx >= 0) tasksCache[idx] = Object.assign({ id: task.id }, payload);
+      renderActiveView();
+      await DataLayer.put('tasks', task.id, payload);
+    } catch (e) { console.warn('[calendar] toggleTaskDone failed', e); }
+  }
+
+  // ---------- per-day data ----------
+  function calendarById(id) { return calendarsCache.find(function (c) { return c.id === id; }); }
+  function eventsForDay(key) {
+    return eventsCache.filter(function (e) {
+      if (!e) return false;
+      var sKey = eventDateOnly(e.start);
+      if (!sKey) return false;
+      var eKey = eventDateOnly(e.end) || sKey;
+      if (key < sKey || key > eKey) return false;
+      if (e.calendarId) {
+        var cal = calendarById(e.calendarId);
+        if (cal && cal.visible === false) return false; // orphaned calendarId fails open (stays visible)
+      }
+      return true;
+    }).sort(function (a, b) {
+      if (!!a.allDay !== !!b.allDay) return a.allDay ? -1 : 1;
+      return (a.start || '').localeCompare(b.start || '');
+    });
+  }
+  function tasksForDay(key) {
+    if (!showTasks) return [];
+    return tasksCache.filter(function (t) { return t.dueDate === key; }).sort(function (a, b) { return (a.createdAt || 0) - (b.createdAt || 0); });
+  }
+
+  // ---------- sidebar ----------
+  function renderSidebar() {
+    var list = document.getElementById('calList');
+    list.innerHTML = '';
+    calendarsCache.forEach(function (cal) {
+      var row = document.createElement('div');
+      row.className = 'cal-cal-row';
+
+      var dot = document.createElement('button');
+      dot.type = 'button'; dot.className = 'cal-cal-dot'; dot.style.background = cal.color || '#8A8F98';
+      dot.title = 'Edit ' + (cal.name || 'calendar'); dot.setAttribute('aria-label', 'Edit ' + (cal.name || 'calendar'));
+      dot.addEventListener('click', function () { openCalendarModal(cal); });
+      row.appendChild(dot);
+
+      var name = document.createElement('button');
+      name.type = 'button'; name.className = 'cal-cal-name'; name.textContent = cal.name || 'Untitled';
+      name.addEventListener('click', function () { openCalendarModal(cal); });
+      row.appendChild(name);
+
+      var vis = document.createElement('input');
+      vis.type = 'checkbox'; vis.className = 'cal-check'; vis.checked = cal.visible !== false;
+      vis.setAttribute('aria-label', 'Toggle visibility of ' + (cal.name || 'calendar'));
+      vis.addEventListener('change', function () { toggleCalendarVisibility(cal); });
+      row.appendChild(vis);
+
+      list.appendChild(row);
+    });
+    document.getElementById('calSidebarMeta').textContent = calendarsCache.length;
+  }
+
+  // ---------- active view dispatch ----------
+  function renderActiveView() {
+    var procName = document.getElementById('calViewProcName');
+    var meta = document.getElementById('calViewMeta');
+    var body = document.getElementById('calViewBody');
+    var periodLabel = document.getElementById('calPeriodLabel');
+    if (currentView === 'month') {
+      procName.textContent = 'month.grid';
+      meta.textContent = fmtMonthYear(viewAnchor).toUpperCase();
+      periodLabel.textContent = fmtMonthYear(viewAnchor);
+      renderMonth(body);
+    } else {
+      procName.textContent = currentView + '.grid';
+      meta.textContent = 'PHASE 2';
+      periodLabel.textContent = currentView.charAt(0).toUpperCase() + currentView.slice(1);
+      renderPlaceholder(body, currentView);
+    }
+  }
+
+  function renderPlaceholder(body, view) {
+    var labels = { day: 'day.grid', week: 'week.grid', year: 'year.grid' };
+    var extra = view === 'year' ? 'a 12-mini-month overview' : 'an hourly grid with drag-to-reschedule';
+    body.innerHTML =
+      '<div class="cal-placeholder">' +
+        '<div class="cal-placeholder-glyph">// ' + (labels[view] || view) + '</div>' +
+        '<div class="cal-placeholder-msg">Scheduled for a follow-up pass — ' + extra + ' isn’t built yet.<br>Use <b>Month</b> for now; it’s fully functional.</div>' +
+      '</div>';
+  }
+
+  // ---------- month view ----------
+  function renderMonth(body) {
+    body.innerHTML = '';
+    var grid = document.createElement('div');
+    grid.className = 'cal-month-grid';
+
+    DOW_LABELS.forEach(function (l) {
+      var h = document.createElement('div'); h.className = 'cal-month-dow'; h.textContent = l; grid.appendChild(h);
+    });
+
+    var y = viewAnchor.getFullYear(), m = viewAnchor.getMonth();
+    var firstOfMonth = new Date(y, m, 1);
+    var startOffset = (firstOfMonth.getDay() + 6) % 7; // Monday-first grid
+    var gridStart = new Date(y, m, 1 - startOffset);
+    var tKey = todayKey();
+    var MAX_VISIBLE = 3;
+
+    for (var i = 0; i < 42; i++) {
+      var d = new Date(gridStart); d.setDate(gridStart.getDate() + i);
+      var key = dateKey(d);
+      var cell = document.createElement('div');
+      cell.className = 'cal-day-cell' + (d.getMonth() !== m ? ' cal-day-other' : '') + (key === tKey ? ' cal-day-today' : '');
+      cell.dataset.date = key;
+
+      var num = document.createElement('div'); num.className = 'cal-day-num'; num.textContent = d.getDate();
+      cell.appendChild(num);
+
+      var pillsWrap = document.createElement('div'); pillsWrap.className = 'cal-day-pills';
+      var dayTasks = tasksForDay(key);
+      var dayEvents = eventsForDay(key);
+      var combined = dayTasks.map(function (t) { return { type: 'task', data: t }; }).concat(dayEvents.map(function (e) { return { type: 'event', data: e }; }));
+      combined.slice(0, MAX_VISIBLE).forEach(function (item) {
+        pillsWrap.appendChild(item.type === 'task' ? buildTaskPill(item.data) : buildEventPill(item.data));
+      });
+      cell.appendChild(pillsWrap);
+
+      if (combined.length > MAX_VISIBLE) {
+        (function (dayKey, extraCount) {
+          var more = document.createElement('button');
+          more.type = 'button'; more.className = 'cal-day-more';
+          more.textContent = '+' + extraCount + ' more';
+          more.addEventListener('click', function (e) { e.stopPropagation(); openDayModal(dayKey); });
+          cell.appendChild(more);
+        })(key, combined.length - MAX_VISIBLE);
+      }
+
+      (function (dayKey) {
+        cell.addEventListener('click', function (e) {
+          if (e.target.closest('.cal-pill') || e.target.closest('.cal-day-more')) return;
+          openEventModal(null, dayKey);
+        });
+        cell.addEventListener('dragover', function (e) { e.preventDefault(); cell.classList.add('cal-drop-target'); });
+        cell.addEventListener('dragleave', function () { cell.classList.remove('cal-drop-target'); });
+        cell.addEventListener('drop', function (e) {
+          e.preventDefault(); cell.classList.remove('cal-drop-target');
+          var id = e.dataTransfer.getData('text/plain');
+          if (id) moveEventToDate(id, dayKey);
+        });
+      })(key);
+
+      grid.appendChild(cell);
+    }
+    body.appendChild(grid);
+  }
+
+  function buildEventPill(ev) {
+    var cal = calendarById(ev.calendarId);
+    var color = (cal && cal.color) || '#8A8F98';
+    var pill = document.createElement('div');
+    pill.className = 'cal-pill';
+    pill.style.setProperty('--pill-color', color);
+    pill.draggable = true;
+    pill.dataset.id = ev.id;
+    var time = !ev.allDay ? eventTimeOnly(ev.start) : null;
+    if (time) {
+      var timeEl = document.createElement('span'); timeEl.className = 'cal-pill-time'; timeEl.textContent = time;
+      pill.appendChild(timeEl);
+    }
+    var titleEl = document.createElement('span'); titleEl.className = 'cal-pill-title'; titleEl.textContent = ev.title || '(untitled)';
+    pill.appendChild(titleEl);
+    pill.addEventListener('click', function (e) { e.stopPropagation(); openEventModal(ev); });
+    pill.addEventListener('dragstart', function (e) { e.dataTransfer.setData('text/plain', ev.id); pill.classList.add('cal-dragging'); });
+    pill.addEventListener('dragend', function () { pill.classList.remove('cal-dragging'); });
+    return pill;
+  }
+  function buildTaskPill(task) {
+    var pill = document.createElement('div');
+    pill.className = 'cal-pill cal-pill-task' + (task.done ? ' cal-pill-task-done' : '');
+    var checkEl = document.createElement('span'); checkEl.className = 'cal-pill-check'; checkEl.textContent = task.done ? '✓' : '○';
+    pill.appendChild(checkEl);
+    var titleEl = document.createElement('span'); titleEl.className = 'cal-pill-title'; titleEl.textContent = task.text || '(untitled)';
+    pill.appendChild(titleEl);
+    pill.title = 'Click to toggle done';
+    pill.addEventListener('click', function (e) { e.stopPropagation(); toggleTaskDone(task); });
+    return pill;
+  }
+
+  // ---------- day detail modal ----------
+  function openDayModal(key) {
+    document.getElementById('calDayModalTitle').textContent = fmtHumanDate(key) + '.list';
+    var listEl = document.getElementById('calDayModalList');
+    listEl.innerHTML = '';
+    var dayTasks = tasksForDay(key);
+    var dayEvents = eventsForDay(key);
+    if (!dayTasks.length && !dayEvents.length) {
+      listEl.innerHTML = '<div class="cal-empty-note">Nothing scheduled.</div>';
+    } else {
+      dayTasks.forEach(function (t) { listEl.appendChild(buildTaskPill(t)); });
+      dayEvents.forEach(function (e) { listEl.appendChild(buildEventPill(e)); });
+    }
+    document.getElementById('calDayModalNewBtn').onclick = function () { closeDayModal(); openEventModal(null, key); };
+    document.getElementById('calDayModalBg').classList.add('show');
+  }
+  function closeDayModal() { document.getElementById('calDayModalBg').classList.remove('show'); }
+
+  // ---------- event modal ----------
+  function setAllDayUI(on) {
+    var sw = document.getElementById('calEvAllDay');
+    sw.classList.toggle('on', on);
+    sw.setAttribute('aria-checked', String(on));
+    document.querySelectorAll('.cal-time-input').forEach(function (i) { i.style.display = on ? 'none' : ''; });
+  }
+
+  function openEventModal(ev, presetDateKey) {
+    editingEventId = ev ? ev.id : null;
+    document.getElementById('calEventModalTitle').textContent = ev ? 'event.edit' : 'event.new';
+    document.getElementById('calEventModalMeta').textContent = ev ? 'EDIT' : 'NEW';
+    document.getElementById('calEvDeleteBtn').classList.toggle('hidden', !ev);
+
+    var sel = document.getElementById('calEvCalendarSelect');
+    sel.innerHTML = '';
+    var selectedCalId = ev ? ev.calendarId : (calendarsCache[0] && calendarsCache[0].id) || null;
+    calendarsCache.forEach(function (cal) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'cal-select-swatch' + (cal.id === selectedCalId ? ' active' : '');
+      b.style.setProperty('--sw-color', cal.color || '#8A8F98');
+      b.textContent = cal.name || 'Untitled';
+      b.addEventListener('click', function () {
+        selectedCalId = cal.id;
+        sel.querySelectorAll('.cal-select-swatch').forEach(function (x) { x.classList.toggle('active', x === b); });
+      });
+      sel.appendChild(b);
+    });
+    sel._getSelected = function () { return selectedCalId; };
+
+    setAllDayUI(ev ? !!ev.allDay : false);
+
+    var baseKey = presetDateKey || (ev ? eventDateOnly(ev.start) : todayKey()) || todayKey();
+    var startKey = (ev ? eventDateOnly(ev.start) : baseKey) || baseKey;
+    var startTime = (ev ? eventTimeOnly(ev.start) : null) || '09:00';
+    var endKey = (ev ? eventDateOnly(ev.end) : null) || startKey;
+    var endTime = (ev ? eventTimeOnly(ev.end) : null) || '10:00';
+
+    document.getElementById('calEvTitle').value = ev ? (ev.title || '') : '';
+    document.getElementById('calEvStartDate').value = startKey;
+    document.getElementById('calEvStartTime').value = startTime;
+    document.getElementById('calEvEndDate').value = endKey;
+    document.getElementById('calEvEndTime').value = endTime;
+    document.getElementById('calEvNotes').value = ev ? (ev.notes || '') : '';
+
+    document.getElementById('calEventModalBg').classList.add('show');
+    document.getElementById('calEvTitle').focus();
+  }
+  function closeEventModal() { document.getElementById('calEventModalBg').classList.remove('show'); editingEventId = null; }
+
+  // ---------- calendar modal ----------
+  function openCalendarModal(cal) {
+    editingCalendarId = cal ? cal.id : null;
+    document.getElementById('calCalModalTitle').textContent = cal ? 'calendar.edit' : 'calendar.new';
+    document.getElementById('calCalDeleteBtn').classList.toggle('hidden', !cal);
+    document.getElementById('calCalName').value = cal ? (cal.name || '') : '';
+
+    var sw = document.getElementById('calCalColorSwatches');
+    sw.innerHTML = '';
+    var selectedColor = cal ? (cal.color || CAL_COLORS[0]) : CAL_COLORS[0];
+    CAL_COLORS.forEach(function (c) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'cal-color-swatch' + (c === selectedColor ? ' active' : '');
+      b.style.background = c; b.setAttribute('aria-label', 'Color ' + c);
+      b.addEventListener('click', function () {
+        selectedColor = c;
+        sw.querySelectorAll('.cal-color-swatch').forEach(function (x) { x.classList.toggle('active', x === b); });
+      });
+      sw.appendChild(b);
+    });
+    sw._getSelected = function () { return selectedColor; };
+
+    document.getElementById('calCalModalBg').classList.add('show');
+    document.getElementById('calCalName').focus();
+  }
+  function closeCalendarModal() { document.getElementById('calCalModalBg').classList.remove('show'); editingCalendarId = null; }
+
+  // ---------- static wiring (works regardless of DataLayer auth state) ----------
+  document.getElementById('calEvAllDay').addEventListener('click', function () { setAllDayUI(!this.classList.contains('on')); });
+
+  document.getElementById('calEvSaveBtn').addEventListener('click', function () {
+    var title = document.getElementById('calEvTitle').value.trim();
+    if (!title) return;
+    var sel = document.getElementById('calEvCalendarSelect');
+    var calendarId = sel._getSelected ? sel._getSelected() : null;
+    var allDay = document.getElementById('calEvAllDay').classList.contains('on');
+    var sDate = document.getElementById('calEvStartDate').value;
+    if (!sDate) return;
+    var eDate = document.getElementById('calEvEndDate').value || sDate;
+    var start, end;
+    if (allDay) {
+      start = sDate; end = eDate;
+    } else {
+      var sTime = document.getElementById('calEvStartTime').value || '09:00';
+      var eTime = document.getElementById('calEvEndTime').value || '10:00';
+      start = combineDateTime(sDate, sTime);
+      end = combineDateTime(eDate, eTime);
+      if (end <= start) {
+        var bumped = new Date(start);
+        bumped.setHours(bumped.getHours() + 1);
+        end = combineDateTime(dateKey(bumped), pad2(bumped.getHours()) + ':' + pad2(bumped.getMinutes()));
+      }
+    }
+    var notes = document.getElementById('calEvNotes').value.trim();
+    saveEvent({ calendarId: calendarId || null, title: title, start: start, end: end, allDay: allDay, notes: notes }, editingEventId);
+    closeEventModal();
+  });
+  document.getElementById('calEvCancelBtn').addEventListener('click', closeEventModal);
+  document.getElementById('calEventModalClose').addEventListener('click', closeEventModal);
+  document.getElementById('calEventModalBg').addEventListener('click', function (e) { if (e.target === this) closeEventModal(); });
+  document.getElementById('calEvDeleteBtn').addEventListener('click', function () {
+    if (editingEventId) deleteEvent(editingEventId);
+    closeEventModal();
+  });
+
+  document.getElementById('calAddCalBtn').addEventListener('click', function () { openCalendarModal(null); });
+  document.getElementById('calCalSaveBtn').addEventListener('click', function () {
+    var name = document.getElementById('calCalName').value.trim();
+    if (!name) return;
+    var sw = document.getElementById('calCalColorSwatches');
+    var color = sw._getSelected ? sw._getSelected() : CAL_COLORS[0];
+    var existing = editingCalendarId ? calendarById(editingCalendarId) : null;
+    saveCalendar({ name: name, color: color, visible: existing ? existing.visible !== false : true }, editingCalendarId);
+    closeCalendarModal();
+  });
+  document.getElementById('calCalCancelBtn').addEventListener('click', closeCalendarModal);
+  document.getElementById('calCalModalClose').addEventListener('click', closeCalendarModal);
+  document.getElementById('calCalModalBg').addEventListener('click', function (e) { if (e.target === this) closeCalendarModal(); });
+  document.getElementById('calCalDeleteBtn').addEventListener('click', function () {
+    if (!editingCalendarId) return;
+    var cal = calendarById(editingCalendarId);
+    if (cal && !confirm('Delete calendar "' + cal.name + '"? Its events stay but lose their color.')) return;
+    deleteCalendar(editingCalendarId);
+    closeCalendarModal();
+  });
+
+  document.getElementById('calDayModalClose').addEventListener('click', closeDayModal);
+  document.getElementById('calDayModalBg').addEventListener('click', function (e) { if (e.target === this) closeDayModal(); });
+
+  function openAccentPopover() {
+    var pop = document.getElementById('calAccentPopover');
+    var btn = document.getElementById('calAccentBtn');
+    var r = btn.getBoundingClientRect();
+    pop.style.top = (r.bottom + 8) + 'px';
+    pop.style.right = (window.innerWidth - r.right) + 'px';
+    pop.classList.add('show');
+    document.getElementById('calAccentBackdrop').classList.add('show');
+  }
+  function closeAccentPopover() { document.getElementById('calAccentPopover').classList.remove('show'); document.getElementById('calAccentBackdrop').classList.remove('show'); }
+  document.getElementById('calAccentBtn').addEventListener('click', function () {
+    var pop = document.getElementById('calAccentPopover');
+    if (pop.classList.contains('show')) closeAccentPopover(); else openAccentPopover();
+  });
+  document.getElementById('calAccentBackdrop').addEventListener('click', closeAccentPopover);
+
+  document.getElementById('calViewSeg').addEventListener('click', function (e) {
+    var btn = e.target.closest('.cal-seg-btn');
+    if (!btn) return;
+    currentView = btn.dataset.view;
+    document.querySelectorAll('.cal-seg-btn').forEach(function (b) { b.classList.toggle('active', b === btn); });
+    uiState.view = currentView;
+    persistUi();
+    renderActiveView();
+  });
+  document.getElementById('calPrevBtn').addEventListener('click', function () { viewAnchor.setMonth(viewAnchor.getMonth() - 1); renderActiveView(); });
+  document.getElementById('calNextBtn').addEventListener('click', function () { viewAnchor.setMonth(viewAnchor.getMonth() + 1); renderActiveView(); });
+  document.getElementById('calTodayBtn').addEventListener('click', function () { viewAnchor = new Date(); viewAnchor.setHours(0, 0, 0, 0); renderActiveView(); });
+
+  document.getElementById('calNewEventBtn').addEventListener('click', function () {
+    var now = new Date();
+    var d = (viewAnchor.getFullYear() === now.getFullYear() && viewAnchor.getMonth() === now.getMonth()) ? todayKey() : dateKey(new Date(viewAnchor.getFullYear(), viewAnchor.getMonth(), 1));
+    openEventModal(null, d);
+  });
+
+  document.getElementById('calShowTasksToggle').addEventListener('change', function () {
+    showTasks = this.checked;
+    uiState.showTasks = showTasks;
+    persistUi();
+    renderActiveView();
+  });
+
+  function openDrawer() { document.getElementById('calSidebar').classList.add('cal-drawer-open'); document.getElementById('calDrawerBackdrop').classList.add('show'); }
+  function closeDrawer() { document.getElementById('calSidebar').classList.remove('cal-drawer-open'); document.getElementById('calDrawerBackdrop').classList.remove('show'); }
+  document.getElementById('calDrawerBtn').addEventListener('click', openDrawer);
+  document.getElementById('calDrawerBackdrop').addEventListener('click', closeDrawer);
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if (document.getElementById('calEventModalBg').classList.contains('show')) closeEventModal();
+    else if (document.getElementById('calCalModalBg').classList.contains('show')) closeCalendarModal();
+    else if (document.getElementById('calDayModalBg').classList.contains('show')) closeDayModal();
+    else if (document.getElementById('calAccentPopover').classList.contains('show')) closeAccentPopover();
+    else if (document.getElementById('calSidebar').classList.contains('cal-drawer-open')) closeDrawer();
+  });
+
+  // apply the default accent immediately (no FOUC) — re-applied below once
+  // the persisted preference (if any) loads.
+  applyAccent('red');
+  buildAccentSwatches();
+
+  // ============================================================
+  // DataLayer boot — shared session (see the bootstrap script above
+  // task.manager's markup). Seeds default calendars once, loads
+  // calendars/events/tasks + the calendar_ui singleton (view + accent +
+  // showTasks prefs), renders, and subscribes all three collections for
+  // realtime cross-device sync.
+  // ============================================================
+  document.addEventListener('DOMContentLoaded', async function initCalendar() {
+    if (typeof DataLayer === 'undefined') return;
+    var session = await window.__dlSessionPromise;
+    if (!session) return; // redirected to login.html
+
+    await seedDefaultCalendarsIfNeeded();
+
+    try {
+      var ui = await DataLayer.getSingleton('calendar_ui');
+      uiState = { view: ui.view || 'month', colorAccent: ui.colorAccent || 'red', showTasks: ui.showTasks !== false };
+      currentView = uiState.view;
+      showTasks = uiState.showTasks;
+      applyAccent(uiState.colorAccent);
+      buildAccentSwatches();
+      document.getElementById('calShowTasksToggle').checked = showTasks;
+      document.querySelectorAll('.cal-seg-btn').forEach(function (b) { b.classList.toggle('active', b.dataset.view === currentView); });
+    } catch (e) { console.warn('[calendar] failed to load calendar_ui prefs', e); }
+
+    var results = await Promise.all([DataLayer.list('calendars'), DataLayer.list('events'), DataLayer.list('tasks')]);
+    calendarsCache = results[0]; eventsCache = results[1]; tasksCache = results[2];
+    dlReady = true;
+
+    renderSidebar();
+    renderActiveView();
+
+    DataLayer.subscribe('calendars', async function () { calendarsCache = await DataLayer.list('calendars'); renderSidebar(); renderActiveView(); });
+    DataLayer.subscribe('events', async function () { eventsCache = await DataLayer.list('events'); renderActiveView(); });
+    DataLayer.subscribe('tasks', async function () { tasksCache = await DataLayer.list('tasks'); renderActiveView(); });
+  });
+})();
+</script>
+
+<script>
 /* ==========================================================================
-   RICE MOTION LAYER — presentation-only, own IIFE, never reads/writes task
-   data. Same recipe as apps.html:
+   RICE MOTION LAYER — presentation-only, own IIFE, never reads/writes
+   task or calendar data. Shared by both modules on this page (task.manager
+   and the calendar section both mark their panels `.rice-stagger`, so one
+   copy of this cascade covers all of them). Same recipe as apps.html:
    - Boot cascade: adds `.rice-boot` to <body> exactly once; the CSS above
      does the actual per-panel stagger via each element's `--i`, so no
      per-element timers are needed here, and later DOM churn (rows being
