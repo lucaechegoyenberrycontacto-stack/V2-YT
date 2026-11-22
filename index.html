@@ -1381,7 +1381,9 @@ body.rice-paused .verse-cursor { animation-play-state: paused; }
     try { state = JSON.parse(localStorage.getItem('po_water_v1')); } catch (e) {}
     if (!state) return { done: 0, total: 0 };
     const todayKey = calendarDateKey();
-    const done = (state.logs || {})[todayKey] || 0;
+    const servings = Number((state.logs || {})[todayKey]) || 0;
+    const intakeMl = Object.values(state.entries || {}).reduce((sum, entry) =>
+      entry && entry.day === todayKey && !entry.voided ? sum + (Number(entry.ml) || 0) : sum, 0);
     const p = state.profile || { weightKg: 75 };
     const wKg = state.weightUnit === 'lb' ? (p.weightKg || 0) / 2.20462 : (p.weightKg || 0);
     const base = wKg * 35;
@@ -1399,8 +1401,8 @@ body.rice-paused .verse-cursor { animation-play-state: paused; }
     else if (state.unit === 'oz') unitVol = 30;
     else if (state.unit === 'ml') unitVol = 1;
     else unitVol = state.bottleMl || 500;
-    const total = Math.max(1, Math.ceil(totalMl / unitVol));
-    return { done, total };
+    const total = Math.max(1, Math.round(totalMl) || 1);
+    return { done: servings * unitVol + intakeMl, total };
   }
   function classifyWaterStatus(done, total) {
     if (total === 0) return 'idle';
@@ -1855,7 +1857,8 @@ body.rice-paused .verse-cursor { animation-play-state: paused; }
       let changed = false;
       let currencyChanged = false;
       if (health) {
-        changed = applyIfDifferent('po_water_v1', health.po_water_v1) || changed;
+        const water = window.mergeWaterMirror(localStorage.getItem('po_water_v1'), health.po_water_v1);
+        changed = applyIfDifferent('po_water_v1', water) || changed;
       }
       if (sleepRows) {
         // Matches health.html's own rowsToSleepEntries()/setLegacyMirror transform.

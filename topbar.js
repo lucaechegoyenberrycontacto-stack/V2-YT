@@ -335,7 +335,9 @@ body.topbar-modal-open {
     try { state = JSON.parse(localStorage.getItem('po_water_v1')); } catch (e) {}
     if (!state) return { done: 0, total: 0 };
     const todayKey = calendarDateKey();
-    const done = (state.logs || {})[todayKey] || 0;
+    const servings = Number((state.logs || {})[todayKey]) || 0;
+    const intakeMl = Object.values(state.entries || {}).reduce((sum, entry) =>
+      entry && entry.day === todayKey && !entry.voided ? sum + (Number(entry.ml) || 0) : sum, 0);
     const p = state.profile || { weightKg: 75 };
     const wKg = state.weightUnit === 'lb' ? (p.weightKg || 0) / 2.20462 : (p.weightKg || 0);
     const base = wKg * 35;
@@ -353,8 +355,8 @@ body.topbar-modal-open {
     else if (state.unit === 'oz') unitVol = 30;
     else if (state.unit === 'ml') unitVol = 1;
     else unitVol = state.bottleMl || 500;
-    const total = Math.max(1, Math.ceil(totalMl / unitVol));
-    return { done, total };
+    const total = Math.max(1, Math.round(totalMl) || 1);
+    return { done: servings * unitVol + intakeMl, total };
   }
 
   function classifyStatus(done, total) {
@@ -472,6 +474,7 @@ body.topbar-modal-open {
     state.logs[k] = (state.logs[k] || 0) + 1;
     try { localStorage.setItem('po_water_v1', JSON.stringify(state)); } catch (e) {}
     render();
+    window.dispatchEvent(new StorageEvent('storage', { key: 'po_water_v1' }));
 
     const btn = document.getElementById('topbarWaterAdd');
     if (btn) {
@@ -542,6 +545,7 @@ body.topbar-modal-open {
     // Re-render when localStorage changes from another tab/window OR when
     // the page becomes visible (sync may have pulled in the background).
     window.addEventListener('storage', render);
+    window.addEventListener('water:updated', render);
     window.addEventListener('focus', render);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
 

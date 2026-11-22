@@ -18,6 +18,29 @@
   const SUPABASE_URL = (typeof window !== 'undefined' && window.DASH_SUPABASE_URL) || 'https://bkkjtxvneldsqwyhrhub.supabase.co';
   const SUPABASE_KEY = (typeof window !== 'undefined' && window.DASH_SUPABASE_KEY) || 'sb_publishable_G8LqREPRDk0_tMEJNSFBxA_mIXNAnmT';
 
+  // app_state can lag behind the individual intake records. Preserve local
+  // IDs while applying the legacy mirror, including any pending undo.
+  window.mergeWaterMirror = function (localJson, remote) {
+    if (!remote || typeof remote !== 'object' || !localJson) return remote;
+    let local;
+    try { local = JSON.parse(localJson); } catch (e) { return remote; }
+    if (!local || typeof local !== 'object') return remote;
+
+    const merged = { ...remote };
+    if (local.entries || remote.entries) {
+      const entries = new Map(Object.entries(remote.entries || {}));
+      for (const [id, entry] of Object.entries(local.entries || {})) {
+        if (!entries.has(id) || entry?.voided) entries.set(id, entry);
+      }
+      merged.entries = Object.fromEntries(entries);
+    }
+    if ((Number(local.quickUpdatedAt) || 0) > (Number(remote.quickUpdatedAt) || 0)) {
+      merged.quickMl = local.quickMl;
+      merged.quickUpdatedAt = local.quickUpdatedAt;
+    }
+    return merged;
+  };
+
   window.initCloudSync = function (config) {
     const appKey = config && config.appKey;
     const syncedKeys = (config && config.syncedKeys) || [];
@@ -87,8 +110,9 @@
       try {
         for (const k of Object.keys(remote)) {
           if (!matches(k)) continue;
-          const incoming = JSON.stringify(remote[k]);
           const local = localStorage.getItem(k);
+          const value = k === 'po_water_v1' ? window.mergeWaterMirror(local, remote[k]) : remote[k];
+          const incoming = JSON.stringify(value);
           if (local !== incoming) {
             try { origSet(k, incoming); changed = true; } catch (e) {}
           }

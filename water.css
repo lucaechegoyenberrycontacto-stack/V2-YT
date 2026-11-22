@@ -1,0 +1,170 @@
+:root {
+  --bg: #0c1522;
+  --bg-card: #172536;
+  --text-primary: #f2f6ff;
+  --text-secondary: #aabbd0;
+  --text-tertiary: #98abc4;
+  --border: #26394f;
+  --border-strong: #3d5674;
+  --water-blue: #79b6ff;
+  --water-action: #2364bb;
+  --water-track: #293b53;
+  --font: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+}
+* { box-sizing: border-box; }
+html { color-scheme: dark; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font);
+}
+[hidden] { display: none !important; }
+.shell { max-width: 920px; margin: 0 auto; padding: 16px 16px max(24px, env(safe-area-inset-bottom)); }
+.shell button, .water-dialog button { font: inherit; cursor: pointer; }
+button:disabled { cursor: default; }
+:where(.shell, .water-dialog, .modal) :focus-visible { outline: 2px solid #a8ceff; outline-offset: 3px; }
+.water-header {
+  background: linear-gradient(150deg, #203f63, #152941 74%);
+  border: 1px solid #315073;
+  border-radius: 24px;
+  padding: 17px clamp(12px, 3vw, 25px) 14px;
+}
+.water-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.water-heading h1 { margin: 0; font-size: clamp(1.7rem, 5vw, 2.25rem); letter-spacing: -.04em; }
+.water-secondary {
+  min-height: 44px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #bad9ff;
+  white-space: nowrap;
+}
+.water-secondary:hover { background: #25446a; }
+.water-tabs {
+  display: flex;
+  width: fit-content;
+  max-width: 100%;
+  gap: 4px;
+  margin: 8px 0 12px;
+  padding: 3px;
+  border-radius: 12px;
+  background: #11243a;
+}
+.water-tabs button, .water-days button, .water-week-nav button, .water-amounts button {
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  border-radius: 10px;
+  background: #13243a;
+}
+.water-tabs button { min-height: 44px; padding: 0 14px; }
+.water-tabs button[aria-pressed="true"], .water-days button[aria-pressed="true"], .water-amounts button[aria-pressed="true"] {
+  border-color: #6aa8f7;
+  background: #234369;
+  color: #f2f7ff;
+}
+.water-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: clamp(3px, 1vw, 8px); }
+.water-days button { min-height: 53px; padding: 3px 0; }
+.water-days button:disabled { color: #96a9c2; background: #182c43; }
+.water-days small, .water-days strong { display: block; }
+.water-days small { font-size: .72rem; }
+.water-days strong { margin-top: 3px; font-size: .95rem; }
+.water-content { margin-top: 14px; display: grid; gap: 14px; }
+.water-card { border: 1px solid var(--border); border-radius: 22px; background: var(--bg-card); padding: clamp(14px, 3vw, 25px); }
+.water-hero { text-align: center; padding-bottom: 14px; }
+.water-ring { position: relative; width: clamp(152px, 46vw, 215px); aspect-ratio: 1; margin: auto; }
+.water-ring svg, .water-ring-text { position: absolute; inset: 0; width: 100%; height: 100%; }
+.water-ring circle { fill: none; stroke-width: 7; }
+.water-ring-track { stroke: var(--water-track); }
+#waterArc { stroke: var(--water-blue); stroke-linecap: round; }
+.water-ring-text { display: grid; place-content: center; gap: 3px; font-variant-numeric: tabular-nums; }
+.water-ring-text strong { font-size: clamp(2rem, 10vw, 3.4rem); letter-spacing: -.05em; }
+.water-ring-text span { color: var(--text-secondary); font-size: .92rem; }
+.water-remaining { margin: 9px 0 11px; font-weight: 650; }
+.water-log-date, .water-dialog-date { margin: 0 0 8px; color: var(--text-secondary); }
+.water-log-date:empty { display: none; }
+.water-split {
+  display: grid;
+  grid-template-columns: 1fr 57px;
+  max-width: 420px;
+  margin: auto;
+}
+button.water-primary {
+  min-height: 51px;
+  border: 0;
+  border-radius: 13px;
+  background: var(--water-action);
+  color: #fff;
+  font-weight: 750;
+}
+button.water-primary:hover { background: #2b71cf; }
+button.water-primary:disabled { opacity: .55; }
+#waterPlusBtn { border-radius: 13px 0 0 13px; }
+#amountOpen { display: grid; place-items: center; border-radius: 0 13px 13px 0; border-left: 1px solid #ffffff52; }
+.water-feedback { min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--text-secondary); font-size: .88rem; }
+.water-content h2, .water-dialog h2 { margin: 0; font-size: 1.13rem; }
+.water-history ul { margin: 8px 0 0; padding: 0; list-style: none; }
+.water-history li { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; color: var(--text-secondary); }
+.water-history li + li { border-top: 1px solid var(--border); }
+.water-history strong { color: var(--text-primary); white-space: nowrap; }
+.water-week-nav { display: flex; align-items: center; justify-content: space-between; max-width: 290px; gap: 10px; }
+.water-week-nav button { width: 44px; min-height: 44px; color: var(--text-primary); font-size: 1.45rem; }
+.water-week-nav button:disabled { opacity: .45; }
+.water-chart-detail { margin: 9px 0 16px; min-height: 1.3em; color: var(--text-secondary); font-size: .9rem; }
+.water-bars { position: relative; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; }
+.water-bars::before {
+  content: ''; position: absolute; pointer-events: none; z-index: 1; inset-inline: 0;
+  bottom: calc(26px + 148px * var(--goal-ratio));
+  border-top: 2px dashed #aabbd0;
+}
+.water-bars button { display: grid; grid-template-rows: 148px 26px; justify-items: center; align-items: end; border: 0; padding: 0; border-radius: 7px; color: var(--text-secondary); background: transparent; }
+.water-bars button[aria-pressed="true"] { background: #213955; color: #fff; }
+.water-bar-track { position: relative; width: min(67%, 36px); height: 100%; border-radius: 8px; background: var(--water-track); }
+.water-bar-fill { position: absolute; inset: auto 0 0; height: var(--fill); min-height: 3px; border-radius: inherit; background: var(--water-blue); }
+.water-bars .goal-met .water-bar-fill { background: #3e8bef; }
+.water-bars .future .water-bar-track { background: repeating-linear-gradient(135deg, transparent 0 4px, #30445f 4px 5px); border: 1px solid #405674; }
+.water-bars .future .water-bar-fill { display: none; }
+.water-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 16px; color: var(--text-secondary); font-size: .82rem; }
+.water-legend > span { display: flex; align-items: center; gap: 6px; }
+.water-legend i { width: 17px; border-top: 2px dashed #aabbd0; }
+.water-legend > span + span i { height: 10px; border: 1px solid #758daa; background: repeating-linear-gradient(135deg, transparent 0 3px, #758daa 3px 4px); }
+.water-summary { display: grid; gap: 8px; margin: 0; }
+.water-summary .water-card { padding: 13px 16px; display: flex; flex-direction: column-reverse; gap: 3px; justify-content: center; }
+.water-summary dt { color: var(--text-secondary); font-size: .87rem; }
+.water-summary dd { margin: 0; font-size: 1.4rem; font-weight: 750; }
+@media (min-width: 660px) {
+  .water-weekly { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); }
+}
+.water-dialog {
+  width: min(calc(100% - 32px), 440px);
+  max-height: calc(100% - 20px);
+  padding: 19px;
+  border: 1px solid var(--border-strong);
+  border-radius: 22px;
+  color: var(--text-primary);
+  background: var(--bg-card);
+}
+.water-dialog::backdrop { background: #060d17bb; }
+.water-dialog-date { margin-top: 3px; font-size: .9rem; }
+.water-amounts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; margin: 15px 0; }
+.water-amounts button { min-height: 53px; padding: 2px; }
+.water-amounts small { display: block; font-size: .72rem; }
+.water-custom { display: grid; gap: 7px; color: var(--text-secondary); font-size: .9rem; }
+.water-custom > span { display: flex; gap: 8px; align-items: center; border: 1px solid var(--border-strong); border-radius: 10px; background: #101d2e; padding: 0 12px; }
+.water-custom input { width: 100%; min-height: 44px; border: 0; background: transparent; color: var(--text-primary); font: inherit; font-size: 16px; }
+#amountConfirm { width: 100%; margin-top: 16px; }
+#amountError, .save-fail-banner { color: #ffc0c0; }
+.save-fail-banner { display: none; margin: 10px 0 0; }
+.save-fail-banner.show { display: block; }
+@media (max-width: 560px) {
+  .shell { padding: 10px 12px max(20px, env(safe-area-inset-bottom)); }
+  .water-dialog { inset: auto 0 0; margin: 0 auto; width: 100%; max-width: none; border-radius: 24px 24px 0 0; padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .modal *, .water-dialog * { animation: none !important; transition: none !important; }
+}
+#waterToday, #chartOpenDay { margin-top: 6px; }
+#chartOpenDay:disabled { opacity: .5; }
+#amountTitle { display: flex; align-items: center; gap: 8px; }
+#amountTitle svg { color: var(--water-blue); }

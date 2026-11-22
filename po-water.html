@@ -12,23 +12,20 @@ Contact: rowan.wisere@gmail.com
 =====================================================
 -->
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es-AR">
 <head>
 <script src="lock.js"></script>
 <script src="/api/config"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0a0a0b">
-<title>Water Coach</title>
+<meta name="theme-color" content="#0c1522">
+<title>Agua · Jarvis</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="syncStatus.js" defer></script>
 <script src="sync.js" defer></script>
 <script src="dataLayer.js" defer></script>
 <script src="topbar.js" defer></script>
-<!-- Not deferred (matches gym.html): the main inline script at the bottom
-     of this page calls window.createDatePicker synchronously, so it must
-     already be defined by the time that script runs. -->
-<script src="datePicker.js"></script>
+<link rel="stylesheet" href="water.css">
 
 <!-- =============================================================
      EDIT THIS BLOCK TO MAKE THE APP YOURS.
@@ -36,8 +33,6 @@ Contact: rowan.wisere@gmail.com
      ============================================================= -->
 <script>
 const CONFIG = {
-  appTitle: "Water Coach",
-
   // Default unit. Options: "bottle" | "glass" | "oz" | "ml"
   unit: "bottle",
 
@@ -64,367 +59,15 @@ const CONFIG = {
 </script>
 
 <style>
-:root {
-  /* --bg matches health.html's exact value — this page is iframed inside
-     it, and UI_AUDIT.md flagged a visible seam at the iframe boundary
-     (see the body background rules below). */
-  --bg: #050506;
-  --bg-card: #111113;
-  /* Dashboard-wide design tokens (see BUILD_DASHBOARD.md / template.html) —
-     this page used to declare its own --text-1/2/3/4 and --good/warn/bad
-     with different names/values; migrated to the shared ones so
-     po-water.html matches the rest of the dashboard (UI_AUDIT.md
-     visual-consistency finding). --bg-card/--border/--border-strong stay
-     local: still used by .modal/.search-results, deliberately left
-     solid/opaque (same as every other modal in the dashboard, e.g.
-     nutrition.html's .modal), not migrated to the glass card look. */
-  --text-primary: #FAFAFA;
-  --text-secondary: #B8B6B0;
-  --text-tertiary: #76746E;
-  --border: rgba(255,255,255,0.06);
-  --border-strong: rgba(255,255,255,0.14);
-  --success: #6BE3A4;
-  --warning: #F2C063;
-  --danger: #FF6B6B;
-  /* Intentional additional accent for the water theme, not a duplicate
-     of an official token (same treatment as gym.html's --steps-accent). */
-  --info: #7DD3FC;
-  /* Alias so the date-picker CSS below (copied verbatim from gym.html,
-     where it's written against --steps-accent) resolves to this page's
-     own pre-existing equivalent accent instead of introducing a second,
-     redundant color value — no new palette, per Fase 4's restriction. */
-  --steps-accent: var(--info);
-  --font: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
-  --font-mono: ui-monospace, SF Mono, Menlo, Consolas, monospace;
-}
-* { box-sizing: border-box; }
-html, body {
-  margin: 0; padding: 0;
-  background: var(--bg);
-  color: var(--text-primary);
-  font-family: var(--font);
-  -webkit-font-smoothing: antialiased;
-  min-height: 100vh;
-}
-/* UI_AUDIT.md — page background used to be a single flat gradient with
-   no grain/animation, a visible seam when this page renders inside
-   health.html's iframe. Now the exact same recipe as health.html's own
-   body::before/::after + @keyframes drift, so the two backgrounds
-   line up at the iframe boundary. */
-body { position: relative; overflow-x: hidden; }
-body::before {
-  content: ''; position: fixed; inset: 0;
-  background:
-    radial-gradient(60% 50% at 82% 14%, rgba(224, 118, 88, 0.16) 0%, transparent 60%),
-    radial-gradient(50% 40% at 18% 90%, rgba(180, 180, 200, 0.06) 0%, transparent 60%);
-  filter: blur(40px);
-  pointer-events: none; z-index: 0;
-  animation: drift 36s ease-in-out infinite alternate;
-}
-body::after {
-  content: ''; position: fixed; inset: 0;
-  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
-  background-size: 3px 3px;
-  pointer-events: none; z-index: 1;
-}
-@keyframes drift { 0% { transform: translate(0, 0); } 100% { transform: translate(-2%, 2%); } }
-.shell { position: relative; z-index: 2; max-width: 720px; margin: 0 auto; padding: 24px 16px 80px; }
-
-/* ----- Date picker (Hoy / Ayer / Elegir fecha) — CSS copied verbatim from
-   gym.html (BUILD_DASHBOARD.md / template.html shared design system),
-   unchanged, since there's no shared CSS file across pages in this
-   project. Backs window.createDatePicker from datePicker.js (Fase 4). ----- */
-.po-seg-control {
-  display: flex; flex: 1;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid var(--border);
-  border-radius: 12px; padding: 4px; gap: 3px;
-}
-.po-seg-btn {
-  flex: 1; padding: 10px 8px; border: none; background: transparent;
-  color: var(--text-tertiary); border-radius: 8px;
-  font-family: inherit; font-size: 12.5px; font-weight: 600;
-  cursor: pointer; transition: background 0.15s, color 0.15s;
-  -webkit-tap-highlight-color: transparent;
-}
-.po-seg-btn:hover { color: var(--text-secondary); background: rgba(255,255,255,0.04); }
-.po-seg-btn.active {
-  background: linear-gradient(180deg, #ffffff 0%, #e8e5dd 100%);
-  color: #0a0a0b;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), 0 4px 12px rgba(0,0,0,0.35);
-}
-.steps-date-row { position: relative; margin-bottom: 14px; }
-.steps-date-seg { gap: 4px; }
-.steps-pill-cal { display: flex; align-items: center; justify-content: center; gap: 6px; }
-.steps-cal-icon { width: 14px; height: 14px; flex: 0 0 auto; }
-/* Active state uses the steps accent instead of the shared white gradient,
-   so it doesn't get confused with any other segmented control. */
-.steps-date-seg .po-seg-btn.active {
-  background: var(--steps-accent); color: #073138;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 4px 12px rgba(0,0,0,0.35);
-}
-.steps-popover {
-  position: absolute; top: calc(100% + 8px); left: 0; z-index: 45;
-  width: min(300px, calc(100vw - 64px));
-  background: var(--bg-card); border: 1px solid var(--border-strong);
-  border-radius: 14px; padding: 16px;
-  box-shadow: 0 16px 40px rgba(0,0,0,0.5);
-  opacity: 0; transform: scale(0.96) translateY(-4px);
-  transition: opacity 0.15s ease, transform 0.15s ease;
-  pointer-events: none;
-}
-.steps-popover.open { opacity: 1; transform: scale(1) translateY(0); pointer-events: auto; }
-.steps-popover.hidden { display: none; }
-.steps-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-.steps-cal-month { font-size: 13px; font-weight: 700; color: var(--text-primary); }
-.steps-cal-nav {
-  width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
-  background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text-secondary); font-size: 15px; cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.steps-cal-nav:hover { background: rgba(255,255,255,0.09); color: var(--text-primary); }
-.steps-cal-nav:disabled { opacity: 0.3; cursor: default; pointer-events: none; }
-.steps-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
-.steps-cal-dow {
-  text-align: center; font-size: 9.5px; font-weight: 700; color: var(--text-tertiary);
-  padding: 4px 0; text-transform: uppercase;
-}
-.steps-cal-cell { aspect-ratio: 1; }
-.steps-cal-day {
-  width: 100%; height: 100%; border: none; border-radius: 8px;
-  background: transparent; color: var(--text-secondary); font-family: inherit;
-  font-size: 12.5px; font-variant-numeric: tabular-nums; cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-  -webkit-tap-highlight-color: transparent;
-}
-.steps-cal-day:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
-.steps-cal-day.today { color: var(--steps-accent); font-weight: 700; }
-.steps-cal-day.selected { background: var(--steps-accent); color: #073138; font-weight: 700; }
-.steps-cal-day:disabled { color: var(--text-tertiary); opacity: 0.35; cursor: default; }
-
-.header {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 18px;
-}
-.title { font-size: 22px; font-weight: 700; letter-spacing: -0.015em; margin: 0; }
-.icon-btn {
-  width: 38px; height: 38px;
-  display: flex; align-items: center; justify-content: center;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid var(--border);
-  border-radius: 10px; color: var(--text-secondary); cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: background 0.18s, color 0.18s;
-}
-.icon-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
-
-/* UI_AUDIT.md CRÍTICO #5 — saveState() used to swallow a failed
-   localStorage.setItem silently and every caller kept rendering as if
-   it had worked. Shown only while the most recent save attempt failed;
-   hides itself again the moment a save succeeds. */
-.save-fail-banner {
-  display: none;
-  margin-bottom: 14px; padding: 8px 12px; border-radius: 10px;
-  background: rgba(255,138,138,0.10); border: 1px solid rgba(255,138,138,0.28);
-  color: var(--danger); font-size: 12px; line-height: 1.4;
-}
-.save-fail-banner.show { display: block; }
-
-/* ----- Eyebrow divider ----- */
-.divider {
-  display: flex; align-items: center; gap: 16px; margin-bottom: 14px;
-}
-.divider::before, .divider::after {
-  content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.10);
-}
-.divider span {
-  font-size: 11px; letter-spacing: 0.22em; font-weight: 600;
-  color: rgba(255,255,255,0.85);
-}
-
-/* ----- Card ----- */
-.card {
-  /* Glass card chassis — matches template.html's .gm-card exactly
-     (UI_AUDIT.md visual-consistency finding): no border, translucent
-     background, blur + drop shadow instead of the old opaque fill;
-     radius 18px→16px to match the documented spec. */
-  background: rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(24px) saturate(1.2);
-  -webkit-backdrop-filter: blur(24px) saturate(1.2);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
-  border-radius: 16px;
-  padding: 22px 20px 18px;
-  margin-bottom: 14px;
-}
-
-/* ----- Water hero ----- */
-.water-label {
-  font-size: 10px; letter-spacing: 0.20em; font-weight: 700;
-  color: var(--text-tertiary); margin-bottom: 8px; text-transform: uppercase;
-}
-.water-row {
-  display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px;
-}
-.water-num {
-  font-size: 56px; font-weight: 700; letter-spacing: -0.03em;
-  line-height: 1; font-variant-numeric: tabular-nums;
-}
-.water-target {
-  font-size: 18px; color: var(--text-tertiary); font-weight: 500;
-}
-
-/* Progress bar */
-.water-bar-wrap { position: relative; margin: 14px 0 22px; }
-.water-bar-track {
-  position: relative; height: 28px; border-radius: 14px;
-  background: rgba(255,255,255,0.04);
-  overflow: hidden;
-}
-.water-bar-fill {
-  position: absolute; top: 0; bottom: 0; left: 0;
-  border-radius: 14px;
-  background: linear-gradient(90deg, var(--info), var(--success));
-  transition: width 0.4s ease;
-  box-shadow: 0 0 18px rgba(110,231,183,0.18);
-}
-.water-bar-fill.over {
-  background: linear-gradient(90deg, var(--success), var(--warning));
-}
-.water-bar-zone {
-  position: absolute; top: 0; bottom: 0;
-  width: 1px; background: rgba(255,255,255,0.18);
-}
-.water-bar-labels {
-  display: flex; justify-content: space-between;
-  margin-top: 6px;
-  font-size: 10px; color: var(--text-tertiary);
-  font-family: var(--font-mono);
-}
-.water-bar-labels .water-zone-name {
-  color: var(--success); font-weight: 700; letter-spacing: 0.10em;
-  text-transform: lowercase;
-}
-
-/* Action row */
-.water-actions {
-  display: grid; grid-template-columns: 56px 1fr; gap: 10px; align-items: stretch;
-}
-.water-minus-btn {
-  background: rgba(255,255,255,0.06);
-  border: none; border-radius: 16px;
-  color: var(--text-primary);
-  font-size: 22px; font-weight: 700;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.water-minus-btn:hover { background: rgba(255,255,255,0.10); }
-.water-minus-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-.water-plus-btn {
-  background: linear-gradient(180deg, #ffffff 0%, #e8e5dd 100%);
-  color: #0a0a0b; border: none; border-radius: 16px;
-  font-family: inherit; font-size: 16px; font-weight: 700;
-  cursor: pointer; padding: 16px;
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  -webkit-tap-highlight-color: transparent;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 4px 14px rgba(0,0,0,0.40);
-}
-.water-plus-btn:hover { transform: translateY(-1px); }
-.water-plus-btn:active { transform: scale(0.98); }
-
-.water-helper {
-  text-align: center; font-size: 12px;
-  color: var(--text-tertiary); margin-top: 12px;
-  font-style: italic;
-}
-.water-helper.good { color: var(--success); font-style: normal; }
-
-/* ----- Why this target? collapsible ----- */
-.why-toggle {
-  width: 100%; display: flex; align-items: center; justify-content: space-between;
-  background: transparent; border: 1px solid var(--border);
-  color: var(--text-secondary); border-radius: 10px;
-  padding: 11px 14px; cursor: pointer; margin-top: 14px;
-  font-family: inherit; font-size: 12px; font-weight: 600;
-  letter-spacing: 0.04em;
-  -webkit-tap-highlight-color: transparent;
-}
-.why-toggle:hover { background: rgba(255,255,255,0.04); color: var(--text-primary); }
-.why-arrow { transition: transform 0.2s; font-size: 14px; }
-.why-toggle[aria-expanded="true"] .why-arrow { transform: rotate(180deg); }
-.why-body {
-  margin-top: 8px;
-  padding: 14px 16px;
-  background: rgba(255,255,255,0.025);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  display: none;
-}
-.why-body.show { display: block; }
-.why-row {
-  display: flex; justify-content: space-between; align-items: baseline;
-  font-size: 13px; padding: 4px 0;
-  font-variant-numeric: tabular-nums;
-}
-.why-row .why-label { color: var(--text-secondary); }
-.why-row .why-val   { color: var(--text-primary); font-weight: 600; font-family: var(--font-mono); }
-.why-row.total {
-  border-top: 1px solid var(--border);
-  margin-top: 8px; padding-top: 10px;
-}
-.why-row.total .why-label { color: var(--success); font-weight: 700; }
-.why-row.total .why-val   { color: var(--success); }
-
-/* ----- History ----- */
-.hist-row {
-  display: grid; grid-template-columns: 70px 1fr auto; gap: 10px;
-  padding: 10px 6px; margin: 0 -6px; align-items: center;
-  border-bottom: 1px solid var(--border);
-  border-radius: 8px; cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s;
-  font-size: 13px;
-}
-.hist-row:last-child { border-bottom: none; }
-.hist-row:hover, .hist-row:focus-visible { background: rgba(255,255,255,0.05); outline: none; }
-.hist-date { font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono); }
-.hist-bar-wrap {
-  height: 8px; background: rgba(255,255,255,0.04); border-radius: 4px; overflow: hidden;
-}
-.hist-bar-fill {
-  height: 100%; background: linear-gradient(90deg, var(--info), var(--success));
-  border-radius: 4px;
-}
-.hist-bar-fill.miss { background: rgba(255,138,138,0.4); }
-.hist-count {
-  font-family: var(--font-mono); font-size: 12px;
-  color: var(--text-secondary); font-variant-numeric: tabular-nums;
-}
-
-/* ----- Mini chart for last 14 days ----- */
-.spark-wrap { padding: 6px 0; }
-.spark-svg { width: 100%; height: 70px; display: block; }
-.spark-bar { fill: var(--success); }
-.spark-bar.miss { fill: rgba(255,138,138,0.5); }
-.spark-target {
-  stroke: rgba(255,255,255,0.20);
-  stroke-width: 1; stroke-dasharray: 3 3;
-  vector-effect: non-scaling-stroke;
-}
-
+:root { --danger: #ff9e9e; --success: #6be3a4; --font-mono: ui-monospace, SF Mono, Menlo, Consolas, monospace; }
 /* ----- Modal ----- */
-.modal-bg {
-  display: none; position: fixed; inset: 0;
-  background: rgba(0,0,0,0.65); backdrop-filter: blur(6px);
-  z-index: 100; align-items: center; justify-content: center; padding: 20px;
-}
-.modal-bg.show { display: flex; }
+.modal::backdrop { background: #060d17bb; }
 .modal {
-  width: 100%; max-width: 480px;
+  width: calc(100% - 28px); max-width: 480px; color: var(--text-primary);
   background: var(--bg-card);
   border: 1px solid var(--border-strong);
   border-radius: 16px;
-  padding: 22px; max-height: 88vh; overflow-y: auto;
+  padding: 22px; padding-bottom: max(22px, env(safe-area-inset-bottom)); max-height: 88vh; overflow-y: auto;
 }
 .modal h3 {
   margin: 0 0 14px; font-size: 17px; font-weight: 700;
@@ -576,93 +219,116 @@ body::after {
 }
 .modal-actions .btn-primary { flex: 1; }
 
-@media (max-width: 480px) {
-  .shell { padding: 16px 12px 60px; }
-  .water-num { font-size: 48px; }
-  .po-seg-control { padding: 3px; gap: 2px; }
-  .po-seg-btn {
-    padding: 9px 6px; font-size: 12px;
-    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
-}
 </style>
 </head>
 <body>
 
-<div class="shell">
-
-  <div id="waterDatePicker"></div>
-
-  <div class="header">
-    <h1 class="title" id="appTitle">Water Coach</h1>
-    <button class="icon-btn" id="settingsBtn" title="Settings" aria-label="Settings">
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-    </button>
-  </div>
-
-  <div class="save-fail-banner" id="saveFailBanner">⚠ Could not save — your device storage may be full. The last change may not have been kept.</div>
-
-  <div class="divider"><span>WATER</span></div>
-
-  <div class="card">
-    <div class="water-label" id="waterUnitLabel">BOTTLES DRANK TODAY</div>
-    <div class="water-row">
-      <span class="water-num" id="waterNum">0</span>
-      <span class="water-target" id="waterTarget">/ 9</span>
+<main class="shell">
+  <header class="water-header">
+    <div class="water-heading">
+      <h1 id="waterTitle">Agua</h1>
+      <button class="water-secondary" id="settingsBtn" type="button">Ajustar meta</button>
     </div>
+    <nav class="water-tabs" aria-label="Vistas de hidratación">
+      <button id="dailyTab" type="button" aria-pressed="true" aria-controls="waterDaily">Agua</button>
+      <button id="weeklyTab" type="button" aria-pressed="false" aria-controls="waterWeekly">Estadísticas</button>
+    </nav>
+    <div id="dayStrip" class="water-days" aria-label="Días de la semana"></div>
+    <button id="waterToday" class="water-secondary" type="button" hidden>Volver a hoy</button>
+    <div id="weekNav" class="water-week-nav" hidden>
+      <button id="prevWeek" type="button" aria-label="Semana anterior">‹</button>
+      <span id="weekLabel" aria-live="polite"></span>
+      <button id="nextWeek" type="button" aria-label="Semana siguiente">›</button>
+    </div>
+  </header>
 
-    <div class="water-bar-wrap">
-      <div class="water-bar-track">
-        <div class="water-bar-fill" id="waterBarFill" style="width:0%"></div>
-        <div class="water-bar-zone" id="waterBarZoneStart" style="left:55%"></div>
-        <div class="water-bar-zone" id="waterBarZoneEnd"   style="left:80%"></div>
+  <p class="save-fail-banner" id="saveFailBanner" role="alert">No se pudo guardar. Volvé a intentar.</p>
+
+  <section id="waterDaily" class="water-content" aria-labelledby="dailyTab">
+    <div class="water-card water-hero">
+      <div class="water-ring">
+        <svg viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="water-ring-track" cx="60" cy="60" r="53"/>
+          <circle id="waterArc" cx="60" cy="60" r="53" pathLength="100" transform="rotate(-90 60 60)"/>
+        </svg>
+        <div class="water-ring-text" aria-live="polite" aria-atomic="true">
+          <strong id="waterPercent">0%</strong>
+          <span id="waterTotal"></span>
+        </div>
       </div>
-      <div class="water-bar-labels">
-        <span id="waterBarMin">0</span>
-        <span class="water-zone-name">healthy zone</span>
-        <span id="waterBarMax">12+</span>
+      <p class="water-remaining" id="waterRemaining"></p>
+      <p class="water-log-date" id="waterLogDate"></p>
+      <div class="water-split">
+        <button class="water-primary" id="waterPlusBtn" type="button"></button>
+        <button class="water-primary" id="amountOpen" type="button" aria-label="Elegir cantidad" aria-haspopup="dialog">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="m6 15 6-6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+      <div class="water-feedback" id="waterFeedback" hidden>
+        <span id="waterNotice" role="status"></span>
+        <button class="water-secondary" id="waterUndo" type="button">Deshacer</button>
       </div>
     </div>
+    <section class="water-card water-history" aria-labelledby="waterHistoryTitle">
+      <h2 id="waterHistoryTitle">Tomas del día</h2>
+      <ul id="waterIntakes"></ul>
+    </section>
+  </section>
 
-    <div class="water-actions">
-      <button class="water-minus-btn" id="waterMinusBtn" type="button" aria-label="Undo last">−</button>
-      <button class="water-plus-btn" id="waterPlusBtn" type="button">
-        <span id="waterPlusLabel">Drank a bottle</span>
-        <span>↑</span>
-      </button>
+  <section id="waterWeekly" class="water-content water-weekly" aria-labelledby="weeklyTab" hidden>
+    <div class="water-card water-chart">
+      <h2>Consumo por día</h2>
+      <p class="water-chart-detail" id="chartDetail" aria-live="polite"></p>
+      <div id="weekChart" class="water-bars"></div>
+      <div class="water-legend">
+        <span><i></i><span id="chartGoal"></span></span>
+        <span><i></i>Día futuro</span>
+      </div>
+      <button class="water-secondary" id="chartOpenDay" type="button">Ver tomas del día</button>
     </div>
-    <div class="water-helper" id="waterHelper">Start the day — first one in.</div>
+    <dl class="water-summary">
+      <div class="water-card"><dt>Total tomado</dt><dd id="weekTotal"></dd></div>
+      <div class="water-card"><dt>Promedio diario</dt><dd id="weekAverage"></dd></div>
+      <div class="water-card"><dt>Días con la meta cumplida</dt><dd id="weekGoals"></dd></div>
+    </dl>
+  </section>
+</main>
 
-    <button class="why-toggle" id="whyToggle" type="button" aria-expanded="false">
-      <span>Why this target?</span>
-      <span class="why-arrow">▾</span>
-    </button>
-    <div class="why-body" id="whyBody"></div>
-  </div>
-
-  <div class="card">
-    <div class="water-label">LAST 14 DAYS</div>
-    <div class="spark-wrap">
-      <svg class="spark-svg" id="sparkSvg" viewBox="0 0 280 70" preserveAspectRatio="none"></svg>
+<dialog id="amountDialog" class="water-dialog" aria-labelledby="amountTitle">
+  <form id="amountForm">
+    <div class="water-heading">
+      <h2 id="amountTitle"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M5 3h14l-2 18H7L5 3Zm1.2 8.5c3-2 6 2 11.6 0" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>Agregar agua</h2>
+      <button class="water-secondary" id="amountClose" type="button" aria-label="Cerrar">×</button>
     </div>
-    <div id="histList" style="margin-top:14px"></div>
-  </div>
-</div>
+    <p class="water-dialog-date" id="amountDate"></p>
+    <div class="water-amounts" id="amountPresets" aria-label="Cantidades rápidas">
+      <button type="button" data-ml="100">100 <small>ml</small></button>
+      <button type="button" data-ml="200">200 <small>ml</small></button>
+      <button type="button" data-ml="250">250 <small>ml</small></button>
+      <button type="button" data-ml="350">350 <small>ml</small></button>
+      <button type="button" data-ml="500">500 <small>ml</small></button>
+    </div>
+    <label class="water-custom" for="amountCustom">Otra cantidad
+      <span><input id="amountCustom" type="number" inputmode="numeric" min="1" max="99999" step="1" placeholder="0"><span>ml</span></span>
+    </label>
+    <p id="amountError" role="alert" hidden>No se pudo guardar. Volvé a intentar.</p>
+    <button class="water-primary" id="amountConfirm" type="submit"></button>
+  </form>
+</dialog>
 
 <!-- Settings modal -->
-<div class="modal-bg" id="setModalBg">
-  <div class="modal">
-    <h3>Settings</h3>
+<dialog class="modal" id="setModalBg" aria-labelledby="waterSettingsTitle">
+    <h3 id="waterSettingsTitle">Ajustar meta</h3>
 
     <div class="set-section">
-      <h4>Profile</h4>
+      <h4>Perfil</h4>
       <div class="field-row">
         <div class="field">
-          <label>Weight</label>
+          <label for="setWeight">Peso</label>
           <input type="number" id="setWeight" step="0.5" min="20" max="300">
         </div>
         <div class="field">
-          <label>Weight unit</label>
+          <label>Unidad de peso</label>
           <div class="seg" id="setWeightUnit">
             <button data-u="kg">kg</button>
             <button data-u="lb">lb</button>
@@ -671,78 +337,76 @@ body::after {
       </div>
       <div class="field-row">
         <div class="field">
-          <label>Age</label>
+          <label for="setAge">Edad</label>
           <input type="number" id="setAge" min="13" max="100">
         </div>
         <div class="field">
-          <label>Sex</label>
+          <label>Sexo</label>
           <div class="seg" id="setSex">
-            <button data-s="m">Male</button>
-            <button data-s="f">Female</button>
-            <button data-s="o">Other</button>
+            <button data-s="m">Masculino</button>
+            <button data-s="f">Femenino</button>
+            <button data-s="o">Otro</button>
           </div>
         </div>
       </div>
       <div class="field">
-        <label>Activity (training hours per week)</label>
+        <label for="setActivity">Actividad (horas de entrenamiento por semana)</label>
         <input type="number" id="setActivity" min="0" max="40" step="0.5">
       </div>
     </div>
 
     <div class="set-section">
-      <h4>Display</h4>
+      <h4>Porciones del historial y de la barra superior</h4>
       <div class="field">
-        <label>Show water as</label>
+        <label>Unidad</label>
         <div class="seg" id="setUnit">
-          <button data-u="bottle">Bottles</button>
-          <button data-u="glass">Glasses</button>
+          <button data-u="bottle">Botellas</button>
+          <button data-u="glass">Vasos</button>
           <button data-u="oz">oz</button>
           <button data-u="ml">ml</button>
         </div>
       </div>
       <div class="field-row">
         <div class="field">
-          <label>Bottle size (ml)</label>
+          <label for="setBottleMl">Tamaño de botella (ml)</label>
           <input type="number" id="setBottleMl" min="100" max="2000" step="50">
         </div>
         <div class="field">
-          <label>Glass size (ml)</label>
+          <label for="setGlassMl">Tamaño de vaso (ml)</label>
           <input type="number" id="setGlassMl" min="100" max="500" step="10">
         </div>
       </div>
     </div>
 
     <div class="set-section">
-      <h4>Stimulants & meds</h4>
+      <h4>Estimulantes y medicamentos</h4>
       <div class="field">
-        <label>Search to add</label>
+        <label for="subSearch">Buscar para agregar</label>
         <div class="search-wrap">
-          <input type="text" class="search-input" id="subSearch" placeholder="Type a name (Adderall, Concerta, Lithium…)" autocomplete="off">
+          <input type="text" class="search-input" id="subSearch" placeholder="Escribí un nombre" autocomplete="off">
           <div class="search-results" id="subResults"></div>
         </div>
         <div style="font-size:11px;color:var(--text-tertiary);margin-top:4px;line-height:1.4">
-          Each substance bumps your daily water target. Includes ADHD stims,
-          diuretics, decongestants, nicotine, alcohol, and a few others.
+          Estas entradas se incluyen en el cálculo de la meta diaria.
         </div>
       </div>
       <div class="subs-list" id="subsList"></div>
     </div>
 
     <div class="set-section">
-      <h4>Data</h4>
+      <h4>Datos</h4>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn-secondary" id="setExport">Export JSON</button>
-        <button class="btn-secondary" id="setImport">Import JSON</button>
-        <button class="btn-secondary" id="setReset" style="color:var(--danger);border-color:rgba(255,138,138,0.3)">Reset all</button>
+        <button class="btn-secondary" id="setExport">Exportar JSON</button>
+        <button class="btn-secondary" id="setImport">Importar JSON</button>
+        <button class="btn-secondary" id="setReset" style="color:var(--danger);border-color:rgba(255,138,138,0.3)">Borrar todo</button>
       </div>
       <input type="file" id="setImportFile" accept=".json" style="display:none">
     </div>
 
     <div class="modal-actions">
-      <button class="btn-primary" id="setClose">Done</button>
+      <button class="btn-primary" id="setClose">Listo</button>
     </div>
-  </div>
-</div>
+</dialog>
 
 <script>
 (function() {
@@ -811,7 +475,7 @@ body::after {
     return normalize({});
   }
   function normalize(s) {
-    s = s || {};
+    s = s && typeof s === 'object' && !Array.isArray(s) ? s : {};
     s.unit = s.unit || CONFIG.unit || 'bottle';
     s.bottleMl = s.bottleMl || CONFIG.bottleMl || 500;
     s.glassMl  = s.glassMl  || CONFIG.glassMl  || 250;
@@ -819,22 +483,16 @@ body::after {
     s.profile = Object.assign({}, CONFIG.profile, s.profile || {});
     s.substances = Array.isArray(s.substances) ? s.substances : (CONFIG.defaultSubstances || []);
     s.logs = (s.logs && typeof s.logs === 'object') ? s.logs : {};  // {YYYY-MM-DD: number_of_servings}
+    s.entries = (s.entries && typeof s.entries === 'object' && !Array.isArray(s.entries)) ? s.entries : {};
+    s.entries = Object.fromEntries(Object.entries(s.entries).filter(([id, entry]) =>
+      /^[a-z0-9-]+$/i.test(id) && entry && /^\d{4}-\d{2}-\d{2}$/.test(entry.day) && validAmount(entry.ml)));
     return s;
   }
-  // DataLayer bridge — po_water_v1 mixed config + a date-keyed logs
-  // series in one blob; split into health_water_log (id=date,
-  // {servings}) and health_water_config (singleton, everything else).
-  // dlReady gates writes until initWaterDataLayer (bottom of this IIFE)
-  // has pulled real data — every saveState() call before that runs
-  // against the loadState()-seeded `state` below, same as before, it
-  // just doesn't reach Supabase until dataLayer.js (deferred) is ready.
+  // Keep the legacy serving counts and profile in their existing collections.
   let dlReady = false;
-  let dlWaterLogsCache = {}; // date -> servings, last known DataLayer state
-  let dlConfigCacheJson = null; // last known DataLayer config, JSON — avoids
-  // re-pushing (and cross-device ping-ponging) an unchanged config every
-  // time saveState() runs, including from inside the subscribe callback
-  // below where a remote change to *logs* alone would otherwise still
-  // trigger a redundant config putSingleton.
+  let dlWaterLogsCache = {};
+  let dlConfigCacheJson = null;
+  let configWrite = null;
   function syncWaterLogsToDataLayer() {
     if (!dlReady) return;
     const allDates = new Set(Object.keys(state.logs).concat(Object.keys(dlWaterLogsCache)));
@@ -846,57 +504,49 @@ body::after {
     });
     dlWaterLogsCache = Object.assign({}, state.logs);
   }
+  function waterConfig(snapshot = state) {
+    const { logs, entries, ...config } = snapshot;
+    return config;
+  }
   function syncWaterConfigToDataLayer() {
     if (!dlReady) return;
-    const cfg = Object.assign({}, state);
-    delete cfg.logs;
+    const cfg = waterConfig();
     const json = JSON.stringify(cfg);
     if (json === dlConfigCacheJson) return;
     dlConfigCacheJson = json;
-    DataLayer.putSingleton('health_water_config', cfg);
+    const pending = configWrite || Promise.resolve();
+    const write = pending.catch(() => {}).then(() => DataLayer.putSingleton('health_water_config', cfg));
+    configWrite = write;
+    write.then(() => {
+      if (configWrite === write) configWrite = null;
+    }, error => {
+      if (configWrite === write) {
+        configWrite = null;
+        dlConfigCacheJson = null;
+      }
+      console.warn('[Agua] No se pudo sincronizar la configuración', error);
+    });
   }
-  // UI_AUDIT.md CRÍTICO #5: used to swallow a failed write silently, and
-  // every one of its ~15 call sites (water +/-, settings fields,
-  // substances, Import, Reset) just kept re-rendering as if it had
-  // worked. Fixed once here instead of at every call site: on failure,
-  // console.warn + show a small persistent banner; it clears itself the
-  // next time a save actually succeeds.
   function saveState() {
     try {
       localStorage.setItem(LS_KEY, JSON.stringify(state));
-      syncWaterLogsToDataLayer();
-      syncWaterConfigToDataLayer();
-      const banner = $('saveFailBanner');
-      if (banner) banner.classList.remove('show');
-      return true;
-    } catch (e) {
-      console.warn('[Water Coach] localStorage.setItem failed', e);
-      const banner = $('saveFailBanner');
-      if (banner) banner.classList.add('show');
+    } catch (error) {
+      console.warn('[Agua] No se pudo guardar en este dispositivo', error);
+      $('saveFailBanner').classList.add('show');
       return false;
     }
+    $('saveFailBanner').classList.remove('show');
+    syncWaterEntriesToDataLayer();
+    syncWaterLogsToDataLayer();
+    syncWaterConfigToDataLayer();
+    window.dispatchEvent(new Event('water:updated'));
+    return true;
   }
   let state = loadState();
-  $('appTitle').textContent = CONFIG.appTitle || 'Water Coach';
 
-  // Helpers
   function dateKey(d) {
-    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-  }
-  // Backdating (Fase 4) — window.createDatePicker (datePicker.js) replaces
-  // the old read-only "today" pill. Every read/write below operates on
-  // whichever date is currently selected in the picker, never a bare
-  // `new Date()` — onChange re-renders the whole view whenever the user
-  // switches day (Hoy/Ayer/calendar/history row), so the counter, bar,
-  // and label always describe the date actually showing on screen.
-  const waterDatePicker = window.createDatePicker($('waterDatePicker'), { onChange: function () { renderWater(); } });
-  function selectedDayKey() { return waterDatePicker.getSelectedDateKey(); }
-  function selectedDayCount() { return state.logs[selectedDayKey()] || 0; }
-  function setSelectedDayCount(n) {
-    const k = selectedDayKey();
-    if (n <= 0) delete state.logs[k];
-    else state.logs[k] = n;
-    saveState();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') +
+      '-' + String(d.getDate()).padStart(2, '0');
   }
 
   // ============================================================
@@ -928,179 +578,298 @@ body::after {
     if (state.unit === 'oz')     return 30;     // 1 fl oz ≈ 29.57 ml
     return 1;                                   // ml
   }
-  function unitLabelPlural() {
-    if (state.unit === 'bottle') return 'bottles';
-    if (state.unit === 'glass')  return 'glasses';
-    if (state.unit === 'oz')     return 'oz';
-    return 'ml';
+  const dayNames = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+  const shortDate = new Intl.DateTimeFormat('es-AR', { day: 'numeric', month: 'short' });
+  const longDate = new Intl.DateTimeFormat('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const monthName = new Intl.DateTimeFormat('es-AR', { month: 'short' });
+  const number = new Intl.NumberFormat('es-AR', { useGrouping: 'always' });
+  const presets = [...$('amountPresets').querySelectorAll('button')];
+  let todayKey = dateKey(new Date());
+  let selected = todayKey;
+  let week = monday(todayKey);
+  let chartDay = todayKey;
+  let weekly = false;
+  let lastEntry;
+  let chosen;
+  let dialogDay;
+
+  function asDate(key) {
+    const [year, month, day] = key.split('-').map(Number);
+    return new Date(year, month - 1, day, 12);
   }
-  function unitLabelSingular() {
-    if (state.unit === 'bottle') return 'bottle';
-    if (state.unit === 'glass')  return 'glass';
-    if (state.unit === 'oz')     return 'oz';
-    return 'ml';
+  function shiftDay(key, days) {
+    const date = asDate(key);
+    date.setDate(date.getDate() + days);
+    return dateKey(date);
+  }
+  function monday(key) {
+    return shiftDay(key, -((asDate(key).getDay() + 6) % 7));
+  }
+  function weekDates(start) {
+    return dayNames.map((_, index) => shiftDay(start, index));
+  }
+  function weekRange(start) {
+    const first = asDate(start);
+    const last = asDate(shiftDay(start, 6));
+    if (first.getFullYear() !== last.getFullYear()) {
+      return first.getDate() + ' ' + monthName.format(first) + ' ' + first.getFullYear() +
+        ' – ' + last.getDate() + ' ' + monthName.format(last) + ' ' + last.getFullYear();
+    }
+    if (first.getMonth() !== last.getMonth()) {
+      return first.getDate() + ' ' + monthName.format(first) + ' – ' + last.getDate() + ' ' + monthName.format(last);
+    }
+    return first.getDate() + '–' + last.getDate() + ' ' + monthName.format(last);
+  }
+  function refreshToday(now = new Date()) {
+    const current = dateKey(now);
+    if (todayKey === current) return false;
+    if (selected === todayKey) selected = current;
+    if (chartDay === todayKey) chartDay = current;
+    if (week === monday(todayKey)) week = monday(current);
+    todayKey = current;
+    return true;
+  }
+  function validAmount(ml) {
+    return Number.isSafeInteger(ml) && ml > 0 && ml <= 99999;
+  }
+  function quickAmount() {
+    return validAmount(state.quickMl) ? state.quickMl : 250;
+  }
+  function targetMl() {
+    return Math.max(1, Math.round(computeTargetMl().total) || 1);
+  }
+  function legacyMl(day) {
+    return (Number(state.logs[day]) || 0) * unitVolMl();
+  }
+  function dayEntries(day) {
+    return Object.values(state.entries).filter(entry => entry.day === day && !entry.voided && validAmount(entry.ml));
+  }
+  function dayTotal(day) {
+    return dayEntries(day).reduce((total, entry) => total + entry.ml, legacyMl(day));
   }
   function fmtMl(ml) {
-    if (ml >= 1000) return (ml / 1000).toFixed(1) + ' L';
-    return Math.round(ml) + ' ml';
+    return number.format(Math.round(ml)) + ' ml';
   }
 
-  // ============================================================
-  // RENDER
-  // ============================================================
   function renderWater() {
-    const calc = computeTargetMl();
-    const targetUnits = Math.ceil(calc.total / unitVolMl());
-    const count = selectedDayCount();
-    const unitName = unitLabelPlural();
+    const focusKey = document.activeElement?.dataset.day;
+    refreshToday();
+    $('waterDaily').hidden = weekly;
+    $('waterWeekly').hidden = !weekly;
+    $('dayStrip').hidden = weekly;
+    $('waterToday').hidden = weekly || monday(selected) === monday(todayKey);
+    $('weekNav').hidden = !weekly;
+    $('dailyTab').setAttribute('aria-pressed', !weekly);
+    $('weeklyTab').setAttribute('aria-pressed', weekly);
+    $('waterTitle').textContent = weekly ? 'Estadísticas' : 'Agua';
 
-    // Data-safety requirement (Fase 4): it must be unambiguous which day is
-    // being viewed/edited, so nobody logs today's water against the wrong
-    // day by mistake. The date picker's own pill already distinguishes
-    // Hoy/Ayer/otro día visually; this label is the second, textual cue.
-    const isToday = selectedDayKey() === window.dpDateKey(new Date());
-    $('waterUnitLabel').textContent = isToday
-      ? (unitName.toUpperCase() + ' DRANK TODAY')
-      : (unitName.toUpperCase() + ' DRANK — ' + window.dpFormatShort(waterDatePicker.getSelectedDate()).toUpperCase());
-    $('waterNum').textContent = count;
-    $('waterTarget').textContent = '/ ' + targetUnits;
-    $('waterPlusLabel').textContent = 'Drank a ' + unitLabelSingular();
-
-    // Progress bar with three zones: low (0-65%), healthy (65-100%), over (100-150%)
-    const pctRaw = (count / targetUnits) * 100;
-    const fillPct = Math.min(150, pctRaw) / 1.5;   // bar represents 0-150%
-    const fill = $('waterBarFill');
-    fill.style.width = fillPct + '%';
-    fill.classList.toggle('over', pctRaw > 100);
-    $('waterBarMin').textContent = '0';
-    $('waterBarMax').textContent = (Math.ceil(targetUnits * 1.5)) + '+';
-    // Healthy zone bands at 65% and 100%
-    $('waterBarZoneStart').style.left = (65 / 1.5) + '%';
-    $('waterBarZoneEnd').style.left   = (100 / 1.5) + '%';
-
-    // Helper text
-    const helper = $('waterHelper');
-    if (count === 0) { helper.textContent = 'Start the day — first one in.'; helper.classList.remove('good'); }
-    else if (pctRaw < 50) { helper.textContent = 'Behind pace — drink one in the next hour.'; helper.classList.remove('good'); }
-    else if (pctRaw < 100) { helper.textContent = (targetUnits - count) + ' to go. Pacing well.'; helper.classList.remove('good'); }
-    else if (pctRaw < 130) { helper.textContent = '✓ Target hit — top up if you train this evening.'; helper.classList.add('good'); }
-    else { helper.textContent = 'Strong — way past target.'; helper.classList.add('good'); }
-
-    // Disable minus when at zero
-    $('waterMinusBtn').disabled = count <= 0;
-
-    renderWhy(calc, targetUnits);
-    renderHistory();
-    renderSparkline(targetUnits);
+    if (weekly) renderWeek();
+    else renderDay();
+    if (focusKey) document.querySelector('[data-day="' + focusKey + '"]')?.focus();
   }
 
-  function renderWhy(calc, targetUnits) {
-    const wrap = $('whyBody');
-    const u = state.weightUnit;
-    const wDisp = u === 'lb' ? (state.profile.weightKg).toFixed(0) : state.profile.weightKg.toFixed(0);
-    let html = '';
-    html += '<div class="why-row"><span class="why-label">Base (' + wDisp + ' ' + u + ' × 35 ml)</span><span class="why-val">' + fmtMl(calc.base) + '</span></div>';
-    if (calc.exercise > 0)
-      html += '<div class="why-row"><span class="why-label">+ Exercise (' + state.profile.activityHrsPerWeek + ' h/wk)</span><span class="why-val">+ ' + fmtMl(calc.exercise) + '</span></div>';
-    (state.substances || []).forEach(s => {
-      html += '<div class="why-row"><span class="why-label">+ ' + escape(s.name) + ' (' + escape(subDoseLabel(s)) + ')</span><span class="why-val">+ ' + fmtMl(subExtraMl(s)) + '</span></div>';
-    });
-    if (calc.adjust > 0)
-      html += '<div class="why-row"><span class="why-label">+ Sex / age adjustment</span><span class="why-val">+ ' + fmtMl(calc.adjust) + '</span></div>';
-    html += '<div class="why-row total"><span class="why-label">Daily target</span><span class="why-val">' + fmtMl(calc.total) + ' ≈ ' + targetUnits + ' ' + unitLabelPlural() + '</span></div>';
-    wrap.innerHTML = html;
-  }
+  function renderDay() {
+    $('dayStrip').innerHTML = weekDates(monday(selected)).map((key, index) => {
+      const date = asDate(key);
+      return '<button type="button" data-day="' + key + '" aria-label="' + longDate.format(date) +
+        '" aria-pressed="' + (key === selected) + '"' + (key === todayKey ? ' aria-current="date"' : '') +
+        (key > todayKey ? ' disabled' : '') + '><small>' + dayNames[index] +
+        '</small><strong>' + date.getDate() + '</strong></button>';
+    }).join('');
+    const target = targetMl();
+    const total = dayTotal(selected);
+    const percent = total / target * 100;
+    $('waterPercent').textContent = number.format(Math.round(percent)) + '%';
+    $('waterTotal').textContent = number.format(total) + ' / ' + fmtMl(target);
+    $('waterArc').style.visibility = percent > 0 ? 'visible' : 'hidden';
+    $('waterArc').setAttribute('stroke-dasharray', Math.min(percent, 100) + ' 100');
+    $('waterRemaining').textContent = total >= target ? 'Meta cumplida' : 'Te faltan ' + fmtMl(target - total);
+    $('waterLogDate').textContent = selected === todayKey ? '' : 'Registrar para el ' + shortDate.format(asDate(selected));
+    $('waterPlusBtn').textContent = '+' + fmtMl(quickAmount());
+    $('waterFeedback').hidden = !lastEntry || lastEntry.day !== selected;
+    $('waterUndo').hidden = !lastEntry || state.entries[lastEntry.id]?.voided || !state.entries[lastEntry.id];
 
-  function renderHistory() {
-    const list = $('histList');
-    const target = Math.ceil(computeTargetMl().total / unitVolMl());
-    // Last 7 days
-    const days = [];
-    for (let i = 6; i >= 1; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const k = dateKey(d);
-      const n = state.logs[k] || 0;
-      days.push({ date: d, key: k, count: n });
+    const entries = dayEntries(selected).sort((a, b) => b.createdAt - a.createdAt);
+    const items = entries.map(entry => '<li><span>' + escape(entry.time || 'Hora no disponible') +
+      '</span><strong>' + fmtMl(entry.ml) + '</strong></li>');
+    if (legacyMl(selected) > 0) {
+      items.push('<li><span>Historial · sin hora</span><strong>' + fmtMl(legacyMl(selected)) + '</strong></li>');
     }
-    list.innerHTML = days.map(({date, key, count}) => {
-      const dows = ['Sun','Mon','Tue','Wed','THU','Fri','Sat'];
-      const lbl = dows[date.getDay()] + ' ' + (date.getMonth()+1) + '/' + date.getDate();
-      const pct = Math.min(100, (count / target) * 100);
-      const cls = (count >= target) ? '' : 'miss';
-      // Tappable (Fase 4): selecting a row jumps the date picker straight
-      // to that day, same effect as picking it from the calendar — quick
-      // correction of a recent day without opening the popover.
-      return '<div class="hist-row" role="button" tabindex="0" data-key="' + key + '" '
-        + 'aria-label="Ver y editar ' + lbl + ', ' + count + ' de ' + target + '">'
-        + '<span class="hist-date">' + lbl + '</span>'
-        + '<div class="hist-bar-wrap"><div class="hist-bar-fill ' + cls + '" style="width:' + pct + '%"></div></div>'
-        + '<span class="hist-count">' + count + '/' + target + '</span>'
-        + '</div>';
-    }).join('') || '<div style="text-align:center;font-size:12px;color:var(--text-tertiary);padding:12px 0">No logs yet.</div>';
+    $('waterIntakes').innerHTML = items.join('') || '<li>Todavía no hay tomas</li>';
+  }
 
-    list.querySelectorAll('.hist-row').forEach((row) => {
-      row.addEventListener('click', () => waterDatePicker.setSelectedDateKey(row.dataset.key));
-      row.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); waterDatePicker.setSelectedDateKey(row.dataset.key); }
-      });
+  function showChartDay(key) {
+    chartDay = key;
+    const dateLabel = longDate.format(asDate(key));
+    $('chartDetail').textContent = dateLabel + ' · ' + (key > todayKey ? 'Día futuro' : fmtMl(dayTotal(key)));
+    $('chartOpenDay').disabled = key > todayKey;
+    $('weekChart').querySelectorAll('button').forEach(button => {
+      button.setAttribute('aria-pressed', button.dataset.day === key);
     });
   }
 
-  function renderSparkline(target) {
-    const svg = $('sparkSvg');
-    const W = 280, H = 70, pad = 4;
-    const days = 14;
-    const data = [];
-    for (let i = days - 1; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const k = dateKey(d);
-      data.push(state.logs[k] || 0);
+  function renderWeek() {
+    const dates = weekDates(week);
+    const elapsed = dates.filter(key => key <= todayKey);
+    const totals = elapsed.map(dayTotal);
+    const target = targetMl();
+    const total = totals.reduce((sum, ml) => sum + ml, 0);
+    const scale = Math.max(target, ...totals) * 1.12;
+    $('weekLabel').textContent = weekRange(week);
+    $('nextWeek').disabled = week >= monday(todayKey);
+    $('weekTotal').textContent = fmtMl(total);
+    $('weekAverage').textContent = fmtMl(total / (elapsed.length || 1));
+    $('weekGoals').textContent = totals.filter(ml => ml >= target).length + ' de ' + elapsed.length;
+    $('chartGoal').textContent = 'Meta · ' + fmtMl(target);
+    $('weekChart').style.setProperty('--goal-ratio', target / scale);
+    $('weekChart').innerHTML = dates.map((key, index) => {
+      const ml = totals[index] || 0;
+      const future = key > todayKey;
+      const label = longDate.format(asDate(key)) + ', ' + (future ? 'día futuro' : fmtMl(ml));
+      return '<button type="button" data-day="' + key + '" aria-label="' + label + '" class="' +
+        (future ? 'future' : (ml >= target ? 'goal-met' : '')) + '"><span class="water-bar-track" aria-hidden="true">' +
+        '<span class="water-bar-fill" style="--fill:' + (ml / scale * 100) + '%"></span></span>' +
+        '<span>' + dayNames[index] + '</span></button>';
+    }).join('');
+    showChartDay(dates.includes(chartDay) ? chartDay : elapsed[elapsed.length - 1] || dates[0]);
+  }
+
+  function setWeek(next) {
+    refreshToday();
+    week = next > monday(todayKey) ? monday(todayKey) : next;
+    renderWater();
+  }
+
+  $('dailyTab').addEventListener('click', () => { weekly = false; renderWater(); });
+  $('weeklyTab').addEventListener('click', () => {
+    if (!weekly) {
+      refreshToday();
+      week = monday(selected);
+      chartDay = selected;
+      weekly = true;
+      renderWater();
     }
-    const maxVal = Math.max(target, Math.max.apply(null, data)) || 1;
-    const colW = (W - pad * 2) / data.length;
-    const barW = colW * 0.7;
-    let html = '';
-    // Target line
-    const targetY = H - pad - (target / maxVal) * (H - pad * 2);
-    html += '<line class="spark-target" x1="0" x2="' + W + '" y1="' + targetY.toFixed(1) + '" y2="' + targetY.toFixed(1) + '"/>';
-    data.forEach((v, i) => {
-      const x = pad + i * colW + (colW - barW) / 2;
-      const h = (v / maxVal) * (H - pad * 2);
-      const y = H - pad - h;
-      const cls = (v >= target) ? 'spark-bar' : 'spark-bar miss';
-      html += '<rect class="' + cls + '" x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + barW.toFixed(1) + '" height="' + Math.max(0, h).toFixed(1) + '" rx="2"/>';
-    });
-    svg.innerHTML = html;
+  });
+  $('dayStrip').addEventListener('click', event => {
+    const button = event.target.closest('button');
+    if (!button) return;
+    selected = button.dataset.day;
+    renderWater();
+  });
+  $('waterToday').addEventListener('click', () => {
+    refreshToday();
+    selected = todayKey;
+    renderWater();
+    $('dayStrip').querySelector('[aria-current="date"]').focus();
+  });
+  $('prevWeek').addEventListener('click', () => setWeek(shiftDay(week, -7)));
+  $('nextWeek').addEventListener('click', () => setWeek(shiftDay(week, 7)));
+  function inspectBar(event) {
+    const button = event.target.closest('button');
+    if (button) showChartDay(button.dataset.day);
+  }
+  $('weekChart').addEventListener('click', inspectBar);
+  $('weekChart').addEventListener('focusin', inspectBar);
+  $('chartOpenDay').addEventListener('click', () => {
+    selected = chartDay;
+    weekly = false;
+    renderWater();
+    $('dailyTab').focus();
+  });
+
+  function register(day, ml, remember, now) {
+    const id = crypto.randomUUID();
+    // Backdated servings record the amount without inventing a time on that date.
+    const time = day === dateKey(now)
+      ? String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0')
+      : null;
+    readMirror();
+    const before = state;
+    state = { ...state, entries: { ...state.entries, [id]: { day, ml, time, createdAt: now.getTime() } } };
+    if (remember) {
+      state.quickMl = ml;
+      state.quickUpdatedAt = Math.max(now.getTime(), (Number(before.quickUpdatedAt) || 0) + 1);
+    }
+    if (!saveState()) {
+      state = before;
+      return false;
+    }
+    lastEntry = { id, day };
+    $('waterNotice').textContent = 'Agregaste ' + fmtMl(ml);
+    renderWater();
+    return true;
   }
 
-  function renderAll() { renderWater(); }
-
-  // ============================================================
-  // EVENT WIRING
-  // ============================================================
-  // Always act on whichever date is currently selected in the picker — if
-  // the user navigated to "3 days ago" and taps +, that day's log is what
-  // changes, never today's.
   $('waterPlusBtn').addEventListener('click', () => {
-    setSelectedDayCount(selectedDayCount() + 1);
-    renderWater();
-    const btn = $('waterPlusBtn');
-    btn.style.transform = 'scale(0.97)';
-    setTimeout(() => { btn.style.transform = ''; }, 120);
+    const now = new Date();
+    refreshToday(now);
+    register(selected, quickAmount(), false, now);
   });
-  $('waterMinusBtn').addEventListener('click', () => {
-    setSelectedDayCount(Math.max(0, selectedDayCount() - 1));
+  $('waterUndo').addEventListener('click', () => {
+    readMirror();
+    const id = lastEntry.id;
+    const entry = state.entries[id];
+    if (!entry || entry.voided) return;
+    state.entries[id] = { ...entry, voided: true };
+    if (!saveState()) {
+      state.entries[id] = entry;
+      return;
+    }
+    $('waterNotice').textContent = 'Toma deshecha';
     renderWater();
   });
 
-  $('whyToggle').addEventListener('click', () => {
-    const body = $('whyBody');
-    const open = body.classList.contains('show');
-    body.classList.toggle('show');
-    $('whyToggle').setAttribute('aria-expanded', open ? 'false' : 'true');
+  function updateAmount() {
+    presets.forEach(preset => preset.setAttribute('aria-pressed', Number(preset.dataset.ml) === chosen));
+    $('amountConfirm').disabled = !validAmount(chosen);
+    $('amountConfirm').textContent = validAmount(chosen) ? 'Agregar ' + fmtMl(chosen) : 'Agregar agua';
+  }
+  $('amountOpen').addEventListener('click', () => {
+    refreshToday();
+    dialogDay = selected;
+    chosen = quickAmount();
+    $('amountCustom').value = presets.some(button => Number(button.dataset.ml) === chosen) ? '' : chosen;
+    $('amountDate').textContent = longDate.format(asDate(dialogDay));
+    $('amountError').hidden = true;
+    updateAmount();
+    $('amountDialog').showModal();
+    (presets.find(button => Number(button.dataset.ml) === chosen) || $('amountCustom')).focus();
   });
+  $('amountClose').addEventListener('click', () => $('amountDialog').close());
+  $('amountDialog').addEventListener('click', event => {
+    if (event.target === $('amountDialog')) {
+      const rect = $('amountDialog').getBoundingClientRect();
+      if (event.clientY < rect.top || event.clientY > rect.bottom || event.clientX < rect.left || event.clientX > rect.right) {
+        $('amountDialog').close();
+      }
+    }
+  });
+  presets.forEach(button => button.addEventListener('click', () => {
+    chosen = Number(button.dataset.ml);
+    $('amountCustom').value = '';
+    updateAmount();
+  }));
+  $('amountCustom').addEventListener('input', () => {
+    chosen = $('amountCustom').valueAsNumber;
+    updateAmount();
+  });
+  $('amountForm').addEventListener('submit', event => {
+    event.preventDefault();
+    if (!validAmount(chosen)) return;
+    if (register(dialogDay, chosen, true, new Date())) $('amountDialog').close();
+    else $('amountError').hidden = false;
+  });
+  window.addEventListener('focus', () => { if (refreshToday()) renderWater(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && refreshToday()) renderWater(); });
+  function watchMidnight() {
+    const midnight = new Date();
+    midnight.setHours(24, 0, 0, 0);
+    setTimeout(() => {
+      renderWater();
+      watchMidnight();
+    }, midnight.getTime() - Date.now() + 30);
+  }
+  watchMidnight();
 
   // ============================================================
   // SETTINGS
@@ -1166,7 +935,7 @@ body::after {
       +   '<input type="number" class="sub-dose-input" data-i="' + i + '" min="0" step="0.5" value="' + (s.dose != null ? s.dose : s.defaultDose) + '">'
       +   '<span class="sub-dose-unit">' + escape(s.unit || '') + '</span>'
       + '</div>'
-      + '<button class="sub-row-del" data-i="' + i + '" aria-label="Remove">×</button>'
+      + '<button class="sub-row-del" data-i="' + i + '" aria-label="Quitar">×</button>'
       + '</div>'
     ).join('');
     list.querySelectorAll('.sub-dose-input').forEach(inp => {
@@ -1215,7 +984,7 @@ body::after {
         const id = el.dataset.id;
         const sub = SUBSTANCE_DB.find(x => x.id === id);
         if (!sub) return;
-        if ((state.substances || []).find(x => x.id === id)) { alert('Already added — edit the dose below.'); return; }
+        if ((state.substances || []).find(x => x.id === id)) { alert('Ya está en la lista. Podés editar la dosis.'); return; }
         state.substances.push({
           id: sub.id, name: sub.name, cat: sub.cat,
           unit: sub.unit, mlPerUnit: sub.mlPerUnit,
@@ -1235,9 +1004,9 @@ body::after {
 
   $('settingsBtn').addEventListener('click', () => {
     renderSettings();
-    $('setModalBg').classList.add('show');
+    $('setModalBg').showModal();
   });
-  $('setClose').addEventListener('click', () => $('setModalBg').classList.remove('show'));
+  $('setClose').addEventListener('click', () => $('setModalBg').close());
 
   // Export / import / reset
   $('setExport').addEventListener('click', () => {
@@ -1254,38 +1023,36 @@ body::after {
     r.onload = () => {
       try {
         const parsed = JSON.parse(r.result);
-        if (!confirm('Replace ALL current data with the imported file?')) return;
+        if (!confirm('¿Reemplazar todos los datos con el archivo importado?')) return;
+        const before = state;
         state = normalize(parsed);
-        saveState(); renderSettings(); renderAll();
-      } catch (err) { alert('Import failed: ' + err.message); }
+        for (const [id, entry] of Object.entries(before.entries)) {
+          if (!state.entries[id]) state.entries[id] = { ...entry, voided: true };
+        }
+        if (!saveState()) {
+          state = before;
+          return;
+        }
+        lastEntry = undefined;
+        renderSettings();
+        renderWater();
+      } catch (err) { alert('No se pudo importar. ' + err.message); }
     };
     r.readAsText(f);
   });
   $('setReset').addEventListener('click', () => {
-    // UI_AUDIT.md CRÍTICO #4 — now actually fixed for the DataLayer-backed
-    // data (health_water_log/health_water_config): a real per-record
-    // DataLayer.remove()/putSingleton(defaults) below, not just a local
-    // localStorage.removeItem that a future sync.js merge could resurrect.
-    // sync.js's own po_water_v1 mirror key still only ever merges
-    // additively (unchanged, out of scope here), so the confirm() copy
-    // still describes that half honestly.
-    const wasDlReady = dlReady;
-    const staleDates = Object.keys(dlWaterLogsCache);
-    const msg = wasDlReady
-      ? 'Wipe ALL water logs and settings? This deletes the cloud records too — it will NOT come back on its own.'
-      : 'Wipe ALL water logs and settings on this device? This only clears local data — if it was already synced to the cloud, it can come back here (or reappear on another device) the next time a sync happens.';
-    if (!confirm(msg)) return;
-    localStorage.removeItem(LS_KEY);
-    state = loadState();
-    if (wasDlReady) {
-      staleDates.forEach((d) => DataLayer.remove('health_water_log', d));
-      dlWaterLogsCache = {};
-      const cfg = Object.assign({}, state);
-      delete cfg.logs;
-      DataLayer.putSingleton('health_water_config', cfg);
+    if (!confirm('¿Borrar todo el historial y volver a los ajustes iniciales?')) return;
+    const before = state;
+    const entries = Object.fromEntries(Object.entries(state.entries).map(([id, entry]) =>
+      [id, { ...entry, voided: true }]));
+    state = normalize({ entries, quickMl: 250, quickUpdatedAt: Math.max(Date.now(), (Number(before.quickUpdatedAt) || 0) + 1) });
+    if (!saveState()) {
+      state = before;
+      return;
     }
-    $('setModalBg').classList.remove('show');
-    renderAll();
+    lastEntry = undefined;
+    $('setModalBg').close();
+    renderWater();
   });
 
   function escape(s) {
@@ -1293,79 +1060,168 @@ body::after {
   }
 
   // BOOT
-  renderAll();
+  renderWater();
 
-  // ============================================================
-  // DataLayer bridge boot — pulls health_water_log/health_water_config
-  // into `state` (same shape normalize() already produces, so
-  // renderWater/renderSettings/computeTargetMl etc needed zero changes)
-  // then re-renders. Wrapped in DOMContentLoaded: dataLayer.js loads
-  // with `defer`, but this IIFE doesn't, so window.DataLayer wouldn't
-  // exist yet at the point this file is parsed — same reasoning as the
-  // other migrated pages. po-water.html is the source of truth for this
-  // data (health.html only embeds it via <iframe>, same-origin so it
-  // shares this localStorage — see health.html's own single-DataLayer-
-  // init comment); health.html needs no DataLayer calls of its own here.
-  // ============================================================
-  function buildLegacyWaterBlob() { return Object.assign({}, state); }
-  async function refreshWaterCaches() {
-    const [logRows, config] = await Promise.all([
-      DataLayer.list('health_water_log'),
-      DataLayer.getSingleton('health_water_config'),
-    ]);
-    const logs = {};
-    logRows.forEach((r) => { logs[r.id] = r.servings; });
-    dlWaterLogsCache = Object.assign({}, logs);
-    state = normalize(Object.assign({}, config, { logs: logs }));
-    const cfgOnly = Object.assign({}, state);
-    delete cfgOnly.logs;
-    dlConfigCacheJson = JSON.stringify(cfgOnly);
+  const ENTRY_COLLECTION = 'health_water_intake';
+  const savedEntries = new Map();
+  const entryWrites = new Map();
+
+  // A stable ID keeps an intake idempotent. Undo keeps that ID with a
+  // tombstone so an older app_state mirror cannot bring the intake back.
+  function mergeEntries(incoming) {
+    for (const [id, entry] of Object.entries(incoming)) {
+      const current = Object.hasOwn(state.entries, id) ? state.entries[id] : null;
+      if (!current || (entry.voided && !current.voided)) state.entries[id] = entry;
+    }
   }
-  document.addEventListener('DOMContentLoaded', async function initWaterDataLayer() {
+
+  function syncWaterEntriesToDataLayer() {
+    if (!dlReady) return;
+    for (const [id, entry] of Object.entries(state.entries)) {
+      const version = entry.voided ? 'voided' : JSON.stringify(entry);
+      if (savedEntries.get(id) === version) continue;
+      savedEntries.set(id, version);
+      const previous = entryWrites.get(id) || Promise.resolve();
+      const write = previous.catch(() => {}).then(() => DataLayer.put(ENTRY_COLLECTION, id, entry));
+      entryWrites.set(id, write);
+      write.then(() => {
+        if (entryWrites.get(id) === write) entryWrites.delete(id);
+      }, error => {
+        if (entryWrites.get(id) === write) {
+          entryWrites.delete(id);
+          savedEntries.delete(id);
+        }
+        console.warn('[Agua] No se pudo sincronizar la toma', error);
+      });
+    }
+  }
+
+  async function refreshEntries() {
+    const rows = await DataLayer.list(ENTRY_COLLECTION);
+    const incoming = {};
+    for (const { id, ...entry } of rows) {
+      incoming[id] = entry;
+      if (!entryWrites.has(id)) savedEntries.set(id, entry.voided ? 'voided' : JSON.stringify(entry));
+    }
+    mergeEntries(normalize({ entries: incoming }).entries);
+  }
+
+  function mergeQuickPreference(incoming) {
+    if (!validAmount(incoming.quickMl)) return;
+    const timestamp = Number(incoming.quickUpdatedAt) || 0;
+    if (!validAmount(state.quickMl) || timestamp > (Number(state.quickUpdatedAt) || 0)) {
+      state.quickMl = incoming.quickMl;
+      state.quickUpdatedAt = timestamp;
+    }
+  }
+
+  function mergeLegacyLogs(incoming) {
+    for (const [day, servings] of Object.entries(incoming)) {
+      if (Number(servings) > Number(state.logs[day] || 0)) state.logs[day] = servings;
+    }
+  }
+
+  function readMirror() {
+    const local = loadState();
+    mergeEntries(local.entries);
+    mergeLegacyLogs(local.logs);
+    mergeQuickPreference(local);
+  }
+
+  function mirrorState() {
+    const json = JSON.stringify(state);
+    try {
+      if (localStorage.getItem(LS_KEY) !== json) localStorage.setItem(LS_KEY, json);
+    } catch (error) {
+      console.warn('[Agua] No se pudo actualizar el almacenamiento local', error);
+    }
+    window.dispatchEvent(new Event('water:updated'));
+  }
+
+  window.addEventListener('storage', event => {
+    if (event.key && event.key !== LS_KEY) return;
+    const local = loadState();
+    const previous = state;
+    state = configWrite ? { ...state, logs: local.logs, entries: local.entries } : local;
+    mergeEntries(previous.entries);
+    mergeQuickPreference(previous);
+    if (dlReady) {
+      syncWaterEntriesToDataLayer();
+      syncWaterLogsToDataLayer();
+      syncWaterConfigToDataLayer();
+    }
+    mirrorState();
+    renderWater();
+  });
+
+  function applyRemoteConfig(config, useRemoteProfile) {
+    const previous = state;
+    if (useRemoteProfile) {
+      state = normalize({ ...config, logs: previous.logs, entries: previous.entries });
+      mergeQuickPreference(previous);
+    } else {
+      mergeQuickPreference(config);
+    }
+    dlConfigCacheJson = JSON.stringify(waterConfig(normalize({ ...config })));
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
     if (typeof DataLayer === 'undefined') return;
     const session = await DataLayer.init({ requireAuth: true });
-    if (!session) return; // redirected to login.html
+    if (!session) return;
 
-    await refreshWaterCaches();
+    async function refreshLogs() {
+      const rows = await DataLayer.list('health_water_log');
+      const logs = Object.fromEntries(rows.map(row => [row.id, row.servings]));
+      dlWaterLogsCache = logs;
+      mergeLegacyLogs(logs);
+    }
+
+    const initialConfig = JSON.stringify(waterConfig());
+    const [, , config] = await Promise.all([
+      refreshLogs(), refreshEntries(), DataLayer.getSingleton('health_water_config')
+    ]);
+    const unchanged = JSON.stringify(waterConfig()) === initialConfig;
+    readMirror();
+    if (config) {
+      const { id, ...remoteConfig } = config;
+      applyRemoteConfig(remoteConfig, unchanged);
+    }
     dlReady = true;
-    renderAll();
-    if (document.getElementById('setModalBg').classList.contains('show')) renderSettings();
+    mirrorState();
+    syncWaterLogsToDataLayer();
+    syncWaterEntriesToDataLayer();
+    syncWaterConfigToDataLayer();
+    renderWater();
 
-    DataLayer.setLegacyMirror('health_water_log', LS_KEY, buildLegacyWaterBlob);
-    DataLayer.setLegacyMirror('health_water_config', LS_KEY, buildLegacyWaterBlob);
-
-    ['health_water_log', 'health_water_config'].forEach((col) => {
-      DataLayer.subscribe(col, async () => {
-        await refreshWaterCaches();
-        saveState(); // re-mirrors po_water_v1 to localStorage; the DataLayer push half no-ops (caches already match what was just fetched)
-        renderAll();
-        if (document.getElementById('setModalBg').classList.contains('show')) renderSettings();
-      });
+    // Refresh each collection independently so an intake arriving over
+    // realtime cannot reload stale settings or replace a pending local intake.
+    DataLayer.subscribe(ENTRY_COLLECTION, async () => {
+      await refreshEntries();
+      mirrorState();
+      renderWater();
+    });
+    DataLayer.subscribe('health_water_log', async () => {
+      await refreshLogs();
+      mirrorState();
+      renderWater();
+    });
+    DataLayer.subscribe('health_water_config', async () => {
+      if (configWrite) return;
+      const before = JSON.stringify(waterConfig());
+      const remote = await DataLayer.getSingleton('health_water_config');
+      if (!remote || configWrite || JSON.stringify(waterConfig()) !== before) return;
+      const { id, ...config } = remote;
+      applyRemoteConfig(config, true);
+      syncWaterConfigToDataLayer();
+      mirrorState();
+      renderWater();
+      if ($('setModalBg').open) renderSettings();
     });
   });
+
 })();
 </script>
-<style>
-/* === iPhone bottom-safe-area fix ===
-   The Done button in the settings modal + the bottom of the page were
-   getting blocked by the iPhone home indicator. These rules add
-   safe-area padding so nothing sits under it. */
-.shell {
-  padding-bottom: calc(80px + env(safe-area-inset-bottom));
-}
-.modal-bg {
-  padding-bottom: max(20px, env(safe-area-inset-bottom));
-  padding-top: max(20px, env(safe-area-inset-top));
-}
-.modal {
-  max-height: calc(88vh - env(safe-area-inset-bottom));
-}
-.water-plus-btn,
-.water-minus-btn {
-  margin-bottom: max(0px, env(safe-area-inset-bottom));
-}
-</style>
-
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   // When embedded in health.html, the parent owns sync for the 'health'
