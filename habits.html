@@ -386,40 +386,102 @@ body::after {
 .hb-save-btn.rd-danger-btn { background: linear-gradient(180deg,#FF8A8A,#E85555); border-color: rgba(255,107,107,0.85); }
 .rd-reread-btn { margin-top: 4px; width: 100%; border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.03); color: var(--text-secondary); font-family: inherit; font-size: 12.5px; font-weight: 600; padding: 9px 12px; border-radius: 10px; cursor: pointer; }
 .rd-reread-btn:hover { background: rgba(255,255,255,0.07); color: var(--text-primary); }
-#screen-time { scroll-margin-top: 84px; --screen-phone: #fa8980; --screen-pc: #82c1ff; }
+#screen-time {
+  scroll-margin-top: 84px;
+  --screen-phone: #e58f7b;
+  --screen-pc: #9db7d0;
+  --screen-edge: rgba(255,255,255,.07);
+}
 #screen-time [hidden] { display: none; }
-.screen-devices { display: flex; gap: 4px; padding: 4px; border: 1px solid #303034; border-radius: 14px; background: #111114; }
-.screen-devices button, .screen-period button { min-height: 44px; font: inherit; font-weight: 600; color: var(--text-secondary); cursor: pointer; }
-.screen-devices button { flex: 1; border: 0; border-radius: 10px; background: transparent; }
-.screen-devices button[aria-pressed=true] { background: #f1ede6; color: #161514; }
-.screen-toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin: 16px 0 8px; }
-#screenChartEye { color: var(--text-primary); font-weight: 700; font-size: 14px; }
+.screen-controls, .screen-toolbar, .screen-period {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+}
+.screen-controls { margin-bottom: 12px; }
+.screen-devices {
+  display: inline-flex; gap: 2px; padding: 3px;
+  border: 1px solid var(--screen-edge); border-radius: 999px;
+  background: rgba(0,0,0,.22);
+}
+.screen-devices button, .screen-period button {
+  min-height: 44px; border: 0; font-family: inherit; cursor: pointer;
+}
+.screen-devices button {
+  padding: 0 16px; border-radius: 999px; background: transparent;
+  color: var(--text-secondary); font-size: 12px; font-weight: 600;
+}
+.screen-devices button[aria-pressed=true] {
+  background: rgba(255,255,255,.09); color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.10);
+}
+.screen-devices button:hover, .screen-period button:not(:disabled):hover {
+  background: rgba(255,255,255,.06); color: var(--text-primary);
+}
+.screen-toolbar { margin-bottom: 12px; }
+#screenChartEye { color: var(--text-secondary); font-weight: 600; font-size: 13px; }
 #screenViewToggle .hb-view-btn { min-height: 36px; }
-.screen-period { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
-.screen-period button { font-size: 11px; padding: 0 9px; border: 1px solid #414146; border-radius: 8px; background: #19191d; }
-.screen-period button:disabled { opacity: .42; cursor: default; }
-#screen-time .hb-avg-row { align-items: stretch; gap: 8px; }
-#screen-time .hb-avg-stat { min-width: 0; padding: 12px 6px; }
-#screen-time .hb-avg-val { font-size: clamp(15px, 3.7vw, 24px); line-height: 1.15; }
-.screen-sources { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 12px 0 4px; font-size: 13px; }
+.screen-period { gap: 3px; }
+.screen-period button {
+  display: grid; place-items: center; min-width: 44px; padding: 0 9px;
+  border-radius: 9px; background: transparent; color: var(--text-secondary);
+  font-size: 11px; font-weight: 600;
+}
+.screen-period .screen-arrow { font-size: 22px; font-weight: 400; }
+.screen-period button:disabled { opacity: .35; cursor: default; }
+#screen-time .hb-avg-row {
+  align-items: stretch; gap: 0; padding: 12px 0;
+  border: 1px solid var(--screen-edge); border-radius: 12px;
+  background: rgba(255,255,255,.025);
+}
+#screen-time .hb-avg-stat {
+  min-width: 0; padding: 2px 14px; border: 0; border-radius: 0;
+  background: transparent; text-align: left;
+}
+#screen-time .hb-avg-stat + .hb-avg-stat { border-left: 1px solid var(--screen-edge); }
+#screen-time .hb-avg-label { color: var(--text-secondary); letter-spacing: .08em; }
+#screen-time .hb-avg-val {
+  font-size: clamp(15px, 3.7vw, 22px); line-height: 1.15; letter-spacing: -.025em;
+}
+.screen-sources { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 12px 0 4px; font-size: 12px; }
+.screen-sources span { display: inline-flex; align-items: center; gap: 7px; }
+.screen-sources span::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .screen-phone-text { color: var(--screen-phone); }
 .screen-pc-text { color: var(--screen-pc); }
-.screen-note { color: var(--text-secondary); font-size: 12px; min-height: 1.4em; margin: 6px 0; }
+.screen-note { color: var(--text-secondary); font-size: 12px; line-height: 1.45; margin: 8px 0; }
+#screenGoalLegendItem { display: flex; align-items: center; gap: 8px; }
+#screenGoalLegendItem::before { content: ''; width: 16px; border-top: 1px dashed var(--warning); }
+.screen-plot {
+  margin-top: 12px; padding: 12px 8px 2px; border-radius: 12px;
+  background: rgba(0,0,0,.15); border: 1px solid rgba(255,255,255,.04);
+}
 .screen-bar-phone { fill: var(--screen-phone); }
 .screen-bar-pc { fill: var(--screen-pc); }
 .screen-plot-item { cursor: pointer; }
+.screen-plot-item:hover .hb-bar-hit { fill: rgba(255,255,255,.04); }
 .screen-plot-item:focus-visible .hb-bar-hit { outline: 1px solid var(--text-secondary); }
 .screen-plot-mark { fill: var(--text-secondary); font-size: 12px; }
 #screen-time .hb-week-daylabel { font-size: 10px; }
 #screen-time .hb-line-goal { pointer-events: none; }
-.screen-manual { margin-top: 16px; border-top: 1px solid #303034; padding-top: 12px; }
-.screen-manual summary { min-height: 36px; font-size: 13px; cursor: pointer; color: var(--text-secondary); }
-.screen-manual .hb-input { box-sizing: border-box; width: 100%; min-width: 0; }
+#screenChartDetail { padding: 0 6px; }
+.screen-manual { margin-top: 16px; border-top: 1px solid var(--screen-edge); }
+.screen-manual summary {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  min-height: 44px; font-size: 12px; cursor: pointer; color: var(--text-secondary);
+}
+.screen-manual summary::-webkit-details-marker { display: none; }
+.screen-manual summary::after { content: '›'; font-size: 19px; line-height: 1; }
+.screen-manual[open] summary::after { transform: rotate(90deg); }
+.screen-manual .hb-input { width: 100%; min-width: 0; }
 @media (max-width: 420px) {
   #screen-time .hb-card { padding-inline: 12px; }
-  #screen-time .hb-avg-label { letter-spacing: .04em; }
-  .screen-period { display: grid; grid-template-columns: 1fr .85fr 1fr; gap: 4px; }
-  .screen-period button { padding-inline: 3px; font-size: 10px; }
+  .screen-devices { flex: 1 1 auto; }
+  .screen-devices button { flex: 1; padding-inline: 6px; }
+  .screen-toolbar { align-items: flex-start; }
+  .screen-period { margin-left: auto; }
+  .screen-period button { padding-inline: 6px; }
+  .screen-period .screen-arrow { min-width: 36px; }
+  #screen-time .hb-avg-label { letter-spacing: .03em; }
+  #screen-time .hb-avg-stat { padding-inline: 7px; }
+  .screen-plot { padding-inline: 3px; }
 }
 </style>
 </head>
@@ -466,22 +528,24 @@ body::after {
   <div class="section" id="screen-time">
     <div class="section-title">Tiempo de pantalla</div>
     <div class="hb-card">
-      <div class="screen-devices" id="screenDevices" role="group" aria-label="Dispositivo">
-        <button type="button" data-device="phone" aria-pressed="true">Celular</button>
-        <button type="button" data-device="pc" aria-pressed="false">PC</button>
-        <button type="button" data-device="both" aria-pressed="false">Ambos</button>
-      </div>
-      <div class="screen-toolbar">
-        <span id="screenChartEye" aria-live="polite"></span>
+      <div class="screen-controls">
+        <div class="screen-devices" id="screenDevices" role="group" aria-label="Dispositivo">
+          <button type="button" data-device="phone" aria-pressed="true">Celular</button>
+          <button type="button" data-device="pc" aria-pressed="false">PC</button>
+          <button type="button" data-device="both" aria-pressed="false">Ambos</button>
+        </div>
         <div class="hb-view-toggle" id="screenViewToggle" role="group" aria-label="Período">
           <button type="button" class="hb-view-btn active" data-mode="week" aria-pressed="true">Semana</button>
           <button type="button" class="hb-view-btn" data-mode="month" aria-pressed="false">Mes</button>
         </div>
       </div>
-      <div class="screen-period" id="screenWeekNav" role="group" aria-label="Navegación semanal">
-        <button type="button" id="screenPrev">‹ Semana anterior</button>
-        <button type="button" id="screenReset">Esta semana</button>
-        <button type="button" id="screenNext">Semana siguiente ›</button>
+      <div class="screen-toolbar">
+        <span id="screenChartEye" aria-live="polite"></span>
+        <div class="screen-period" id="screenWeekNav" role="group" aria-label="Navegación semanal">
+          <button type="button" class="screen-arrow" id="screenPrev" aria-label="Semana anterior" title="Semana anterior">‹</button>
+          <button type="button" id="screenReset">Esta semana</button>
+          <button type="button" class="screen-arrow" id="screenNext" aria-label="Semana siguiente" title="Semana siguiente">›</button>
+        </div>
       </div>
       <div class="hb-avg-row">
         <div class="hb-avg-stat"><div class="hb-avg-label" id="screenTotalLabel">Total semanal</div><div class="hb-avg-val" id="screenTotal">—</div></div>
@@ -494,11 +558,13 @@ body::after {
       </div>
       <p class="screen-note" id="screenCoverage" hidden></p>
       <p class="screen-note" id="screenGoalLegendItem"></p>
-      <div id="screenWeekEmpty" class="hb-chart-empty" hidden>Sin registros en este período.</div>
-      <div class="hb-chart-wrap" id="screenChartWrap">
-        <svg class="hb-week-svg hidden" id="screenWeekSvg" aria-label="Tiempo de pantalla por período"></svg>
+      <div class="screen-plot">
+        <div id="screenWeekEmpty" class="hb-chart-empty" hidden>Sin registros en este período.</div>
+        <div class="hb-chart-wrap" id="screenChartWrap">
+          <svg class="hb-week-svg hidden" id="screenWeekSvg" aria-label="Tiempo de pantalla por período"></svg>
+        </div>
+        <p class="screen-note" id="screenChartDetail" aria-live="polite" hidden></p>
       </div>
-      <p class="screen-note" id="screenChartDetail" aria-live="polite" hidden></p>
 
       <details class="screen-manual" id="screenManual">
         <summary>Corregir horas del celular o cambiar la meta</summary>
@@ -1006,9 +1072,9 @@ body::after {
     const [year, month, day] = key.split('-').map(Number);
     return new Date(year, month - 1, day);
   }
-  function formatShortDate(key, full = false) {
+  function formatShortDate(key) {
     return screenDateFromKey(key).toLocaleDateString('es-AR', {
-      month: 'short', day: 'numeric', ...(full ? { year: 'numeric' } : {})
+      month: 'short', day: 'numeric'
     });
   }
 
@@ -1091,6 +1157,7 @@ body::after {
   let selectedScreenBucket = null;
   const screenWeekday = new Intl.DateTimeFormat('es-AR', { weekday: 'short' });
   const screenMonth = new Intl.DateTimeFormat('es-AR', { month: 'short' });
+  const screenWeekRange = new Intl.DateTimeFormat('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
 
   function describeScreenGroup(group) {
     const label = group.title;
@@ -1211,15 +1278,19 @@ body::after {
         const size = y(cumulative) - y(end);
         cumulative = end;
         return '<rect class="screen-bar-' + device + '" x="' + x + '" y="' + (y(end) - (size === 0 ? 2 : 0)) +
-          '" width="' + barWidth + '" height="' + (size || 2) + '" />';
+          '" width="' + barWidth + '" height="' + (size || 2) + '" rx="2" />';
       }).join('');
       const mark = group.total == null ? '–' : (group.missing.length ? '*' : '');
       const detail = escapeHtml(describeScreenGroup(group));
+      const compact = width < 350 && screenViewMode === 'week';
+      const label = compact
+        ? escapeHtml(group.label.split(' ')[0]) + '<tspan x="' + center + '" dy="12">' + Number(group.id.slice(-2)) + '</tspan>'
+        : escapeHtml(group.label);
       return '<g class="screen-plot-item" tabindex="0" role="button" data-index="' + i + '" aria-label="' + detail + '">' +
         '<title>' + detail + '</title>' + stack +
         '<text class="screen-plot-mark" text-anchor="middle" x="' + center + '" y="' + (y(group.total ?? 0) - 5) + '">' + mark + '</text>' +
         '<rect class="hb-bar-hit" x="' + (center - slot / 2) + '" y="0" width="' + slot + '" height="' + height + '"/>' +
-        '<text class="hb-week-daylabel" text-anchor="middle" x="' + center + '" y="250">' + escapeHtml(group.label) + '</text></g>';
+        '<text class="hb-week-daylabel" text-anchor="middle" x="' + center + '" y="' + (compact ? 244 : 250) + '">' + label + '</text></g>';
     }).join('');
     const goalLine = goal > 0 ? '<line class="hb-line-goal" x1="' + left + '" x2="' + (width - right) + '" y1="' + y(goal) + '" y2="' + y(goal) + '"/>' : '';
     svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
@@ -1253,7 +1324,7 @@ body::after {
     const both = screenDevice === 'both';
     const goal = phoneView && weekly ? state.screenTime.goalHours : 0;
     $('screenChartEye').textContent = weekly
-      ? formatShortDate(groups[0].id, true) + ' – ' + formatShortDate(groups[6].id, true)
+      ? screenWeekRange.formatRange(screenDateFromKey(groups[0].id), screenDateFromKey(groups[6].id))
       : 'Últimos 6 meses';
     $('screenWeekNav').hidden = !weekly;
     $('screenNext').disabled = $('screenReset').disabled = weekOffset === 0;
