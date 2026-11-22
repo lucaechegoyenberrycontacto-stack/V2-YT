@@ -388,8 +388,8 @@ body::after {
 .rd-reread-btn:hover { background: rgba(255,255,255,0.07); color: var(--text-primary); }
 #screen-time {
   scroll-margin-top: 84px;
-  --screen-phone: #e58f7b;
-  --screen-pc: #9db7d0;
+  --screen-phone: var(--danger);
+  --screen-pc: var(--success);
   --screen-edge: rgba(255,255,255,.07);
 }
 #screen-time [hidden] { display: none; }
@@ -453,8 +453,21 @@ body::after {
   margin-top: 12px; padding: 12px 8px 2px; border-radius: 12px;
   background: rgba(0,0,0,.15); border: 1px solid rgba(255,255,255,.04);
 }
-.screen-bar-phone { fill: var(--screen-phone); }
-.screen-bar-pc { fill: var(--screen-pc); }
+.screen-series-phone { --screen-series: var(--screen-phone); }
+.screen-series-pc { --screen-series: var(--screen-pc); }
+.screen-bar, .screen-point { fill: var(--screen-series); }
+.screen-point { stroke: #101013; stroke-width: 1.5; }
+.screen-line { fill: none; stroke: var(--screen-series); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+.screen-plot-item:hover .screen-point, .screen-plot-item:focus-visible .screen-point { stroke: var(--text-primary); }
+.screen-tooltip {
+  position: absolute; z-index: 5; pointer-events: none;
+  transform: translate(-50%, calc(-100% - 8px));
+  width: max-content; max-width: calc(100% - 8px); padding: 6px 9px;
+  background: #18181d; border: 1px solid rgba(255,255,255,.14); border-radius: 8px;
+  color: var(--text-primary); font-size: 11px; line-height: 1.45;
+  box-shadow: 0 6px 18px rgba(0,0,0,.45);
+}
+.screen-tooltip.below { transform: translate(-50%, 8px); }
 .screen-plot-item { cursor: pointer; }
 .screen-plot-item:hover .hb-bar-hit { fill: rgba(255,255,255,.04); }
 .screen-plot-item:focus-visible .hb-bar-hit { outline: 1px solid var(--text-secondary); }
@@ -562,6 +575,7 @@ body::after {
         <div id="screenWeekEmpty" class="hb-chart-empty" hidden>Sin registros en este período.</div>
         <div class="hb-chart-wrap" id="screenChartWrap">
           <svg class="hb-week-svg hidden" id="screenWeekSvg" aria-label="Tiempo de pantalla por período"></svg>
+          <div class="screen-tooltip" id="screenHoverDetail" hidden></div>
         </div>
         <p class="screen-note" id="screenChartDetail" aria-live="polite" hidden></p>
       </div>
@@ -1246,6 +1260,8 @@ body::after {
 
   function renderScreenChart(groups, goal) {
     const svg = $('screenWeekSvg');
+    const hover = $('screenHoverDetail');
+    hover.hidden = true;
     const empty = groups.every(group => group.total == null);
     $('screenWeekEmpty').hidden = !empty;
     svg.classList.toggle('hidden', empty);
@@ -1266,20 +1282,31 @@ body::after {
       return '<line class="hb-week-grid" x1="' + left + '" x2="' + (width - right) + '" y1="' + y(level) + '" y2="' + y(level) + '"/>' +
         '<text class="hb-week-yaxis-label" text-anchor="end" x="' + (left - 4) + '" y="' + (y(level) + 4) + '">' + level + ' h</text>';
     }).join('');
-    const bars = groups.map((group, i) => {
-      const center = left + slot * (i + .5);
-      const x = center - barWidth / 2;
-      const segments = screenDevice === 'both' ? ['phone', 'pc'] : [screenDevice];
-      let cumulative = 0;
-      const stack = segments.map(device => {
-        const hours = group[device];
-        if (hours == null) return '';
-        const end = cumulative + hours;
-        const size = y(cumulative) - y(end);
-        cumulative = end;
-        return '<rect class="screen-bar-' + device + '" x="' + x + '" y="' + (y(end) - (size === 0 ? 2 : 0)) +
-          '" width="' + barWidth + '" height="' + (size || 2) + '" rx="2" />';
-      }).join('');
+    const combined = screenDevice === 'both';
+    const centerAt = i => left + slot * (i + .5);
+    let line = '', previous = false;
+    const plot = groups.map((group, i) => {
+      const center = centerAt(i);
+      let shapes = '';
+      if (combined) {
+        let cumulative = 0;
+        for (const device of ['phone', 'pc']) {
+          const hours = group[device];
+          if (hours == null) continue;
+          const end = cumulative + hours;
+          const size = y(cumulative) - y(end);
+          cumulative = end;
+          shapes += '<rect class="screen-bar screen-series-' + device + '" x="' + (center - barWidth / 2) +
+            '" y="' + (y(end) - (size === 0 ? 2 : 0)) + '" width="' + barWidth +
+            '" height="' + (size || 2) + '" rx="2"/>';
+        }
+      } else if (group.total != null) {
+        const pointY = y(group.total);
+        line += (previous ? ' L ' : ' M ') + center + ' ' + pointY;
+        shapes = '<circle class="screen-point screen-series-' + screenDevice + '" cx="' + center +
+          '" cy="' + pointY + '" r="4.5"/>';
+      }
+      previous = group.total != null;
       const mark = group.total == null ? '–' : (group.missing.length ? '*' : '');
       const detail = escapeHtml(describeScreenGroup(group));
       const compact = width < 350 && screenViewMode === 'week';
@@ -1287,21 +1314,34 @@ body::after {
         ? escapeHtml(group.label.split(' ')[0]) + '<tspan x="' + center + '" dy="12">' + Number(group.id.slice(-2)) + '</tspan>'
         : escapeHtml(group.label);
       return '<g class="screen-plot-item" tabindex="0" role="button" data-index="' + i + '" aria-label="' + detail + '">' +
-        '<title>' + detail + '</title>' + stack +
+        shapes +
         '<text class="screen-plot-mark" text-anchor="middle" x="' + center + '" y="' + (y(group.total ?? 0) - 5) + '">' + mark + '</text>' +
         '<rect class="hb-bar-hit" x="' + (center - slot / 2) + '" y="0" width="' + slot + '" height="' + height + '"/>' +
         '<text class="hb-week-daylabel" text-anchor="middle" x="' + center + '" y="' + (compact ? 244 : 250) + '">' + label + '</text></g>';
     }).join('');
     const goalLine = goal > 0 ? '<line class="hb-line-goal" x1="' + left + '" x2="' + (width - right) + '" y1="' + y(goal) + '" y2="' + y(goal) + '"/>' : '';
     svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
-    svg.innerHTML = grid + bars + goalLine;
+    const trace = line ? '<path class="screen-line screen-series-' + screenDevice + '" d="' + line + '"/>' : '';
+    svg.innerHTML = grid + goalLine + trace + plot;
     function showDetail(group) {
       const detail = $('screenChartDetail');
       detail.hidden = !group;
       detail.textContent = group ? describeScreenGroup(group) : '';
     }
     for (const item of svg.querySelectorAll('.screen-plot-item')) {
-      const group = groups[Number(item.dataset.index)];
+      const index = Number(item.dataset.index);
+      const group = groups[index];
+      item.addEventListener('pointerenter', event => {
+        if (event.pointerType === 'touch') return;
+        hover.textContent = describeScreenGroup(group);
+        hover.hidden = false;
+        const anchor = y(group.total ?? 0);
+        const half = hover.offsetWidth / 2 + 4;
+        hover.style.left = Math.min(width - half, Math.max(half, centerAt(index))) + 'px';
+        hover.style.top = anchor + 'px';
+        hover.classList.toggle('below', anchor < hover.offsetHeight + 8);
+      });
+      item.addEventListener('pointerleave', () => { hover.hidden = true; });
       const select = () => {
         selectedScreenBucket = group.id;
         showDetail(group);
