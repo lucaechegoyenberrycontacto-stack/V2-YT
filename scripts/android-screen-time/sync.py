@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Import daily Android foreground usage from the local Syncthing replica."""
+"""Import daily Android and PC usage from local ActivityWatch databases."""
 import argparse
 from collections import defaultdict
 from contextlib import closing, contextmanager
-from datetime import datetime, time, timedelta
+from datetime import UTC, datetime, time, timedelta
 import fcntl
 from getpass import getpass
 import json
+import math
 import os
 from pathlib import Path
 import shutil
@@ -22,6 +23,8 @@ from zoneinfo import ZoneInfo
 
 TZ = ZoneInfo("America/Argentina/Cordoba")
 NS = 10**9
+EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
+PC_PREFIX = "pc:"
 CONFIG = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "v2yt-android-screen-time"
 
 
@@ -83,6 +86,32 @@ def read_android(root):
     if len(candidates) != 1 or not candidates[0]:
         raise ValueError("Se necesita una única base Android con historial. Acotá --root si hay varias.")
     return candidates[0]
+
+
+def read_pc(path):
+    """Read the local Python ActivityWatch server's active intervals in one snapshot."""
+    before = path.stat()
+    with closing(sqlite3.connect(path.absolute().as_uri() + "?mode=ro", uri=True)) as db:
+        rows = db.execute("""
+            SELECT eventmodel.timestamp, eventmodel.duration
+            FROM eventmodel JOIN bucketmodel ON eventmodel.bucket_id=bucketmodel.key
+            WHERE bucketmodel.type='afkstatus' AND bucketmodel.client='aw-watcher-afk'
+              AND json_extract(eventmodel.datastr, '$.status')='not-afk'
+        """)
+        intervals = []
+        for timestamp, duration in rows:
+            instant = datetime.fromisoformat(timestamp)
+            if instant.utcoffset() is None:
+                raise ValueError("Fecha de ActivityWatch sin zona horaria.")
+            if not math.isfinite(duration) or duration < 0:
+                raise ValueError("Duración de ActivityWatch inválida.")
+            elapsed = instant - EPOCH
+            start = (elapsed.days * 86400 + elapsed.seconds) * NS + elapsed.microseconds * 1000
+            intervals.append((start, start + round(duration * NS)))
+    after = path.stat()
+    if (before.st_dev, before.st_ino) != (after.st_dev, after.st_ino):
+        raise ValueError("La base de la PC fue reemplazada durante la lectura.")
+    return sorted(intervals)
 
 
 def daily_hours(intervals):
@@ -179,7 +208,7 @@ def login():
     print("Sesión guardada para la sincronización.")
 
 
-def reconcile(settings, totals):
+def reconcile(settings, totals, prefix=""):
     token = settings["token"]
     collection = "habits_screen_time_android:" + settings["user"]
     records = "/rest/v1/records"
@@ -191,10 +220,19 @@ def reconcile(settings, totals):
         page = request(settings, records + "?" + query, token=token)
         if not page:
             break
-        existing.update((row["id"], row["data"]["hours"]) for row in page)
+        for row in page:
+            row_id = row["id"]
+            if row_id.startswith(PC_PREFIX) != (prefix == PC_PREFIX):
+                continue
+            day = row_id.removeprefix(prefix)
+            try:
+                if datetime.strptime(day, "%Y-%m-%d").date().isoformat() == day:
+                    existing[day] = row["data"]["hours"]
+            except ValueError:
+                continue
         offset += len(page)
     changed = [
-        {"collection": collection, "id": day, "data": {"hours": hours},
+        {"collection": collection, "id": prefix + day, "data": {"hours": hours},
          "updated_at": datetime.now(TZ).isoformat()}
         for day, hours in totals.items() if existing.get(day) != hours
     ]
@@ -205,16 +243,21 @@ def reconcile(settings, totals):
     first, last = min(totals), max(totals)
     removed = sorted(day for day in existing.keys() - totals.keys() if first < day < last)
     for offset in range(0, len(removed), 100):
-        query = urlencode({**filters, "id": "in.(" + ",".join(removed[offset:offset + 100]) + ")"})
+        query = urlencode({**filters, "id": "in.(" + ",".join(prefix + day for day in removed[offset:offset + 100]) + ")"})
         request(settings, records + "?" + query, token=token, method="DELETE")
     return len(changed), len(removed)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("preview", "login", "sync"))
+    parser.add_argument("command", choices=("preview", "preview-pc", "login", "sync"))
     parser.add_argument("--root", type=Path, default=Path.home() / "ActivityWatchSync")
+    parser.add_argument("--pc-db", type=Path, default=Path.home() /
+                        ".local/share/activitywatch/aw-server/peewee-sqlite.v2.db")
     args = parser.parse_args()
+    if args.command == "preview-pc":
+        print(json.dumps(daily_hours(read_pc(args.pc_db)), indent=2))
+        return
     if args.command == "preview":
         print(json.dumps(daily_hours(read_android(args.root)), indent=2))
         return
@@ -224,13 +267,24 @@ def main():
         if args.command == "login":
             login()
             return
-        totals = daily_hours(read_android(args.root))
         settings = json.loads((CONFIG / "session.json").read_text())
         if settings["expires"] < clock.time() + 60:
             accept_session(settings, request(settings, "/auth/v1/token?grant_type=refresh_token",
                                              {"refresh_token": settings["refresh"]}))
-        changed, removed = reconcile(settings, totals)
-        print(f"Sincronización exitosa | {len(totals)} días leídos | {changed} actualizados | {removed} retirados")
+        errors = []
+        for name, load, prefix in (("Android", lambda: read_android(args.root), ""),
+                                   ("PC", lambda: read_pc(args.pc_db), PC_PREFIX)):
+            try:
+                totals = daily_hours(load())
+                if not totals:
+                    raise ValueError("La fuente no tiene intervalos para importar.")
+                changed, removed = reconcile(settings, totals, prefix)
+                print(f"{name}: {len(totals)} días | {changed} actualizados | {removed} retirados")
+            except (OSError, ValueError, KeyError, TypeError, sqlite3.Error) as error:
+                errors.append(f"{name}: {error}")
+        if errors:
+            raise ValueError(" | ".join(errors))
+        print("Sincronización exitosa")
 
 
 if __name__ == "__main__":

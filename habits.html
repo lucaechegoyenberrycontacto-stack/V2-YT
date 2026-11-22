@@ -386,6 +386,41 @@ body::after {
 .hb-save-btn.rd-danger-btn { background: linear-gradient(180deg,#FF8A8A,#E85555); border-color: rgba(255,107,107,0.85); }
 .rd-reread-btn { margin-top: 4px; width: 100%; border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.03); color: var(--text-secondary); font-family: inherit; font-size: 12.5px; font-weight: 600; padding: 9px 12px; border-radius: 10px; cursor: pointer; }
 .rd-reread-btn:hover { background: rgba(255,255,255,0.07); color: var(--text-primary); }
+#screen-time { scroll-margin-top: 84px; --screen-phone: #fa8980; --screen-pc: #82c1ff; }
+#screen-time [hidden] { display: none; }
+.screen-devices { display: flex; gap: 4px; padding: 4px; border: 1px solid #303034; border-radius: 14px; background: #111114; }
+.screen-devices button, .screen-period button { min-height: 44px; font: inherit; font-weight: 600; color: var(--text-secondary); cursor: pointer; }
+.screen-devices button { flex: 1; border: 0; border-radius: 10px; background: transparent; }
+.screen-devices button[aria-pressed=true] { background: #f1ede6; color: #161514; }
+.screen-toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin: 16px 0 8px; }
+#screenChartEye { color: var(--text-primary); font-weight: 700; font-size: 14px; }
+#screenViewToggle .hb-view-btn { min-height: 36px; }
+.screen-period { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.screen-period button { font-size: 11px; padding: 0 9px; border: 1px solid #414146; border-radius: 8px; background: #19191d; }
+.screen-period button:disabled { opacity: .42; cursor: default; }
+#screen-time .hb-avg-row { align-items: stretch; gap: 8px; }
+#screen-time .hb-avg-stat { min-width: 0; padding: 12px 6px; }
+#screen-time .hb-avg-val { font-size: clamp(15px, 3.7vw, 24px); line-height: 1.15; }
+.screen-sources { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 12px 0 4px; font-size: 13px; }
+.screen-phone-text { color: var(--screen-phone); }
+.screen-pc-text { color: var(--screen-pc); }
+.screen-note { color: var(--text-secondary); font-size: 12px; min-height: 1.4em; margin: 6px 0; }
+.screen-bar-phone { fill: var(--screen-phone); }
+.screen-bar-pc { fill: var(--screen-pc); }
+.screen-plot-item { cursor: pointer; }
+.screen-plot-item:focus-visible .hb-bar-hit { outline: 1px solid var(--text-secondary); }
+.screen-plot-mark { fill: var(--text-secondary); font-size: 12px; }
+#screen-time .hb-week-daylabel { font-size: 10px; }
+#screen-time .hb-line-goal { pointer-events: none; }
+.screen-manual { margin-top: 16px; border-top: 1px solid #303034; padding-top: 12px; }
+.screen-manual summary { min-height: 36px; font-size: 13px; cursor: pointer; color: var(--text-secondary); }
+.screen-manual .hb-input { box-sizing: border-box; width: 100%; min-width: 0; }
+@media (max-width: 420px) {
+  #screen-time .hb-card { padding-inline: 12px; }
+  #screen-time .hb-avg-label { letter-spacing: .04em; }
+  .screen-period { display: grid; grid-template-columns: 1fr .85fr 1fr; gap: 4px; }
+  .screen-period button { padding-inline: 3px; font-size: 10px; }
+}
 </style>
 </head>
 <body>
@@ -429,49 +464,62 @@ body::after {
 
   <!-- ===== Screen Time ===== -->
   <div class="section" id="screen-time">
-    <div class="section-title">Screen Time · Phone</div>
+    <div class="section-title">Tiempo de pantalla</div>
     <div class="hb-card">
-
-      <div class="hb-row">
-        <label class="hb-field">
-          <span class="hb-field-label">Date</span>
-          <input type="date" id="screenDateInput" class="hb-input">
-        </label>
-        <label class="hb-field">
-          <span class="hb-field-label" id="screenHoursLabel">Hours today</span>
-          <input type="number" min="0" step="0.1" id="screenHoursInput" class="hb-input" placeholder="e.g. 3.5">
-        </label>
-        <label class="hb-field">
-          <span class="hb-field-label">Phone daily goal (h)</span>
-          <input type="number" min="0" step="0.1" id="screenGoalInput" class="hb-input" placeholder="e.g. 2">
-        </label>
-        <button type="button" class="hb-save-btn" id="screenSaveBtn">Save</button>
+      <div class="screen-devices" id="screenDevices" role="group" aria-label="Dispositivo">
+        <button type="button" data-device="phone" aria-pressed="true">Celular</button>
+        <button type="button" data-device="pc" aria-pressed="false">PC</button>
+        <button type="button" data-device="both" aria-pressed="false">Ambos</button>
       </div>
-      <div class="hb-status" id="screenStatus"></div>
-      <div class="hb-field-label" id="screenAndroidSource" aria-live="polite"></div>
-
+      <div class="screen-toolbar">
+        <span id="screenChartEye" aria-live="polite"></span>
+        <div class="hb-view-toggle" id="screenViewToggle" role="group" aria-label="Período">
+          <button type="button" class="hb-view-btn active" data-mode="week" aria-pressed="true">Semana</button>
+          <button type="button" class="hb-view-btn" data-mode="month" aria-pressed="false">Mes</button>
+        </div>
+      </div>
+      <div class="screen-period" id="screenWeekNav" role="group" aria-label="Navegación semanal">
+        <button type="button" id="screenPrev">‹ Semana anterior</button>
+        <button type="button" id="screenReset">Esta semana</button>
+        <button type="button" id="screenNext">Semana siguiente ›</button>
+      </div>
       <div class="hb-avg-row">
-        <div class="hb-avg-stat"><div class="hb-avg-label">Last 7 days avg</div><div class="hb-avg-val" id="screenWeekAvg">—</div></div>
-        <div class="hb-avg-stat"><div class="hb-avg-label">Goal streak</div><div class="hb-avg-val" id="screenGoalStreak">0</div></div>
+        <div class="hb-avg-stat"><div class="hb-avg-label" id="screenTotalLabel">Total semanal</div><div class="hb-avg-val" id="screenTotal">—</div></div>
+        <div class="hb-avg-stat"><div class="hb-avg-label">Promedio diario</div><div class="hb-avg-val" id="screenWeekAvg">—</div></div>
+        <div class="hb-avg-stat" id="screenStreakCard"><div class="hb-avg-label">Racha bajo la meta</div><div class="hb-avg-val" id="phoneGoalStreak">—</div></div>
       </div>
-
-      <div class="hb-chart-head">
-        <span class="hb-chart-eye" id="screenChartEye">Last 7 days</span>
-        <div class="hb-view-toggle" id="screenViewToggle">
-          <button type="button" class="hb-view-btn active" data-mode="week">Week</button>
-          <button type="button" class="hb-view-btn" data-mode="month">Month</button>
-        </div>
-        <div class="hb-chart-legend">
-          <span class="hb-leg-item"><span class="hb-leg-dot d-screen"></span>Screen time</span>
-          <span class="hb-leg-item" id="screenGoalLegendItem"><span class="hb-leg-dot d-goal"></span>Goal</span>
-        </div>
+      <div class="screen-sources" id="screenSources" hidden>
+        <span class="screen-phone-text" id="screenPhoneTotal"></span>
+        <span class="screen-pc-text" id="screenPcTotal"></span>
       </div>
-      <div id="screenWeekEmpty" class="hb-chart-empty" style="display:none">No screen time logged in the last 7 days.</div>
+      <p class="screen-note" id="screenCoverage" hidden></p>
+      <p class="screen-note" id="screenGoalLegendItem"></p>
+      <div id="screenWeekEmpty" class="hb-chart-empty" hidden>Sin registros en este período.</div>
       <div class="hb-chart-wrap" id="screenChartWrap">
-        <svg class="hb-week-svg hidden" id="screenWeekSvg" viewBox="0 0 300 260" preserveAspectRatio="none"></svg>
-        <div class="hb-week-tooltip" id="screenWeekTooltip"></div>
+        <svg class="hb-week-svg hidden" id="screenWeekSvg" aria-label="Tiempo de pantalla por período"></svg>
       </div>
+      <p class="screen-note" id="screenChartDetail" aria-live="polite" hidden></p>
 
+      <details class="screen-manual" id="screenManual">
+        <summary>Corregir horas del celular o cambiar la meta</summary>
+        <div class="hb-row">
+          <label class="hb-field">
+            <span class="hb-field-label">Fecha</span>
+            <input type="date" id="screenDateInput" class="hb-input">
+          </label>
+          <label class="hb-field">
+            <span class="hb-field-label" id="screenHoursLabel">Horas manuales</span>
+            <input type="number" min="0" max="24" step="any" id="screenHoursInput" class="hb-input" placeholder="Ej. 3,5">
+          </label>
+          <label class="hb-field">
+            <span class="hb-field-label">Meta diaria del celular (h)</span>
+            <input type="number" min="0" max="24" step="any" id="screenGoalInput" class="hb-input" placeholder="Ej. 2">
+          </label>
+          <button type="button" class="hb-save-btn" id="screenSaveBtn">Guardar</button>
+        </div>
+        <div class="screen-note" id="screenAndroidSource" aria-live="polite"></div>
+        <div class="hb-status" id="screenStatus" role="status"></div>
+      </details>
     </div>
   </div>
 
@@ -909,11 +957,6 @@ body::after {
   /* ============================================================
      SCREEN TIME
      ============================================================ */
-  // Rolling last 7 days ending today — NOT the calendar Mon-Sun week.
-  // A fixed calendar week would drop a backdated entry for "yesterday"
-  // off the chart whenever today happens to be a Monday (yesterday would
-  // belong to LAST week's box), which would defeat the point of being
-  // able to log a day you forgot.
   const screenDateFormatter = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Argentina/Cordoba', year: 'numeric', month: '2-digit', day: '2-digit'
   });
@@ -928,9 +971,23 @@ body::after {
 
   let androidScreenCollection;
   let androidScreenHours = {};
+  let pcScreenHours = {};
+  let screenDevice = 'phone';
+  let weekOffset = 0;
+  function selectedWeekKeys() {
+    const end = screenToday();
+    end.setDate(end.getDate() + (7 - end.getDay()) % 7 + weekOffset * 7);
+    return currentWeekKeys(end);
+  }
   let manualScreenRecords = {};
-  function effectiveScreenLogs() {
+  function effectivePhoneHours() {
     return { ...androidScreenHours, ...state.screenTime.logs };
+  }
+
+  function formatScreenDuration(hours) {
+    if (hours == null) return 'Sin datos';
+    const minutes = Math.round(hours * 60);
+    return Math.floor(minutes / 60) + ' h ' + String(minutes % 60).padStart(2, '0') + ' min';
   }
 
   function currentWeekKeys(now = new Date()) {
@@ -945,9 +1002,14 @@ body::after {
     const dow = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(y, m - 1, d).getDay()];
     return dow + ' ' + d;
   }
-  function formatShortDate(dstr) {
-    const [y, m, d] = dstr.split('-').map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  function screenDateFromKey(key) {
+    const [year, month, day] = key.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+  function formatShortDate(key, full = false) {
+    return screenDateFromKey(key).toLocaleDateString('es-AR', {
+      month: 'short', day: 'numeric', ...(full ? { year: 'numeric' } : {})
+    });
   }
 
   // ---------- Month view (bars) ----------
@@ -958,15 +1020,6 @@ body::after {
     return out;
   }
   function monthLabel(d) { return MONTH_ABBR[d.getMonth()]; }
-  function monthTotalHours(logs, y, m) {
-    let total = 0;
-    Object.keys(logs).forEach((k) => {
-      const [ky, km] = k.split('-').map(Number);
-      if (ky === y && (km - 1) === m) total += Number(logs[k]) || 0;
-    });
-    return total;
-  }
-
   // Consecutive days ending today (or yesterday if today isn't logged
   // yet — same "don't penalize" rule as computeCurrentStreak above)
   // with hours logged AND within goal. Same backward-walk pattern.
@@ -989,22 +1042,23 @@ body::after {
 
   function fillScreenForm() {
     const key = screenSelectedDateKey();
-    const isToday = key === screenTodayKey();
+    const today = screenTodayKey();
+    const isToday = key === today;
+    $('screenDateInput').max = today;
     const entry = state.screenTime.logs[key];
     $('screenHoursInput').value = (entry != null) ? entry : '';
     $('screenGoalInput').value = state.screenTime.goalHours;
-    $('screenHoursLabel').textContent = isToday ? 'Manual hours today' : 'Manual hours on ' + formatShortDate(key);
+    $('screenHoursLabel').textContent = isToday ? 'Horas manuales de hoy' : 'Horas manuales del ' + formatShortDate(key);
   }
 
   function renderScreenSource() {
     const key = screenSelectedDateKey();
     const entry = state.screenTime.logs[key];
     const imported = androidScreenHours[key];
-    const androidText = imported == null ? 'Android: no data' : 'Android: ' + imported.toFixed(2) + ' h';
-    $('screenAndroidSource').textContent = entry != null ? androidText + ' · Manual entry used' : androidText;
+    const androidText = 'Android · ' + formatScreenDuration(imported);
+    $('screenAndroidSource').textContent = entry != null ? androidText + ' · Se usa el registro manual' : androidText;
   }
   $('screenDateInput').value = screenTodayKey();
-  $('screenDateInput').max = screenTodayKey(); // no logging a day that hasn't happened
   $('screenDateInput').addEventListener('change', () => {
     fillScreenForm();
     renderScreenSource();
@@ -1015,10 +1069,11 @@ body::after {
     const hrs = parseFloat($('screenHoursInput').value);
     const goal = parseFloat($('screenGoalInput').value);
     const status = $('screenStatus');
-    const validHours = Number.isFinite(hrs) && hrs >= 0;
-    const changedGoal = Number.isFinite(goal) && goal > 0 && goal !== state.screenTime.goalHours;
-    if (key > screenTodayKey() || (!validHours && !changedGoal)) {
-      status.textContent = 'Enter manual hours or a new goal for a valid date.';
+    const validHours = Number.isFinite(hrs) && hrs >= 0 && hrs <= 24;
+    const changedGoal = Number.isFinite(goal) && goal > 0 && goal <= 24 && goal !== state.screenTime.goalHours;
+    if (key > screenTodayKey() || !($('screenHoursInput').validity.valid && $('screenGoalInput').validity.valid) ||
+        (!validHours && !changedGoal)) {
+      status.textContent = 'Ingresá horas manuales o una meta válida para esa fecha.';
       return;
     }
     if (validHours) {
@@ -1027,172 +1082,209 @@ body::after {
       persistScreenDay(key, hrs);
     }
     if (changedGoal) { state.screenTime.goalHours = goal; persistScreenGoal(goal); }
-    status.textContent = 'Saved ✓';
+    status.textContent = 'Guardado';
     setTimeout(() => { status.textContent = ''; }, 1800);
     renderScreenTime();
   });
 
-  function hideScreenTooltip() { const t = $('screenWeekTooltip'); if (t) t.style.display = 'none'; }
-  function showScreenTooltip(dotEl) {
-    const tip = $('screenWeekTooltip'), wrap = $('screenChartWrap');
-    const value = Number(dotEl.getAttribute('data-value'));
-    tip.textContent = value.toFixed(1) + 'h';
-    tip.style.display = 'block';
-    const wrapRect = wrap.getBoundingClientRect(), dotRect = dotEl.getBoundingClientRect();
-    tip.style.left = (dotRect.left + dotRect.width / 2 - wrapRect.left) + 'px';
-    tip.style.top = (dotRect.top - wrapRect.top) + 'px';
-  }
-  document.addEventListener('click', (e) => { if (!e.target.closest('.hb-dot, .hb-dot-hit')) hideScreenTooltip(); });
-
-  const SCREEN_Y_STEP = 2;
-
-  // ---------- Week/Month toggle ----------
-  // Not persisted — always starts back on 'week' on a fresh load.
   let screenViewMode = 'week';
-  $('screenViewToggle').querySelectorAll('.hb-view-btn').forEach((b) => {
-    b.addEventListener('click', () => {
-      $('screenViewToggle').querySelectorAll('.hb-view-btn').forEach((x) => x.classList.remove('active'));
-      b.classList.add('active');
-      screenViewMode = b.dataset.mode;
-      $('screenChartEye').textContent = screenViewMode === 'month' ? 'Last 6 months' : 'Last 7 days';
-      // No goal line in month mode (it's a sum, not a daily average, so
-      // a "goal" reference line wouldn't mean anything there) — hide the
-      // legend dot for it too instead of leaving a dead label around.
-      $('screenGoalLegendItem').style.display = screenViewMode === 'month' ? 'none' : '';
-      renderScreenChart();
+  let selectedScreenBucket = null;
+  const screenWeekday = new Intl.DateTimeFormat('es-AR', { weekday: 'short' });
+  const screenMonth = new Intl.DateTimeFormat('es-AR', { month: 'short' });
+
+  function describeScreenGroup(group) {
+    const label = group.title;
+    if (group.total == null) return label + ' · Sin registros';
+    if (screenDevice !== 'both') return label + ' · ' + formatScreenDuration(group.total);
+    return label + ' · Total ' + formatScreenDuration(group.total) +
+      ' · Celular: ' + formatScreenDuration(group.phone) + ' · PC: ' + formatScreenDuration(group.pc) +
+      (group.missing.length ? ' · Faltan datos de ' + group.missing.join(' y ') : '');
+  }
+
+  function summarizeScreenDays(days, phone, pc) {
+    const sums = { phone: null, pc: null, total: null, count: 0, missing: [] };
+    let partialPhone = false, partialPc = false;
+    for (const day of days) {
+      const mobile = phone[day], desktop = pc[day];
+      if (mobile != null) sums.phone = (sums.phone ?? 0) + mobile;
+      if (desktop != null) sums.pc = (sums.pc ?? 0) + desktop;
+      const value = screenDevice === 'both'
+        ? (mobile == null && desktop == null ? null : (mobile ?? 0) + (desktop ?? 0))
+        : (screenDevice === 'phone' ? mobile : desktop);
+      if (value == null) continue;
+      sums.total = (sums.total ?? 0) + value;
+      sums.count++;
+      partialPhone ||= mobile == null;
+      partialPc ||= desktop == null;
+    }
+    if (screenDevice === 'both') {
+      if (partialPhone) sums.missing.push('celular');
+      if (partialPc) sums.missing.push('PC');
+    }
+    return sums;
+  }
+
+  function screenPeriod() {
+    const today = screenTodayKey();
+    const phone = effectivePhoneHours();
+    const groups = screenViewMode === 'week' ? selectedWeekKeys().map(key => ({
+      id: key, days: [key], title: formatShortDate(key),
+      label: screenWeekday.format(screenDateFromKey(key)).replace('.', '') + ' ' + Number(key.slice(-2))
+    })) : last6Months(screenToday()).map(month => {
+      const id = dateKey(month).slice(0, 7);
+      const end = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+      return {
+        id, days: Array.from({ length: end }, (_, index) => id + '-' + pad2(index + 1)),
+        title: month.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }),
+        label: screenMonth.format(month).replace('.', '')
+      };
     });
+    for (const group of groups) group.days = group.days.filter(day => day <= today);
+    return {
+      groups: groups.map(group => ({ ...group, ...summarizeScreenDays(group.days, phone, pcScreenHours) })),
+      summary: summarizeScreenDays(groups.flatMap(group => group.days), phone, pcScreenHours),
+      phone
+    };
+  }
+
+  $('screenViewToggle').addEventListener('click', event => {
+    const button = event.target.closest('[data-mode]');
+    if (!button) return;
+    screenViewMode = button.dataset.mode;
+    selectedScreenBucket = null;
+    for (const item of $('screenViewToggle').children) {
+      item.classList.toggle('active', item === button);
+      item.setAttribute('aria-pressed', item === button);
+    }
+    renderScreenPanel();
   });
 
-  function renderScreenChart() {
-    if (screenViewMode === 'month') renderScreenMonthChart();
-    else renderScreenWeekChart();
+  $('screenDevices').addEventListener('click', event => {
+    const button = event.target.closest('[data-device]');
+    if (!button) return;
+    screenDevice = button.dataset.device;
+    for (const item of $('screenDevices').children) item.setAttribute('aria-pressed', item === button);
+    $('screenManual').hidden = screenDevice !== 'phone';
+    renderScreenPanel();
+  });
+
+  function selectWeek(offset) {
+    weekOffset = Math.min(0, offset);
+    selectedScreenBucket = null;
+    renderScreenPanel();
   }
+  $('screenPrev').onclick = () => selectWeek(weekOffset - 1);
+  $('screenNext').onclick = () => selectWeek(weekOffset + 1);
+  $('screenReset').onclick = () => selectWeek(0);
 
-  function renderScreenWeekChart() {
-    const svg = $('screenWeekSvg'), emptyEl = $('screenWeekEmpty');
-    const keys = currentWeekKeys(screenToday());
-    const logs = effectiveScreenLogs();
-    const goal = state.screenTime.goalHours;
-    const vals = keys.map(k => logs[k] == null ? null : Number(logs[k]));
-    const step = Math.max(SCREEN_Y_STEP, Math.ceil(Math.max(goal, ...vals) / 5));
-    const max = 5 * step;
-
-    if (!keys.some(k => logs[k] != null)) {
-      svg.innerHTML = ''; svg.classList.add('hidden');
-      emptyEl.style.display = 'block'; hideScreenTooltip();
+  function renderScreenChart(groups, goal) {
+    const svg = $('screenWeekSvg');
+    const empty = groups.every(group => group.total == null);
+    $('screenWeekEmpty').hidden = !empty;
+    svg.classList.toggle('hidden', empty);
+    if (empty) {
+      svg.innerHTML = '';
+      $('screenChartDetail').hidden = true;
       return;
     }
-    emptyEl.style.display = 'none'; svg.classList.remove('hidden');
-
-    const n = keys.length;
-    const W = svg.getBoundingClientRect().width || 600, H = 260;
-    svg.setAttribute('viewBox', '0 0 ' + W.toFixed(1) + ' ' + H);
-    const padLeft = 32, padRight = 14, padTop = 16, padBottom = 28;
-    const plotW = W - padLeft - padRight, plotH = H - padTop - padBottom;
-    const xAt = (i) => padLeft + plotW * (n === 1 ? 0.5 : i / (n - 1));
-    const yAt = (v) => padTop + plotH * (1 - v / max);
-
-    let html = '';
-    for (let v = 0; v <= max; v += step) {
-      const y = yAt(v);
-      html += '<line class="hb-week-grid" x1="' + padLeft + '" y1="' + y.toFixed(1) + '" x2="' + (W - padRight).toFixed(1) + '" y2="' + y.toFixed(1) + '"></line>'
-        + '<text class="hb-week-yaxis-label" x="' + (padLeft - 8) + '" y="' + (y + 3).toFixed(1) + '" text-anchor="end">' + v + '</text>';
+    const width = Math.round(svg.getBoundingClientRect().width) || 300;
+    const height = 260, left = 34, right = 4, top = 12, bottom = 230;
+    const slot = (width - left - right) / groups.length;
+    const barWidth = Math.min(38, slot * .56);
+    const rawMax = Math.max(1, goal, ...groups.map(group => group.total ?? 0));
+    const tick = Math.max(1, Math.ceil(rawMax / 4));
+    const y = value => bottom - (bottom - top) * value / (tick * 4);
+    const grid = Array.from({ length: 5 }, (_, i) => {
+      const level = i * tick;
+      return '<line class="hb-week-grid" x1="' + left + '" x2="' + (width - right) + '" y1="' + y(level) + '" y2="' + y(level) + '"/>' +
+        '<text class="hb-week-yaxis-label" text-anchor="end" x="' + (left - 4) + '" y="' + (y(level) + 4) + '">' + level + ' h</text>';
+    }).join('');
+    const bars = groups.map((group, i) => {
+      const center = left + slot * (i + .5);
+      const x = center - barWidth / 2;
+      const segments = screenDevice === 'both' ? ['phone', 'pc'] : [screenDevice];
+      let cumulative = 0;
+      const stack = segments.map(device => {
+        const hours = group[device];
+        if (hours == null) return '';
+        const end = cumulative + hours;
+        const size = y(cumulative) - y(end);
+        cumulative = end;
+        return '<rect class="screen-bar-' + device + '" x="' + x + '" y="' + (y(end) - (size === 0 ? 2 : 0)) +
+          '" width="' + barWidth + '" height="' + (size || 2) + '" />';
+      }).join('');
+      const mark = group.total == null ? '–' : (group.missing.length ? '*' : '');
+      const detail = escapeHtml(describeScreenGroup(group));
+      return '<g class="screen-plot-item" tabindex="0" role="button" data-index="' + i + '" aria-label="' + detail + '">' +
+        '<title>' + detail + '</title>' + stack +
+        '<text class="screen-plot-mark" text-anchor="middle" x="' + center + '" y="' + (y(group.total ?? 0) - 5) + '">' + mark + '</text>' +
+        '<rect class="hb-bar-hit" x="' + (center - slot / 2) + '" y="0" width="' + slot + '" height="' + height + '"/>' +
+        '<text class="hb-week-daylabel" text-anchor="middle" x="' + center + '" y="250">' + escapeHtml(group.label) + '</text></g>';
+    }).join('');
+    const goalLine = goal > 0 ? '<line class="hb-line-goal" x1="' + left + '" x2="' + (width - right) + '" y1="' + y(goal) + '" y2="' + y(goal) + '"/>' : '';
+    svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+    svg.innerHTML = grid + bars + goalLine;
+    function showDetail(group) {
+      const detail = $('screenChartDetail');
+      detail.hidden = !group;
+      detail.textContent = group ? describeScreenGroup(group) : '';
     }
-    if (goal > 0 && goal <= max) {
-      const gy = yAt(goal);
-      html += '<line class="hb-line-goal" x1="' + padLeft + '" y1="' + gy.toFixed(1) + '" x2="' + (W - padRight).toFixed(1) + '" y2="' + gy.toFixed(1) + '"></line>';
+    for (const item of svg.querySelectorAll('.screen-plot-item')) {
+      const group = groups[Number(item.dataset.index)];
+      const select = () => {
+        selectedScreenBucket = group.id;
+        showDetail(group);
+      };
+      item.addEventListener('click', select);
+      item.addEventListener('focus', () => showDetail(group));
+      item.addEventListener('keydown', event => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        select();
+      });
     }
-
-    let d = '', dots = '', started = false;
-    vals.forEach((v, i) => {
-      if (v == null) { started = false; return; }
-      const x = xAt(i), y = yAt(v);
-      d += (started ? ' L ' : 'M ') + x.toFixed(1) + ' ' + y.toFixed(1);
-      started = true;
-      const attrs = ' cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" data-value="' + v + '"';
-      dots += '<circle class="hb-dot-hit" r="13"' + attrs + '></circle><circle class="hb-dot" r="4.5"' + attrs + '></circle>';
-    });
-    html += (d ? '<path class="hb-line-screen" d="' + d + '"></path>' : '') + dots;
-
-    keys.forEach((k, i) => {
-      html += '<text class="hb-week-daylabel" x="' + xAt(i).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="middle">' + dayLabel(k) + '</text>';
-    });
-    svg.innerHTML = html;
-    svg.querySelectorAll('.hb-dot, .hb-dot-hit').forEach((dot) => {
-      dot.addEventListener('mouseenter', () => showScreenTooltip(dot));
-      dot.addEventListener('mouseleave', hideScreenTooltip);
-      dot.addEventListener('click', (e) => { e.stopPropagation(); showScreenTooltip(dot); });
-    });
+    showDetail(groups.find(group => group.id === selectedScreenBucket));
   }
 
-  // One bar per calendar month (last 6, current included), height = total
-  // hours logged that month (a sum, not an average — a month with more
-  // logged days naturally piles up more hours than a sparsely-logged one,
-  // which is expected here). A month with nothing logged still gets its
-  // own zero-height bar rather than being skipped.
-  function renderScreenMonthChart() {
-    const svg = $('screenWeekSvg'), emptyEl = $('screenWeekEmpty');
-    const logs = effectiveScreenLogs();
-    const months = last6Months(screenToday());
-    const totals = months.map(d => monthTotalHours(logs, d.getFullYear(), d.getMonth()));
-
-    if (!totals.some(t => t > 0)) {
-      svg.innerHTML = ''; svg.classList.add('hidden');
-      emptyEl.style.display = 'block'; hideScreenTooltip();
-      return;
-    }
-    emptyEl.style.display = 'none'; svg.classList.remove('hidden');
-
-    const n = months.length;
-    const W = svg.getBoundingClientRect().width || 600, H = 260;
-    svg.setAttribute('viewBox', '0 0 ' + W.toFixed(1) + ' ' + H);
-    const padLeft = 32, padRight = 14, padTop = 16, padBottom = 28, gap = 14;
-    const plotW = W - padLeft - padRight, plotH = H - padTop - padBottom;
-    const barW = (plotW - gap * (n - 1)) / n;
-
-    const rawMax = Math.max.apply(null, totals.concat([1]));
-    const step = rawMax <= 4 ? 1 : Math.ceil(rawMax / 4);
-    const niceMax = Math.ceil(rawMax / step) * step;
-
-    let html = '';
-    for (let v = 0; v <= niceMax; v += step) {
-      const y = padTop + plotH - (v / niceMax) * plotH;
-      html += '<line class="hb-week-grid" x1="' + padLeft + '" y1="' + y.toFixed(1) + '" x2="' + (W - padRight).toFixed(1) + '" y2="' + y.toFixed(1) + '"></line>'
-        + '<text class="hb-week-yaxis-label" x="' + (padLeft - 8) + '" y="' + (y + 3).toFixed(1) + '" text-anchor="end">' + v + '</text>';
-    }
-
-    months.forEach((d, i) => {
-      const x = padLeft + i * (barW + gap);
-      const total = totals[i];
-      const h = total > 0 ? Math.max(2, plotH * (total / niceMax)) : 0;
-      const y = padTop + plotH - h;
-      const attrs = ' data-value="' + total.toFixed(1) + '"';
-      html += '<rect class="hb-bar-hit" x="' + x.toFixed(1) + '" y="' + padTop + '" width="' + barW.toFixed(1) + '" height="' + plotH.toFixed(1) + '"' + attrs + '></rect>'
-        + '<rect class="hb-bar" x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + barW.toFixed(1) + '" height="' + h.toFixed(1) + '" rx="4"' + attrs + '></rect>'
-        + '<text class="hb-week-daylabel" x="' + (x + barW / 2).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="middle">' + monthLabel(d) + '</text>';
-    });
-    svg.innerHTML = html;
-    svg.querySelectorAll('.hb-bar, .hb-bar-hit').forEach((bar) => {
-      bar.addEventListener('mouseenter', () => showScreenTooltip(bar));
-      bar.addEventListener('mouseleave', hideScreenTooltip);
-      bar.addEventListener('click', (e) => { e.stopPropagation(); showScreenTooltip(bar); });
-    });
-  }
-
-  function renderScreenStats() {
-    const keys = currentWeekKeys(screenToday());
-    const logs = effectiveScreenLogs();
-    const vals = keys.map(k => logs[k]).filter(v => v != null).map(Number);
-    $('screenWeekAvg').textContent = vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1) + 'h' : '—';
-    $('screenGoalStreak').textContent = String(computeScreenGoalStreak(logs, state.screenTime.goalHours));
+  function renderScreenPanel() {
+    const { groups, summary, phone } = screenPeriod();
+    const weekly = screenViewMode === 'week';
+    const phoneView = screenDevice === 'phone';
+    const both = screenDevice === 'both';
+    const goal = phoneView && weekly ? state.screenTime.goalHours : 0;
+    $('screenChartEye').textContent = weekly
+      ? formatShortDate(groups[0].id, true) + ' – ' + formatShortDate(groups[6].id, true)
+      : 'Últimos 6 meses';
+    $('screenWeekNav').hidden = !weekly;
+    $('screenNext').disabled = $('screenReset').disabled = weekOffset === 0;
+    $('screenTotalLabel').textContent = weekly ? 'Total semanal' : 'Total del período';
+    $('screenTotal').textContent = formatScreenDuration(summary.total);
+    $('screenWeekAvg').textContent = formatScreenDuration(summary.count ? summary.total / summary.count : null);
+    $('screenStreakCard').hidden = !phoneView || !weekly || weekOffset !== 0;
+    const streak = computeScreenGoalStreak(phone, state.screenTime.goalHours);
+    $('phoneGoalStreak').textContent = streak + (streak === 1 ? ' día' : ' días');
+    $('screenGoalLegendItem').hidden = !goal;
+    $('screenGoalLegendItem').textContent = 'Meta diaria del celular · ' + formatScreenDuration(goal);
+    $('screenSources').hidden = !both;
+    $('screenPhoneTotal').textContent = 'Celular · ' + formatScreenDuration(summary.phone);
+    $('screenPcTotal').textContent = 'PC · ' + formatScreenDuration(summary.pc);
+    $('screenCoverage').hidden = !both;
+    $('screenCoverage').textContent = summary.missing.length
+      ? '* Total parcial en parte del período. Faltan datos de ' + summary.missing.join(' y ') + '.'
+      : 'El uso simultáneo cuenta para cada dispositivo.';
+    renderScreenChart(groups, goal);
   }
 
   function renderScreenTime() {
     fillScreenForm();
     renderScreenSource();
-    renderScreenChart();
-    renderScreenStats();
+    renderScreenPanel();
   }
+
+  new ResizeObserver(entries => {
+    const width = Math.round(entries[0].contentRect.width);
+    if (width && width !== Number($('screenWeekSvg').viewBox.baseVal.width)) renderScreenPanel();
+  }).observe($('screenChartWrap'));
 
   /* ============================================================
      READING
@@ -2169,8 +2261,11 @@ body::after {
       /^\d{4}-\d{2}-\d{2}$/.test(r.id) && Number.isFinite(r.hours) && r.hours >= 0
     ).map(r => [r.id, r.hours]));
   }
-  async function refreshAndroidScreenHours() {
-    androidScreenHours = hoursByDate(await DataLayer.list(androidScreenCollection));
+  async function refreshImportedScreenHours() {
+    const rows = await DataLayer.list(androidScreenCollection);
+    androidScreenHours = hoursByDate(rows);
+    pcScreenHours = hoursByDate(rows.filter(row => row.id.startsWith('pc:'))
+      .map(row => ({ ...row, id: row.id.slice(3) })));
   }
   async function refreshHabitsCaches() {
     const [nofapRows, screenRows, config] = await Promise.all([
@@ -2229,23 +2324,22 @@ body::after {
     if (!session) return; // redirected to login.html
 
     androidScreenCollection = 'habits_screen_time_android:' + session.user.id;
-    await Promise.all([refreshHabitsCaches(), refreshReadingCaches(), refreshAndroidScreenHours()]);
+    await Promise.all([refreshHabitsCaches(), refreshReadingCaches(), refreshImportedScreenHours()]);
     refreshPoHabitsMirror();
     renderAll();
 
     HABITS_COLLECTIONS.forEach((col) => DataLayer.setLegacyMirror(col, HABITS_KEY, buildLegacyHabitsBlob));
 
-    const updateAndroid = async () => {
-      const previous = JSON.stringify(androidScreenHours);
-      await refreshAndroidScreenHours();
-      if (JSON.stringify(androidScreenHours) === previous) return;
-      renderScreenChart();
-      renderScreenStats();
+    const updateImportedScreenHours = async () => {
+      const previous = JSON.stringify([androidScreenHours, pcScreenHours]);
+      await refreshImportedScreenHours();
+      if (JSON.stringify([androidScreenHours, pcScreenHours]) === previous) return;
+      renderScreenPanel();
       renderScreenSource();
     };
-    DataLayer.subscribe(androidScreenCollection, updateAndroid);
-    window.addEventListener('focus', updateAndroid);
-    setInterval(() => { if (!document.hidden) updateAndroid(); }, 5 * 60 * 1000);
+    DataLayer.subscribe(androidScreenCollection, updateImportedScreenHours);
+    window.addEventListener('focus', updateImportedScreenHours);
+    setInterval(() => { if (!document.hidden) updateImportedScreenHours(); }, 5 * 60 * 1000);
 
     HABITS_COLLECTIONS.forEach((col) => {
       DataLayer.subscribe(col, async () => {
