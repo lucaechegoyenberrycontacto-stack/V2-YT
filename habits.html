@@ -474,6 +474,7 @@ body::after {
 .screen-plot-mark { fill: var(--text-secondary); font-size: 12px; }
 #screen-time .hb-week-daylabel { font-size: 10px; }
 #screen-time .hb-line-goal { pointer-events: none; }
+#screen-time .screen-goal-tick { fill: var(--warning); }
 #screenChartDetail { padding: 0 6px; }
 .screen-manual { margin-top: 16px; border-top: 1px solid var(--screen-edge); }
 .screen-manual summary {
@@ -1277,10 +1278,16 @@ body::after {
     const rawMax = Math.max(1, goal, ...groups.map(group => group.total ?? 0));
     const tick = Math.max(1, Math.ceil(rawMax / 4));
     const y = value => bottom - (bottom - top) * value / (tick * 4);
+    const axisLabel = (value, goalLabel = false) =>
+      '<text class="hb-week-yaxis-label' + (goalLabel ? ' screen-goal-tick' : '') +
+      '" text-anchor="end" x="' + (left - 4) + '" y="' + (y(value) + 4) + '">' +
+      (goalLabel ? value.toLocaleString('es-AR') : value) + ' h</text>';
     const grid = Array.from({ length: 5 }, (_, i) => {
       const level = i * tick;
-      return '<line class="hb-week-grid" x1="' + left + '" x2="' + (width - right) + '" y1="' + y(level) + '" y2="' + y(level) + '"/>' +
-        '<text class="hb-week-yaxis-label" text-anchor="end" x="' + (left - 4) + '" y="' + (y(level) + 4) + '">' + level + ' h</text>';
+      const levelY = y(level);
+      const label = goal > 0 && Math.abs(levelY - y(goal)) < 12 ? '' : axisLabel(level);
+      return '<line class="hb-week-grid" x1="' + left + '" x2="' + (width - right) +
+        '" y1="' + levelY + '" y2="' + levelY + '"/>' + label;
     }).join('');
     const combined = screenDevice === 'both';
     const centerAt = i => left + slot * (i + .5);
@@ -1319,7 +1326,10 @@ body::after {
         '<rect class="hb-bar-hit" x="' + (center - slot / 2) + '" y="0" width="' + slot + '" height="' + height + '"/>' +
         '<text class="hb-week-daylabel" text-anchor="middle" x="' + center + '" y="' + (compact ? 244 : 250) + '">' + label + '</text></g>';
     }).join('');
-    const goalLine = goal > 0 ? '<line class="hb-line-goal" x1="' + left + '" x2="' + (width - right) + '" y1="' + y(goal) + '" y2="' + y(goal) + '"/>' : '';
+    const goalLine = goal > 0
+      ? '<line class="hb-line-goal" x1="' + left + '" x2="' + (width - right) +
+        '" y1="' + y(goal) + '" y2="' + y(goal) + '"/>' + axisLabel(goal, true)
+      : '';
     svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
     const trace = line ? '<path class="screen-line screen-series-' + screenDevice + '" d="' + line + '"/>' : '';
     svg.innerHTML = grid + goalLine + trace + plot;
