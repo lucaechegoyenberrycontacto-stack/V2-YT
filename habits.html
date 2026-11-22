@@ -298,6 +298,8 @@ body::after {
 .rd-select { color-scheme: dark; }
 
 /* ---------- shelf (finished books, cover grid) ---------- */
+.rd-shelf-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.rd-shelf-toggle { margin-bottom: 8px; }
 .rd-shelf-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
 @media (min-width: 480px) { .rd-shelf-grid { grid-template-columns: repeat(3, 1fr); } }
 @media (min-width: 1100px) { .rd-shelf-grid { grid-template-columns: repeat(4, 1fr); } }
@@ -562,7 +564,10 @@ body::after {
             <div id="rdListToread"></div>
           </div>
           <div class="rd-lib-group">
-            <div class="rd-lib-group-title">Terminados <span class="rd-lib-group-count" id="rdCountFinished"></span></div>
+            <div class="rd-shelf-heading">
+              <div class="rd-lib-group-title">Terminados <span class="rd-lib-group-count" id="rdCountFinished"></span></div>
+              <button type="button" id="rdShelfToggle" class="rd-goal-btn rd-shelf-toggle" aria-controls="rdShelfGrid" aria-expanded="false" hidden>Ver todos</button>
+            </div>
             <div id="rdShelfEmpty" class="rd-empty" style="display:none">Todavía no terminaste ningún libro.</div>
             <div id="rdShelfGrid" class="rd-shelf-grid"></div>
           </div>
@@ -1639,6 +1644,13 @@ body::after {
     persistBookFull(book);
     renderReading();
   }
+  const rdShelfPreviewCount = 4;
+  let rdShelfExpanded = false;
+  $('rdShelfToggle').addEventListener('click', () => {
+    rdShelfExpanded = !rdShelfExpanded;
+    renderReadingLibrary();
+  });
+
   function renderReadingLibrary() {
     const books = state.reading.books;
     $('rdLibEmpty').style.display = books.length ? 'none' : 'block';
@@ -1654,7 +1666,13 @@ body::after {
     $('rdListReading').innerHTML = reading.length ? reading.map(rdBookRowHtml).join('') : '<div class="rd-empty">Nada en curso.</div>';
     $('rdListToread').innerHTML = toread.length ? toread.map(rdBookRowHtml).join('') : '<div class="rd-empty">Nada pendiente.</div>';
     $('rdShelfEmpty').style.display = finished.length ? 'none' : 'block';
-    $('rdShelfGrid').innerHTML = finished.map(rdShelfCardHtml).join('');
+    const shelfToggle = $('rdShelfToggle');
+    shelfToggle.hidden = finished.length <= rdShelfPreviewCount;
+    if (shelfToggle.hidden) rdShelfExpanded = false;
+    shelfToggle.setAttribute('aria-expanded', String(rdShelfExpanded));
+    shelfToggle.textContent = rdShelfExpanded ? 'Mostrar menos' : 'Ver todos (' + finished.length + ')';
+    const visibleFinished = rdShelfExpanded ? finished : finished.slice(0, rdShelfPreviewCount);
+    $('rdShelfGrid').innerHTML = visibleFinished.map(rdShelfCardHtml).join('');
 
     document.querySelectorAll('#rdListReading [data-edit-book], #rdListToread [data-edit-book], #rdShelfGrid [data-edit-book]').forEach((el) => {
       el.addEventListener('click', () => rdOpenBookModal(el.dataset.editBook));
