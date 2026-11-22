@@ -273,9 +273,19 @@
   // ever needed to have changed for the cycle to keep going.
   async function fetchAndCache(collection) {
     try {
-      const { data, error } = await supa.from('records').select('id,data').eq('collection', collection).order('id', { ascending: true });
-      if (error) throw error;
-      const rows = (data || []).map((r) => Object.assign({ id: r.id }, r.data));
+      const rows = [];
+      let lastId;
+      while (true) {
+        let query = supa.from('records').select('id,data').eq('collection', collection)
+          .order('id', { ascending: true }).limit(500);
+        if (lastId !== undefined) query = query.gt('id', lastId);
+        const { data, error } = await query;
+        if (error) throw error;
+        if (!data || !data.length) break;
+        rows.push(...data.map((r) => Object.assign({ id: r.id }, r.data)));
+        lastId = data[data.length - 1].id;
+        if (data.length < 500) break;
+      }
       const changed = JSON.stringify(rows) !== JSON.stringify(readCache(collection));
       writeCache(collection, rows);
       return { rows: rows, changed: changed };

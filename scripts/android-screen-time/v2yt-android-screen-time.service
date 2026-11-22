@@ -1,0 +1,8 @@
+[Unit]
+Description=Import Android screen time into V2-YT
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 "%h/.local/lib/v2yt-android-screen-time/sync.py" sync
+UMask=0077
+TimeoutStartSec=5min

@@ -428,8 +428,8 @@ body::after {
   </div>
 
   <!-- ===== Screen Time ===== -->
-  <div class="section">
-    <div class="section-title">Screen Time</div>
+  <div class="section" id="screen-time">
+    <div class="section-title">Screen Time · Phone</div>
     <div class="hb-card">
 
       <div class="hb-row">
@@ -442,12 +442,13 @@ body::after {
           <input type="number" min="0" step="0.1" id="screenHoursInput" class="hb-input" placeholder="e.g. 3.5">
         </label>
         <label class="hb-field">
-          <span class="hb-field-label">Daily goal (h)</span>
+          <span class="hb-field-label">Phone daily goal (h)</span>
           <input type="number" min="0" step="0.1" id="screenGoalInput" class="hb-input" placeholder="e.g. 2">
         </label>
         <button type="button" class="hb-save-btn" id="screenSaveBtn">Save</button>
       </div>
       <div class="hb-status" id="screenStatus"></div>
+      <div class="hb-field-label" id="screenAndroidSource" aria-live="polite"></div>
 
       <div class="hb-avg-row">
         <div class="hb-avg-stat"><div class="hb-avg-label">Last 7 days avg</div><div class="hb-avg-val" id="screenWeekAvg">—</div></div>
@@ -913,8 +914,26 @@ body::after {
   // off the chart whenever today happens to be a Monday (yesterday would
   // belong to LAST week's box), which would defeat the point of being
   // able to log a day you forgot.
-  function currentWeekKeys() {
-    const now = new Date();
+  const screenDateFormatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Argentina/Cordoba', year: 'numeric', month: '2-digit', day: '2-digit'
+  });
+  function screenTodayKey() {
+    const parts = Object.fromEntries(screenDateFormatter.formatToParts(new Date()).map(p => [p.type, p.value]));
+    return parts.year + '-' + parts.month + '-' + parts.day;
+  }
+  function screenToday() {
+    const [year, month, day] = screenTodayKey().split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+
+  let androidScreenCollection;
+  let androidScreenHours = {};
+  let manualScreenRecords = {};
+  function effectiveScreenLogs() {
+    return { ...androidScreenHours, ...state.screenTime.logs };
+  }
+
+  function currentWeekKeys(now = new Date()) {
     const out = [];
     for (let i = 6; i >= 0; i--) { const d = new Date(now); d.setDate(now.getDate() - i); out.push(dateKey(d)); }
     return out;
@@ -933,8 +952,7 @@ body::after {
 
   // ---------- Month view (bars) ----------
   const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  function last6Months() {
-    const now = new Date();
+  function last6Months(now = new Date()) {
     const out = [];
     for (let i = 5; i >= 0; i--) out.push(new Date(now.getFullYear(), now.getMonth() - i, 1));
     return out;
@@ -953,7 +971,7 @@ body::after {
   // yet — same "don't penalize" rule as computeCurrentStreak above)
   // with hours logged AND within goal. Same backward-walk pattern.
   function computeScreenGoalStreak(logs, goalHours) {
-    let d = new Date();
+    let d = screenToday();
     if (logs[dateKey(d)] == null) d.setDate(d.getDate() - 1);
     let streak = 0;
     while (true) {
@@ -967,29 +985,48 @@ body::after {
   // Which day the form reads/writes — defaults to today on every load
   // (not persisted), so a forgotten day can be filled in via the date
   // field without permanently leaving the widget on that day.
-  function screenSelectedDateKey() { return $('screenDateInput').value || todayStr(); }
+  function screenSelectedDateKey() { return $('screenDateInput').value || screenTodayKey(); }
 
   function fillScreenForm() {
     const key = screenSelectedDateKey();
-    const isToday = key === todayStr();
+    const isToday = key === screenTodayKey();
     const entry = state.screenTime.logs[key];
     $('screenHoursInput').value = (entry != null) ? entry : '';
     $('screenGoalInput').value = state.screenTime.goalHours;
-    $('screenHoursLabel').textContent = isToday ? 'Hours today' : 'Hours on ' + formatShortDate(key);
+    $('screenHoursLabel').textContent = isToday ? 'Manual hours today' : 'Manual hours on ' + formatShortDate(key);
   }
-  $('screenDateInput').value = todayStr();
-  $('screenDateInput').max = todayStr(); // no logging a day that hasn't happened
-  $('screenDateInput').addEventListener('change', fillScreenForm);
+
+  function renderScreenSource() {
+    const key = screenSelectedDateKey();
+    const entry = state.screenTime.logs[key];
+    const imported = androidScreenHours[key];
+    const androidText = imported == null ? 'Android: no data' : 'Android: ' + imported.toFixed(2) + ' h';
+    $('screenAndroidSource').textContent = entry != null ? androidText + ' · Manual entry used' : androidText;
+  }
+  $('screenDateInput').value = screenTodayKey();
+  $('screenDateInput').max = screenTodayKey(); // no logging a day that hasn't happened
+  $('screenDateInput').addEventListener('change', () => {
+    fillScreenForm();
+    renderScreenSource();
+  });
 
   $('screenSaveBtn').addEventListener('click', () => {
     const key = screenSelectedDateKey();
     const hrs = parseFloat($('screenHoursInput').value);
     const goal = parseFloat($('screenGoalInput').value);
     const status = $('screenStatus');
-    if (!(hrs >= 0)) { status.textContent = 'Enter the hours first.'; return; }
-    state.screenTime.logs[key] = hrs;
-    persistScreenDay(key, hrs);
-    if (goal > 0) { state.screenTime.goalHours = goal; persistScreenGoal(goal); }
+    const validHours = Number.isFinite(hrs) && hrs >= 0;
+    const changedGoal = Number.isFinite(goal) && goal > 0 && goal !== state.screenTime.goalHours;
+    if (key > screenTodayKey() || (!validHours && !changedGoal)) {
+      status.textContent = 'Enter manual hours or a new goal for a valid date.';
+      return;
+    }
+    if (validHours) {
+      state.screenTime.logs[key] = hrs;
+      manualScreenRecords[key] = hrs;
+      persistScreenDay(key, hrs);
+    }
+    if (changedGoal) { state.screenTime.goalHours = goal; persistScreenGoal(goal); }
     status.textContent = 'Saved ✓';
     setTimeout(() => { status.textContent = ''; }, 1800);
     renderScreenTime();
@@ -1007,7 +1044,7 @@ body::after {
   }
   document.addEventListener('click', (e) => { if (!e.target.closest('.hb-dot, .hb-dot-hit')) hideScreenTooltip(); });
 
-  const SCREEN_Y_MAX = 10, SCREEN_Y_STEP = 2;
+  const SCREEN_Y_STEP = 2;
 
   // ---------- Week/Month toggle ----------
   // Not persisted — always starts back on 'week' on a fresh load.
@@ -1033,9 +1070,12 @@ body::after {
 
   function renderScreenWeekChart() {
     const svg = $('screenWeekSvg'), emptyEl = $('screenWeekEmpty');
-    const keys = currentWeekKeys();
-    const logs = state.screenTime.logs;
+    const keys = currentWeekKeys(screenToday());
+    const logs = effectiveScreenLogs();
     const goal = state.screenTime.goalHours;
+    const vals = keys.map(k => logs[k] == null ? null : Number(logs[k]));
+    const step = Math.max(SCREEN_Y_STEP, Math.ceil(Math.max(goal, ...vals) / 5));
+    const max = 5 * step;
 
     if (!keys.some(k => logs[k] != null)) {
       svg.innerHTML = ''; svg.classList.add('hidden');
@@ -1050,20 +1090,19 @@ body::after {
     const padLeft = 32, padRight = 14, padTop = 16, padBottom = 28;
     const plotW = W - padLeft - padRight, plotH = H - padTop - padBottom;
     const xAt = (i) => padLeft + plotW * (n === 1 ? 0.5 : i / (n - 1));
-    const yAt = (v) => padTop + plotH * (1 - Math.min(v, SCREEN_Y_MAX) / SCREEN_Y_MAX);
+    const yAt = (v) => padTop + plotH * (1 - v / max);
 
     let html = '';
-    for (let v = 0; v <= SCREEN_Y_MAX; v += SCREEN_Y_STEP) {
+    for (let v = 0; v <= max; v += step) {
       const y = yAt(v);
       html += '<line class="hb-week-grid" x1="' + padLeft + '" y1="' + y.toFixed(1) + '" x2="' + (W - padRight).toFixed(1) + '" y2="' + y.toFixed(1) + '"></line>'
         + '<text class="hb-week-yaxis-label" x="' + (padLeft - 8) + '" y="' + (y + 3).toFixed(1) + '" text-anchor="end">' + v + '</text>';
     }
-    if (goal > 0 && goal <= SCREEN_Y_MAX) {
+    if (goal > 0 && goal <= max) {
       const gy = yAt(goal);
       html += '<line class="hb-line-goal" x1="' + padLeft + '" y1="' + gy.toFixed(1) + '" x2="' + (W - padRight).toFixed(1) + '" y2="' + gy.toFixed(1) + '"></line>';
     }
 
-    const vals = keys.map(k => (logs[k] != null ? Number(logs[k]) : null));
     let d = '', dots = '', started = false;
     vals.forEach((v, i) => {
       if (v == null) { started = false; return; }
@@ -1093,8 +1132,8 @@ body::after {
   // own zero-height bar rather than being skipped.
   function renderScreenMonthChart() {
     const svg = $('screenWeekSvg'), emptyEl = $('screenWeekEmpty');
-    const logs = state.screenTime.logs;
-    const months = last6Months();
+    const logs = effectiveScreenLogs();
+    const months = last6Months(screenToday());
     const totals = months.map(d => monthTotalHours(logs, d.getFullYear(), d.getMonth()));
 
     if (!totals.some(t => t > 0)) {
@@ -1141,14 +1180,16 @@ body::after {
   }
 
   function renderScreenStats() {
-    const keys = currentWeekKeys();
-    const vals = keys.map(k => state.screenTime.logs[k]).filter(v => v != null).map(Number);
+    const keys = currentWeekKeys(screenToday());
+    const logs = effectiveScreenLogs();
+    const vals = keys.map(k => logs[k]).filter(v => v != null).map(Number);
     $('screenWeekAvg').textContent = vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1) + 'h' : '—';
-    $('screenGoalStreak').textContent = String(computeScreenGoalStreak(state.screenTime.logs, state.screenTime.goalHours));
+    $('screenGoalStreak').textContent = String(computeScreenGoalStreak(logs, state.screenTime.goalHours));
   }
 
   function renderScreenTime() {
     fillScreenForm();
+    renderScreenSource();
     renderScreenChart();
     renderScreenStats();
   }
@@ -2123,6 +2164,14 @@ body::after {
   // deliberately isn't part of the po_habits_v1 blob (see state.reading
   // init comment above).
   const READING_COLLECTIONS = ['reading_books', 'reading_logs'];
+  function hoursByDate(rows) {
+    return Object.fromEntries(rows.filter(r =>
+      /^\d{4}-\d{2}-\d{2}$/.test(r.id) && Number.isFinite(r.hours) && r.hours >= 0
+    ).map(r => [r.id, r.hours]));
+  }
+  async function refreshAndroidScreenHours() {
+    androidScreenHours = hoursByDate(await DataLayer.list(androidScreenCollection));
+  }
   async function refreshHabitsCaches() {
     const [nofapRows, screenRows, config] = await Promise.all([
       DataLayer.list('habits_nofap'),
@@ -2131,10 +2180,9 @@ body::after {
     ]);
     const nofapLogs = {};
     nofapRows.forEach((r) => { nofapLogs[r.id] = { clean: r.clean, note: r.note }; });
-    const screenLogs = {};
-    screenRows.forEach((r) => { screenLogs[r.id] = r.hours; });
+    manualScreenRecords = hoursByDate(screenRows);
     state.nofap.logs = nofapLogs;
-    state.screenTime.logs = screenLogs;
+    state.screenTime.logs = { ...state.screenTime.logs, ...manualScreenRecords };
     state.screenTime.goalHours = (config && config.screenTimeGoalHours > 0) ? config.screenTimeGoalHours : 2;
     // habits_config also carries the reading goal fields (shared singleton
     // row) — refreshed here too so a habits_config-only realtime event
@@ -2180,10 +2228,24 @@ body::after {
     const session = await DataLayer.init({ requireAuth: true });
     if (!session) return; // redirected to login.html
 
-    await Promise.all([refreshHabitsCaches(), refreshReadingCaches()]);
+    androidScreenCollection = 'habits_screen_time_android:' + session.user.id;
+    await Promise.all([refreshHabitsCaches(), refreshReadingCaches(), refreshAndroidScreenHours()]);
+    refreshPoHabitsMirror();
     renderAll();
 
     HABITS_COLLECTIONS.forEach((col) => DataLayer.setLegacyMirror(col, HABITS_KEY, buildLegacyHabitsBlob));
+
+    const updateAndroid = async () => {
+      const previous = JSON.stringify(androidScreenHours);
+      await refreshAndroidScreenHours();
+      if (JSON.stringify(androidScreenHours) === previous) return;
+      renderScreenChart();
+      renderScreenStats();
+      renderScreenSource();
+    };
+    DataLayer.subscribe(androidScreenCollection, updateAndroid);
+    window.addEventListener('focus', updateAndroid);
+    setInterval(() => { if (!document.hidden) updateAndroid(); }, 5 * 60 * 1000);
 
     HABITS_COLLECTIONS.forEach((col) => {
       DataLayer.subscribe(col, async () => {
@@ -2210,11 +2272,12 @@ body::after {
         // state.reading init comment above) — preserve whatever's already
         // loaded there instead of letting this reassignment wipe it out.
         const preservedReading = state.reading;
+        const preservedManualHours = state.screenTime.logs;
         state = loadJSON(HABITS_KEY, defaultHabits());
         if (!state.nofap) state.nofap = { logs: {} };
         if (!state.nofap.logs) state.nofap.logs = {};
         if (!state.screenTime) state.screenTime = { logs: {}, goalHours: 2 };
-        if (!state.screenTime.logs) state.screenTime.logs = {};
+        state.screenTime.logs = { ...preservedManualHours, ...state.screenTime.logs, ...manualScreenRecords };
         state.reading = preservedReading || { books: [], logs: [], goalType: 'none', goalValue: 0 };
         renderAll();
       }

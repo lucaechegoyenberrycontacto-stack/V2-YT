@@ -1,0 +1,9 @@
+[Unit]
+Description=Import Android screen time every 15 minutes
+
+[Timer]
+OnCalendar=*:0/15
+Persistent=true
+
+[Install]
+WantedBy=timers.target
