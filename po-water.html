@@ -18,7 +18,7 @@ Contact: rowan.wisere@gmail.com
 <script src="/api/config"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0c1522">
+<meta name="theme-color" content="#050506">
 <title>Agua · Jarvis</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="syncStatus.js" defer></script>
@@ -32,6 +32,8 @@ Contact: rowan.wisere@gmail.com
      Most settings are also editable in-app via the gear icon.
      ============================================================= -->
 <script>
+if (window.self !== window.top) document.documentElement.classList.add('water-embedded');
+
 const CONFIG = {
   // Default unit. Options: "bottle" | "glass" | "oz" | "ml"
   unit: "bottle",
@@ -59,12 +61,12 @@ const CONFIG = {
 </script>
 
 <style>
-:root { --danger: #ff9e9e; --success: #6be3a4; --font-mono: ui-monospace, SF Mono, Menlo, Consolas, monospace; }
+:root { --danger: #ff9e9e; --success: #6be3a4; }
 /* ----- Modal ----- */
-.modal::backdrop { background: #060d17bb; }
+.modal::backdrop { background: rgba(0, 0, 0, .68); backdrop-filter: blur(4px); }
 .modal {
   width: calc(100% - 28px); max-width: 480px; color: var(--text-primary);
-  background: var(--bg-card);
+  background: var(--bg-popover);
   border: 1px solid var(--border-strong);
   border-radius: 16px;
   padding: 22px; padding-bottom: max(22px, env(safe-area-inset-bottom)); max-height: 88vh; overflow-y: auto;
@@ -95,8 +97,8 @@ const CONFIG = {
 .field input[type="number"]::-webkit-outer-spin-button,
 .field input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .field input:focus, .field select:focus {
-  border-color: rgba(110,231,183,0.40);
-  box-shadow: 0 0 0 2px rgba(110,231,183,0.10);
+  border-color: rgba(125, 211, 252, .45);
+  box-shadow: 0 0 0 2px rgba(125, 211, 252, .12);
 }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .seg {
@@ -124,7 +126,7 @@ const CONFIG = {
   color: var(--text-primary); font-family: inherit; font-size: 14px;
   padding: 11px 14px; border-radius: 10px; outline: none;
 }
-.search-input:focus { border-color: rgba(110,231,183,0.40); }
+.search-input:focus { border-color: rgba(125, 211, 252, .45); }
 .search-results {
   position: absolute; top: calc(100% + 4px); left: 0; right: 0;
   background: var(--bg-card);
