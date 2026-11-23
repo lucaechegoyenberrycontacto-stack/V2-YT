@@ -1383,27 +1383,6 @@ img, video, canvas, svg { max-width: 100%; }
 .cht-delta-pos { fill: var(--success); }
 .cht-delta-neg { fill: var(--danger); }
 
-/* Session-load ring (renderLoadRing, gymCharts.js) — Boxeo/Muay Thai only.
-   Track/label sizing mirrors .tr-home-stat-val/-label (hero-number
-   convention) scaled up since the ring is this card's sole focus. Arc color
-   is a severity signal by load threshold, same green->amber->red logic as
-   the rest of the module's status colors. */
-.tr-load-ring-wrap { display: flex; justify-content: center; padding: 8px 0 4px; }
-.tr-load-ring-svg { width: 160px; height: 160px; display: block; }
-.tr-load-ring-track { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 10; }
-.tr-load-ring-arc { fill: none; stroke-width: 10; stroke-linecap: round; }
-.tr-load-ring-arc-low { stroke: var(--text-tertiary); }
-.tr-load-ring-arc-mid { stroke: var(--success); }
-.tr-load-ring-arc-high { stroke: var(--warning); }
-.tr-load-ring-arc-veryhigh { stroke: var(--danger); }
-.tr-load-ring-val { font-size: 28px; font-weight: 800; fill: var(--text-primary); font-family: var(--font-mono); }
-.tr-load-ring-label { font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; fill: var(--text-tertiary); font-family: var(--font-mono); }
-
-/* HR estimate line under the load ring — deliberately muted/small so it
-   never reads as a measured value (it's derived from `difficulty` only,
-   see gymEcosystem.js estimateHrRange). */
-.tr-hr-estimate { font-size: 11.5px; color: var(--text-tertiary); margin-top: 8px; text-align: center; }
-
 /* "Métricas de la sesión" block in the Pesas log modal (CAMBIO 2) — a
    subtle top divider separates it from the datepicker above. */
 .tr-session-metrics { margin: 14px 0 12px; padding-top: 14px; border-top: 1px solid var(--border); }
@@ -1995,50 +1974,6 @@ img, video, canvas, svg { max-width: 100%; }
           <svg class="wh-freq-svg hidden" id="trCardioMinSvg" viewBox="0 0 700 220"></svg>
         </div>
       </div>
-      <div class="wh-block">
-        <div class="wh-block-title">Running / Bici (distancia)</div>
-        <div class="wh-freq-wrap">
-          <div class="po-empty" id="trDistanceEmpty">Registrá una sesión de Running o Bici con distancia para ver esto.</div>
-          <svg class="wh-freq-svg hidden" id="trDistanceSvg" viewBox="0 0 700 220"></svg>
-        </div>
-      </div>
-
-      <!-- Boxeo/Muay Thai — session load ring + cosmetic HR estimate for the
-           most recent session (window.GymDomain.computeSessionLoad /
-           window.GymEcosystem.estimateHrRange). The HR line is informational
-           only and never feeds the muscle map. -->
-      <div class="wh-block">
-        <div class="wh-block-title">Boxeo / Muay Thai — última sesión</div>
-        <div class="po-empty" id="trBoxeoLastEmpty">Registrá una sesión de Boxeo/Muay Thai para ver esto.</div>
-        <div class="tr-load-ring-wrap hidden" id="trBoxeoLastWrap">
-          <div style="text-align:center;">
-            <svg class="tr-load-ring-svg" id="trBoxeoLoadRingSvg"></svg>
-            <div class="tr-hr-estimate" id="trBoxeoHrEstimate"></div>
-          </div>
-        </div>
-      </div>
-      <div class="wh-block">
-        <div class="wh-block-title">Carga semanal (Boxeo/Muay Thai)</div>
-        <div class="wh-freq-wrap">
-          <div class="po-empty" id="trBoxeoLoadTrendEmpty">Registrá sesiones de Boxeo/Muay Thai para ver la tendencia semanal.</div>
-          <svg class="wh-freq-svg hidden" id="trBoxeoLoadTrendSvg" viewBox="0 0 700 220"></svg>
-        </div>
-      </div>
-
-      <!-- Weekly hard sets per muscle group — same primary=1.0/secondary=0.5
-           weighting as gymMuscleFatigue.js's fatigue score, for conceptual
-           consistency with the muscle map below, but computed independently
-           (computeWeeklySetsByMuscle) with no recovery decay. Reference band
-           is a strength-training guideline (Schoenfeld, Ogborn & Krieger
-           2017), not a prescription. -->
-      <div class="wh-block">
-        <div class="wh-block-title">Series semanales por grupo muscular</div>
-        <div class="wh-freq-wrap">
-          <div class="po-empty" id="trMuscleVolEmpty">Registrá una sesión de pesas para ver esto.</div>
-          <svg class="wh-freq-svg hidden" id="trMuscleVolSvg" viewBox="0 0 700 420"></svg>
-        </div>
-      </div>
-
       <!-- Muscle recovery map — the actual fatigue-scoring logic is a
            placeholder until the user loads their own training config (see
            gymMuscleFatigue.js). Never shows invented colors/numbers before
