@@ -46,6 +46,7 @@
   // @param {Object} [overrides] optional {sleepEntries} — see pick() above
   // @returns {number|null} hours slept that date, or null if no sleepEntries row for it
   function getSleepHoursForDate(date, overrides) {
+    if (overrides?.daily) return overrides.daily[date]?.sleep_hours ?? null;
     const entries = pick(overrides, 'sleepEntries');
     if (!Array.isArray(entries)) return null;
     const entry = entries.find(function (e) { return e && e.date === date; });
@@ -54,8 +55,7 @@
   }
 
   function dayRangeMs(date) {
-    const parts = String(date).split('-').map(Number);
-    const start = new Date(parts[0], (parts[1] || 1) - 1, parts[2] || 1, 0, 0, 0, 0).getTime();
+    const start = Date.parse(date+'T00:00:00-03:00');
     return [start, start + 24 * 60 * 60 * 1000];
   }
 
@@ -64,6 +64,7 @@
   // @returns {number|null} protein logged that date / nut:goals.protein, or
   //   null if no protein goal is configured or nothing was logged that date
   function getProteinRatioForDate(date, overrides) {
+    if (overrides?.daily) return overrides.daily[date]?.protein_ratio ?? null;
     const log = pick(overrides, 'nut:log');
     const foods = pick(overrides, 'nut:foods');
     const goals = pick(overrides, 'nut:goals');
@@ -88,6 +89,7 @@
   // @returns {number|null} screen hours that date / goalHours, or null if
   //   no goal is set or nothing was logged that date
   function getScreenTimeRatioForDate(date, overrides) {
+    if (overrides?.daily) return overrides.daily[date]?.screen_ratio ?? null;
     const habits = pick(overrides, 'po_habits_v1');
     const screenTime = habits && habits.screenTime;
     if (!screenTime || !(screenTime.goalHours > 0)) return null;
@@ -172,7 +174,7 @@
     return 'Recuperación hoy: -' + pct + '% por ' + joinEs(labels);
   }
 
-  window.GymEcosystem = {
+  globalThis.GymEcosystem = {
     getSleepHoursForDate: getSleepHoursForDate,
     getProteinRatioForDate: getProteinRatioForDate,
     getScreenTimeRatioForDate: getScreenTimeRatioForDate,

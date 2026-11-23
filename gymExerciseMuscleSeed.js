@@ -7,7 +7,7 @@
 // `discard`: exercise names with no usable data (reps=0/weight=0) —
 // excluded entirely from import and manual entry.
 (function () {
-  window.EXERCISE_MUSCLE_SEED = {
+  globalThis.EXERCISE_MUSCLE_SEED = {
     discard: ['Run', 'Stationary Bike Run'],
     exercises: {
       'Barbell Curl': { primaryMuscle: 'Bíceps', secondaryMuscles: [] },

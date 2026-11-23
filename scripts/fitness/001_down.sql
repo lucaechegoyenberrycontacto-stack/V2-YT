@@ -1,0 +1,17 @@
+begin;
+drop view fitness.daily_signals,fitness.exercise_muscles,fitness.personal_records,fitness.weekly;
+drop view fitness.model_config,fitness.model_sessions,fitness.body_weight,fitness.sets,fitness.sessions;
+drop policy fitness_archive_anon on public.workout_history;
+drop policy fitness_archive_owner on public.workout_history;
+drop policy fitness_personal_guard on public.records;
+drop policy fitness_anon_guard on public.records;
+drop policy fitness_reader_scope on public.records;
+drop policy fitness_reader_select on public.records;
+drop index public.fitness_workout_day;
+drop function fitness.is_owner();
+drop table fitness.owner_account;
+drop schema fitness;
+revoke select(collection,id,data) on public.records from fitness_reader;
+revoke fitness_reader from authenticator;
+drop role fitness_reader;
+commit;

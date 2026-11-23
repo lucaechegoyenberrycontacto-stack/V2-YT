@@ -1,0 +1,64 @@
+html, body { background: #09090a; }
+.po-shell { max-width: 1180px; }
+.po-groups { display: flex; flex-direction: column; gap: 16px; font-variant-numeric: tabular-nums; }
+.po-group-steps { order: 3; }
+.po-progress-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 14px; }
+.po-progress-grid > *, .po-group-today > .card {
+  margin: 0; padding: 18px; background: #111113; border: 1px solid #323034;
+  border-radius: 8px; box-shadow: none; backdrop-filter: none;
+}
+.po-group-today .po-sub-section, .wt-card { padding: 0; background: transparent; border: 0; box-shadow: none; backdrop-filter: none; }
+.fitness-map { grid-column: 1; grid-row: 1 / 3; }
+.po-progress-grid > .wt-section, .fitness-records { grid-column: 2; }
+.fitness-history { grid-column: 1 / -1; }
+.po-group-progress > .wt-divider, .wt-streak, .wt-legend { display: none !important; }
+.wh-block-title, .wt-divider span, .po-sub-title {
+  color: #ded9d9; font: 600 12px var(--font-mono); text-transform: uppercase; letter-spacing: .06em;
+}
+.wt-divider { justify-content: flex-start; }
+.wt-divider::before, .wt-divider::after { display: none; }
+#trHomeStats { display: flex; gap: 28px; justify-content: flex-start; }
+.tr-home-stat { min-width: 120px; text-align: left; background: transparent; }
+.tr-home-stat-val { display: block; color: #faf7f6; font: 600 30px var(--font-mono); }
+#fitnessWeek, #fitnessDays { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+#fitnessSync, #fitnessRange, .wh-session small, .wt-meta { color: #c0b7b9; }
+#fitnessDays span { padding: 4px 7px; color: #b6afb1; border-bottom: 2px solid #373237; }
+#fitnessDays .active { color: white; border-color: #ae5056; }
+.po-groups button:not([class]), #trMuscleDetailList button {
+  background: #1a181a; color: #eee; border: 1px solid #484045; border-radius: 5px; padding: 8px 12px; min-height: 40px;
+}
+.po-shell :focus-visible, .wh-session [tabindex="-1"]:focus { outline: 2px solid #ef969a; outline-offset: 2px; }
+.wh-session summary { cursor: pointer; padding: 10px; }
+.wh-session small { display: block; margin-top: 5px; }
+.wh-pr-row { gap: 12px; align-items: center; }
+.fitness-muscles button, #trMuscleDetailList button { display: block; width: 100%; text-align: left; margin: 6px 0; }
+.tr-body-map { max-width: 210px; }
+.tr-body-deco { fill: #302c30; stroke: #75686c; stroke-width: 2; }
+.tr-body-region:focus-visible { stroke-width: 6; }
+.wt-save-btn { background: #752f36; color: white; }
+.wt-line { stroke: #db8588; stroke-width: 1.5; }
+.wt-dot, .wt-dot-today { fill: #f1c6c7; stroke: #a95760; }
+.wt-input-top { flex-wrap: wrap; }
+@media (min-width: 751px) {
+  .tr-body-toggle { display: none; }
+  .tr-body-map { display: flex; max-width: 500px; height: 355px; aspect-ratio: auto; }
+  .tr-body-svg { position: static; width: 50%; opacity: 1; pointer-events: auto; }
+}
+@media (max-width: 750px) {
+  .po-progress-grid { display: flex; flex-direction: column; }
+  .fitness-map { order: 0; }
+  .wt-section { order: 1; }
+  .fitness-records { order: 2; }
+  .fitness-history { order: 3; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .po-shell *, .po-modal-bg * { animation: none !important; transition: none !important; }
+}
+.po-groups { align-items: stretch; }
+@media (min-width: 751px) {
+  .po-group-today > .card {
+    display: grid; grid-template-columns: auto minmax(0,1fr); column-gap: 28px; align-items: center;
+  }
+  .po-group-today .po-sub-section { grid-row: 1 / 4; margin: 0; }
+  #fitnessWeek, #fitnessDays, #fitnessSync { grid-column: 2; }
+}

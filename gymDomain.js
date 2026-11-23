@@ -78,16 +78,7 @@
   // Today doesn't break an in-progress streak before the day is over — if
   // today has no session yet, counting starts from yesterday.
   function computeTrainingStreak(sessions) {
-    const days = {};
-    (sessions || []).forEach(function (w) { if (w.date) days[w.date] = true; });
-    const cursor = new Date(); cursor.setHours(0, 0, 0, 0);
-    if (!days[cursor.toISOString().slice(0, 10)]) cursor.setDate(cursor.getDate() - 1);
-    let streak = 0;
-    while (days[cursor.toISOString().slice(0, 10)]) {
-      streak++;
-      cursor.setDate(cursor.getDate() - 1);
-    }
-    return streak;
+    return FitnessHistory.streak(sessions || []);
   }
 
   window.GymDomain = {

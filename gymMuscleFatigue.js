@@ -66,7 +66,7 @@
   };
 
   /**
-   * @param {Array} sessions  Normalized workout_history entries (window.WH.getAllWorkouts()).
+   * @param {Array} sessions  Normalized workout_history entries (globalThis.WH.getAllWorkouts()).
    * @param {Object} config   muscleFatigueConfig — see DEFAULT_MUSCLE_FATIGUE_CONFIG shape.
    * @param {Date}   [now]    Injected for testability; defaults to current time.
    * @param {Object} [ecosystemOverrides] Cross-device sleep/protein/screen-time
@@ -75,11 +75,11 @@
    *   omitting it falls back to this device's own localStorage per signal.
    * @returns {{ isPlaceholder: boolean, muscles: Object<string, {score:number, lastTrainedAt:string|null}> }}
    */
-  function computeMuscleFatigue(sessions, config, now, ecosystemOverrides) {
+  function computeMuscleFatigue(sessions, config, now, ecosystemOverrides, resolveExercise) {
     now = now || new Date();
-    const groups = window.MUSCLE_GROUPS || [];
+    const groups = globalThis.MUSCLE_GROUPS || [];
     const muscles = {};
-    groups.forEach(function (m) { muscles[m] = { score: 0, lastTrainedAt: null }; });
+    groups.forEach(function (m) { muscles[m] = { score: 0, lastTrainedAt: null, evidence: [] }; });
 
     // While no real config has been loaded yet, never invent colors/numbers —
     // the caller renders the empty/gray state instead of reading `muscles`.
@@ -92,26 +92,29 @@
     const ecoModifierCache = {};
     function ecoModifierFor(dateStr) {
       if (!(dateStr in ecoModifierCache)) {
-        ecoModifierCache[dateStr] = (window.GymEcosystem && window.GymEcosystem.computeEcosystemModifier)
-          ? window.GymEcosystem.computeEcosystemModifier(dateStr, config, ecosystemOverrides)
+        ecoModifierCache[dateStr] = (globalThis.GymEcosystem && globalThis.GymEcosystem.computeEcosystemModifier)
+          ? globalThis.GymEcosystem.computeEcosystemModifier(dateStr, config, ecosystemOverrides)
           : 1;
       }
       return ecoModifierCache[dateStr];
     }
 
-    function addLoad(muscle, units, hoursAgo, dateStr) {
+    const unassigned=new Set(), performedExercises=new Set();
+    let evidence;
+    function addLoad(muscle, units, hoursAgo, dateStr, role) {
       if (!muscle || !muscles[muscle] || units <= 0) return;
       const cfg = (config.muscles && config.muscles[muscle]) || {};
       const baseRecoveryHours = cfg.recoveryHours || 48;
       const recoveryHours = baseRecoveryHours * ecoModifierFor(dateStr);
       const weight = cfg.weight != null ? cfg.weight : 1;
       const remainingFrac = Math.max(0, 1 - hoursAgo / recoveryHours);
-      if (remainingFrac <= 0) return;
-      const contribution = Math.min(100, units * 20 * weight) * remainingFrac;
-      muscles[muscle].score = Math.min(100, muscles[muscle].score + contribution);
       if (!muscles[muscle].lastTrainedAt || dateStr > muscles[muscle].lastTrainedAt) {
         muscles[muscle].lastTrainedAt = dateStr;
       }
+      if (remainingFrac <= 0) return;
+      const contribution = Math.min(100, units * 20 * weight) * remainingFrac;
+      muscles[muscle].score = Math.min(100, muscles[muscle].score + contribution);
+      muscles[muscle].evidence.push({...evidence,role,units,weight,baseRecoveryHours,hoursAgo,modifier:ecoModifierFor(dateStr),contribution});
     }
 
     const cardioMuscleMap = config.cardioMuscleMap || {};
@@ -125,8 +128,9 @@
       const v = table && table[level];
       return (typeof v === 'number' && v > 0) ? v : 1;
     }
-    (sessions || []).forEach(function (w) {
-      const sessionDate = new Date(w.date);
+    (sessions || []).forEach(function (w,index) {
+      const sessionDate = new Date(w.startedAt || (w.date+'T'+(w.sessionMetrics?.timeOfDay || '00:00')+':00-03:00'));
+      evidence={date:w.date,title:w.title,id:w.id,index,precision:w.startedAt?'instante':w.sessionMetrics?.timeOfDay?'minuto':'día'};
       if (isNaN(sessionDate.getTime())) return;
       const hoursAgo = (now - sessionDate) / 3600000;
       if (hoursAgo < 0) return; // future-dated entry, ignore
@@ -140,19 +144,25 @@
       } else {
         const intensityFactor = intensityFactorFor(w.sessionMetrics && w.sessionMetrics.intensity);
         (w.exercises || []).forEach(function (ex) {
-          const setCount = (ex.sets || []).length;
+          const setCount = (ex.sets || []).filter(FitnessHistory.performed).length;
+          const direct=resolveExercise?.(ex.name);
+          const mapping=direct?.inMap?direct:resolveExercise?.(FitnessHistory.exerciseName(ex));
+          const muscles=mapping?.inMap?mapping:ex;
+          evidence={...evidence,exercise:ex.name,sets:setCount,setPositions:(ex.sets || []).flatMap((s,i)=>FitnessHistory.performed(s)?[i+1]:[])};
+          if(setCount)performedExercises.add(ex.name);
+          if(setCount && !muscles.primaryMuscle)unassigned.add(ex.name);
           if (!setCount) return;
-          addLoad(ex.primaryMuscle, setCount * intensityFactor, hoursAgo, w.date);
-          (ex.secondaryMuscles || []).forEach(function (m) {
-            addLoad(m, setCount * 0.5 * intensityFactor, hoursAgo, w.date);
+          addLoad(muscles.primaryMuscle, setCount * intensityFactor, hoursAgo, w.date,"principal");
+          (muscles.secondaryMuscles || []).forEach(function (m) {
+            addLoad(m, setCount * 0.5 * intensityFactor, hoursAgo, w.date,"secundario");
           });
         });
       }
     });
 
-    return { isPlaceholder: false, muscles: muscles };
+    return { modelVersion:2, calculatedAt:now.toISOString(), coverage:{performed:performedExercises.size,assigned:performedExercises.size-unassigned.size}, unassigned:[...unassigned], isPlaceholder:false,muscles };
   }
 
-  window.computeMuscleFatigue = computeMuscleFatigue;
-  window.DEFAULT_MUSCLE_FATIGUE_CONFIG = DEFAULT_MUSCLE_FATIGUE_CONFIG;
+  globalThis.computeMuscleFatigue = computeMuscleFatigue;
+  globalThis.DEFAULT_MUSCLE_FATIGUE_CONFIG = DEFAULT_MUSCLE_FATIGUE_CONFIG;
 })();

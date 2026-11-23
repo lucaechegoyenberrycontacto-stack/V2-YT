@@ -1330,15 +1330,17 @@ img, video, canvas, svg { max-width: 100%; }
 <script src="gymExerciseMuscleSeed.js"></script>
 <script src="syncStatus.js"></script>
 <script src="gymPesasStore.js"></script>
+<script src="fitnessHistory.js"></script>
 <script src="gymDomain.js"></script>
 <script src="datePicker.js"></script>
+<link rel="stylesheet" href="fitness.css">
 </head>
 <body>
 
 <div class="po-shell">
   <div class="po-header">
     <h1 class="po-title" id="appTitle">Fitness</h1>
-    <button class="po-icon-btn" id="settingsBtn" title="Settings" aria-label="Settings">
+    <button class="po-icon-btn" id="settingsBtn" title="Ajustes" aria-label="Ajustes">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     </button>
   </div>
@@ -1356,15 +1358,8 @@ img, video, canvas, svg { max-width: 100%; }
           <div class="tr-home-stats" id="trHomeStats"></div>
         </div>
 
-        <section class="lyfta-panel" aria-labelledby="lyftaHeading">
-          <h2 id="lyftaHeading">Última sesión de Lyfta</h2>
-          <p id="lyftaSummary"></p>
-          <details id="lyftaDetails" hidden><summary>Ver ejercicios y series</summary><div id="lyftaSets"></div></details>
-        </section>
-        <div class="po-sub-section">
-          <div class="po-sub-title">Registrar entrenamiento</div>
-          <div class="tr-cards" id="trCards"></div>
-        </div>
+        <nav id="fitnessWeek" aria-label="Semana de entrenamiento"><button data-weeks="-1" aria-label="Semana anterior">‹</button><button data-weeks="0">Esta semana</button><button data-weeks="1" aria-label="Semana siguiente">›</button><span id="fitnessRange"></span></nav>
+        <div id="fitnessDays"></div><small id="fitnessSync">Última sincronización de Lyfta sin verificar</small><small id="historyStatus" role="status"></small>
       </div>
     </div>
 
@@ -1468,7 +1463,7 @@ img, video, canvas, svg { max-width: 100%; }
 
       <!-- WEIGHT -->
       <div class="wt-section">
-        <div class="wt-divider"><span>WEIGHT</span></div>
+        <div class="wt-divider"><span>Peso corporal</span></div>
 
         <div class="wt-card">
           <div class="wt-row">
@@ -1478,7 +1473,7 @@ img, video, canvas, svg { max-width: 100%; }
           <div class="wt-delta hidden" id="wtDelta"></div>
           <div class="wt-streak hidden" id="wtStreak">🔥<span id="wtStreakNum">0 day streak</span></div>
 
-          <div class="wt-empty" id="wtEmpty">Log your first weight to start tracking.</div>
+          <div class="wt-empty" id="wtEmpty">Registrá tu primer pesaje.</div>
 
           <div class="wt-chart-wrap hidden" id="wtChartWrap">
             <div class="wt-chart-yaxis">
@@ -1502,8 +1497,8 @@ img, video, canvas, svg { max-width: 100%; }
           </div>
 
           <div class="wt-legend hidden" id="wtLegend">
-            <span class="wt-legend-item"><span class="wt-legend-dot"></span>DAILY</span>
-            <span class="wt-legend-item"><span class="wt-legend-dot wt-legend-dot-avg"></span>7-DAY AVG</span>
+            <span class="wt-legend-item"><span class="wt-legend-dot"></span>Pesaje</span>
+            <span class="wt-legend-item"><span class="wt-legend-dot wt-legend-dot-avg"></span>Promedio móvil</span>
           </div>
 
           <!-- Composition estimate — uses strength trend + weight trend to guess
@@ -1518,65 +1513,37 @@ img, video, canvas, svg { max-width: 100%; }
             <div class="wt-comp-foot" id="wtCompFoot">—</div>
           </div>
 
+          <div role="status" id="weightStatus"></div>
           <div class="wt-locked hidden" id="wtLocked">
             <div class="wt-locked-info">
               <span class="wt-locked-check">✓</span>
               <div>
-                <div class="wt-locked-label">LOGGED TODAY</div>
+                <div class="wt-locked-label">Registrado hoy</div>
                 <div class="wt-locked-value" id="wtLockedValue">— kg</div>
               </div>
             </div>
-            <button class="wt-edit-btn" id="wtEditBtn">Edit</button>
+            <button class="wt-edit-btn" id="wtEditBtn">Corregir</button>
           </div>
 
           <div class="wt-input-row" id="wtInputRow">
             <div class="wt-input-top">
-              <input type="number" step="0.1" class="wt-input" id="wtInput" placeholder="Enter weight" inputmode="decimal" aria-label="Today's weight">
+              <input type="text" class="wt-input" id="wtInput" placeholder="Ej. 78,4" inputmode="decimal" aria-label="Peso de hoy">
               <span class="wt-unit-static" id="wtUnitStatic">kg</span>
-              <button class="wt-save-btn" id="wtSaveBtn">Save</button>
+              <button class="wt-save-btn" id="wtSaveBtn">Registrar peso</button>
             </div>
           </div>
         </div>
 
       </div>
 
-      <!-- Workout History — one unified view over the gym_workouts
-           collection, regardless of which source each entry came from
-           (old Lyfta/Strava imports, or manual entry — the only entry
-           path left). Every source is normalized to the same shape
-           before it's saved (see whNormalizeWorkout in the script below),
-           so the lists/PRs/chart never need to know or care where a
-           given workout came from. -->
-      <div class="po-sub-section">
-        <div class="po-sub-title">Workout History</div>
-
-        <div class="wh-stats-group">
-          <div class="wh-block">
-            <div class="wh-block-title">Recent sessions</div>
-            <div id="whRecentList">
-              <div class="po-empty">No workouts yet.</div>
-            </div>
-          </div>
-
-          <div class="wh-block">
-            <div class="wh-block-title">All-time PRs</div>
-            <div id="whPrList">
-              <div class="po-empty">No PR data yet.</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="wh-actions">
-          <span class="wh-meta" id="whMeta"></span>
-        </div>
-      </div>
-
+      <section class="wh-block fitness-records"><h2 class="wh-block-title">Récords personales</h2><div id="whPrList"></div></section>
+      <section class="wh-block fitness-history"><h2 class="wh-block-title">Sesiones recientes</h2><div id="whRecentList"></div><button id="moreSessions">Ver más sesiones</button></section>
       <!-- Muscle recovery map — the actual fatigue-scoring logic is a
            placeholder until the user loads their own training config (see
            gymMuscleFatigue.js). Never shows invented colors/numbers before
            that config exists. -->
-      <div class="wh-block">
-        <div class="wh-block-title">Mapa muscular</div>
+      <div class="wh-block fitness-map">
+        <div class="wh-block-title">Fatiga y recuperación estimadas</div>
         <div id="trMuscleMapWrap"></div>
       </div>
 
@@ -1592,10 +1559,10 @@ img, video, canvas, svg { max-width: 100%; }
 <!-- Settings Modal -->
 <div class="po-modal-bg" id="setModalBg">
   <div class="po-modal" style="max-width: 480px;">
-    <h3>Settings</h3>
+    <h3>Ajustes</h3>
 
     <div class="po-set-section">
-      <h4>Units</h4>
+      <h4>Unidades</h4>
       <div class="po-modal-seg" id="setUnitsSeg">
         <button data-u="kg">kg</button>
         <button data-u="lb">lb</button>
@@ -1610,17 +1577,17 @@ img, video, canvas, svg { max-width: 100%; }
     </div>
 
     <div class="po-set-section">
-      <h4>Data</h4>
+      <h4>Datos</h4>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="po-btn-secondary" id="setExport">Export JSON</button>
-        <button class="po-btn-secondary" id="setImport">Import JSON</button>
-        <button class="po-btn-secondary" id="setReset" style="color:var(--danger);border-color:rgba(255,138,138,0.3)">Reset all</button>
+        <button class="po-btn-secondary" id="setExport">Exportar JSON</button>
+        <button class="po-btn-secondary" id="setImport">Importar JSON</button>
+        <button class="po-btn-secondary" id="setReset" style="color:var(--danger);border-color:rgba(255,138,138,0.3)">Restablecer ajustes</button>
       </div>
       <input type="file" id="setImportFile" accept=".json" style="display:none">
     </div>
 
     <div class="po-modal-actions">
-      <button class="po-btn-primary" id="setModalClose">Done</button>
+      <button class="po-btn-primary" id="setModalClose">Listo</button>
     </div>
   </div>
 </div>
@@ -1673,119 +1640,7 @@ img, video, canvas, svg { max-width: 100%; }
 <!-- Pesas — manual log. Just date + exercises + sets (reps × peso); no
      rutina que elegir. Cada ejercicio se enruta solo (fuerza/sin asignar
      vs. movilidad) según su clasificación en GymPesasStore al guardar. -->
-<div class="po-modal-bg" id="trPesasLogModalBg">
-  <div class="po-modal tr-session-modal">
-    <h3>Registrar Pesas</h3>
-
-    <div id="trPesasLogDatePicker"></div>
-
-    <!-- Session-level metrics — intensidad is required (modulates
-         computeMuscleFatigue, see gymMuscleFatigue.js); the rest are
-         optional and persist as `sessionMetrics` (see whNormalizeWorkout),
-         a sibling of `cardio` never merged into it. -->
-    <div class="tr-session-metrics">
-      <div class="wh-block-title" style="margin-top:0;">Métricas de la sesión</div>
-      <div class="po-field">
-        <label style="font-size:11px;color:var(--text-tertiary);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Intensidad<span class="tr-required-tag">requerido</span></label>
-        <div id="trPesasIntensityGroup"></div>
-      </div>
-      <div class="tr-metrics-grid">
-        <div class="po-field">
-          <label style="font-size:11px;color:var(--text-tertiary);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Duración (min, opcional)</label>
-          <input type="number" id="trPesasDuration" min="0" placeholder="60">
-        </div>
-        <div class="po-field">
-          <label style="font-size:11px;color:var(--text-tertiary);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Hora de la sesión (opcional)</label>
-          <input type="time" id="trPesasTimeOfDay">
-        </div>
-        <div class="po-field tr-metrics-hr-field">
-          <label style="font-size:11px;color:var(--text-tertiary);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">LPM (opcional)</label>
-          <div class="tr-metrics-hr-row">
-            <input type="number" id="trPesasAvgHr" min="0" placeholder="Promedio">
-            <input type="number" id="trPesasMaxHr" min="0" placeholder="Máximo">
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <button class="po-btn-secondary" id="trPesasLogRepeatBtn" type="button" style="width:100%;margin-bottom:10px;">Repetir última sesión</button>
-
-    <div id="trPesasLogExList"></div>
-    <button class="po-add-row-btn" id="trPesasLogAddExBtn" type="button">+ Agregar ejercicio</button>
-
-    <div id="trPesasLogStatus" style="text-align:center;font-size:12px;color:var(--danger);min-height:16px;margin-top:6px;"></div>
-    <div class="po-modal-actions">
-      <button class="po-btn-secondary" id="trPesasLogCancel" type="button">Cancelar</button>
-      <button class="po-btn-primary" id="trPesasLogSave" type="button">Guardar sesión</button>
-    </div>
-  </div>
-</div>
-
-<!-- Shared cardio/martial-arts form — Boxeo/Muay Thai vs Running/Bici show
-     different field groups (openCardioModal toggles them), same modal. -->
-<div class="po-modal-bg" id="trCardioModalBg">
-  <div class="po-modal" style="max-width: 480px;">
-    <h3 id="trCardioModalTitle">Boxeo / Muay Thai</h3>
-
-    <div id="trCardioDatePicker"></div>
-
-    <div class="po-field" id="trCardioSubtypeField">
-      <label style="font-size:11px;color:var(--text-tertiary);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Subtipo</label>
-      <div class="po-modal-seg" id="trCardioSubtypeSeg">
-        <button type="button" data-v="boxeo">Boxeo</button>
-        <button type="button" data-v="muaythai">Muay Thai</button>
-      </div>
-    </div>
-
-    <div class="po-field">
-      <label style="font-size:11px;color:var(--text-tertiary);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Duración (min)</label>
-      <input type="number" id="trCardioDuration" min="0" placeholder="45">
-    </div>
-
-    <div class="po-field" id="trCardioDifficultyField">
-      <label style="font-size:11px;color:var(--text-tertiary);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Dificultad percibida</label>
-      <div id="trCardioDifficultyGroup"></div>
-    </div>
-
-    <div id="trCardioRunBiciFields">
-      <div class="po-field">
-        <label style="font-size:11px;color:var(--text-tertiary);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Distancia (km, opcional)</label>
-        <input type="number" step="0.1" id="trCardioDistance" placeholder="8.2">
-      </div>
-      <div class="po-field">
-        <label style="font-size:11px;color:var(--text-tertiary);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">FC promedio (opcional)</label>
-        <input type="number" id="trCardioAvgHr" placeholder="142">
-      </div>
-      <div class="po-field">
-        <label style="font-size:11px;color:var(--text-tertiary);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">FC máxima (opcional)</label>
-        <input type="number" id="trCardioMaxHr" placeholder="168">
-      </div>
-      <div class="po-field">
-        <label style="font-size:11px;color:var(--text-tertiary);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Ritmo (min/km, opcional)</label>
-        <input type="number" step="0.1" id="trCardioPace" placeholder="5.4">
-      </div>
-      <div class="po-field">
-        <label style="font-size:11px;color:var(--text-tertiary);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">SpO2 (opcional)</label>
-        <input type="number" id="trCardioSpo2" placeholder="97">
-      </div>
-    </div>
-
-    <div class="po-field">
-      <label style="font-size:11px;color:var(--text-tertiary);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Notas (opcional)</label>
-      <textarea id="trCardioNotes" rows="2" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:10px;color:var(--text-primary);font-family:inherit;font-size:13px;padding:10px;"></textarea>
-    </div>
-
-    <div id="trCardioStatus" style="text-align:center;font-size:12px;color:var(--danger);min-height:16px;"></div>
-    <div class="po-modal-actions">
-      <button class="po-btn-secondary" id="trCardioCancel" type="button">Cancelar</button>
-      <button class="po-btn-primary" id="trCardioSave" type="button">Guardar</button>
-    </div>
-  </div>
-</div>
-
-<!-- Muscle map tap-to-filter — lists exercises that work a tapped muscle
-     as primary or secondary. -->
-<div class="po-modal-bg" id="trMuscleDetailModalBg">
+<div class="po-modal-bg" id="trMuscleDetailModalBg" role="dialog" aria-modal="true" aria-labelledby="trMuscleDetailTitle">
   <div class="po-modal" style="max-width: 420px;">
     <h3 id="trMuscleDetailTitle">Músculo</h3>
     <div class="po-set-list" id="trMuscleDetailList"></div>
@@ -1854,28 +1709,14 @@ img, video, canvas, svg { max-width: 100%; }
   function whNormalizeWorkout(raw, fallbackSource) {
     raw = raw || {};
     return {
-      ...(raw.id ? { id: raw.id } : {}),
-      date: raw.date || '',
-      title: raw.title || 'Workout',
-      source: raw.source || fallbackSource || 'manual',
-      // discipline is orthogonal to `source` (source = data origin, e.g.
-      // lyfta/manual; discipline = pesas/boxeo_muaythai/running/bici).
-      // Legacy rows default to 'pesas' since that's all this app logged
-      // before the multi-discipline training module existed.
-      discipline: raw.discipline || 'pesas',
-      routineId: raw.routineId || null,
-      routineVersion: (raw.routineVersion != null) ? raw.routineVersion : null,
+      ...raw,
+      date: raw.date || '', title: raw.title || 'Entrenamiento',
+      source: raw.source || fallbackSource || 'desconocida',
+      discipline: raw.discipline || 'desconocida',
       notes: raw.notes || '',
-      exercises: Array.isArray(raw.exercises) ? raw.exercises.map(e => ({
-        name: (e && e.name) || '',
-        primaryMuscle: (e && e.primaryMuscle) || null,
-        secondaryMuscles: Array.isArray(e && e.secondaryMuscles) ? e.secondaryMuscles.slice() : [],
-        sets: Array.isArray(e && e.sets) ? e.sets.map(s => ({
-          reps: Number(s && s.reps) || 0,
-          weight: Number(s && s.weight) || 0,
-          rir: (s && s.rir) || null,
-        })) : [],
-      })) : [],
+      exercises: (raw.exercises || []).filter(Boolean).map(e => ({
+        ...e, name:e.name || '', sets:(e.sets || []).filter(Boolean)
+      })),
       // Present only for boxeo/running/bici sessions; null for pesas/legacy.
       cardio: (raw.cardio && typeof raw.cardio === 'object') ? {
         subtype: raw.cardio.subtype || '',
@@ -1911,8 +1752,7 @@ img, video, canvas, svg { max-width: 100%; }
   // already-synced data keeps the right badge without re-importing.
   function whFallbackSourceForBlob(blob) {
     const s = blob && blob.source;
-    if (s === 'manual') return 'manual';
-    return 'lyfta'; // includes legacy 'strava'/'strava_import' blobs, no longer a supported source
+    return ({lyfta_import:'lyfta',strava_import:'strava'})[s] || s || 'desconocida';
   }
   function whNormalizeBlob(blob) {
     return { workouts: whNormalizeWorkouts(blob && blob.workouts, whFallbackSourceForBlob(blob)) };
@@ -1928,139 +1768,52 @@ img, video, canvas, svg { max-width: 100%; }
   function whSaveLocal(data) {
     try { localStorage.setItem(WH_LS_KEY, JSON.stringify(data)); } catch (e) {}
   }
-  let whData = whLoad();
-
-  // Manual entry adds a single workout without touching anything else.
-  function whAppendWorkout(workout) {
-    whData = { workouts: (whData.workouts || []).concat([workout]) };
-  }
-  // Local-save path for the only entry point left (manual add): local
-  // cache, re-render, then push the single new record to DataLayer.
-  // whSyncSourceToDataLayer (further down) still exists and is still
-  // used by the DataLayer boot's local-cache fallback — it's not dead,
-  // just no longer reachable from here since the Lyfta re-import UI
-  // that used to call it from this function was removed.
-  function whCommit(workout) {
-    whSaveLocal(whData);
-    renderWorkoutHistory();
-    if (!workout) return;
-    whPushSingleWorkout(workout).catch((e) => console.warn('[WorkoutHistory] gym_workouts sync failed', e));
-  }
+  let whData = whDefault();
 
   function whSortedWorkouts() {
-    return (whData.workouts || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    return (whData.workouts || []).filter(w=>w.completed!==false && w.quality!=="ambigua").sort((a, b) => (b.date || '').localeCompare(a.date || '') || (Date.parse(b.startedAt)||0)-(Date.parse(a.startedAt)||0) || String(a.id||'').localeCompare(String(b.id||'')));
   }
 
-  function whComputePRs() {
-    const prs = {}; // exercise name -> { weight, reps, date }
-    (whData.workouts || []).forEach(w => {
-      (w.exercises || []).forEach(ex => {
-        (ex.sets || []).forEach(s => {
-          const weight = s.weight || 0;
-          const cur = prs[ex.name];
-          if (!cur || weight > cur.weight) prs[ex.name] = { weight, reps: s.reps, date: w.date };
-        });
-      });
-    });
-    return Object.keys(prs).map(name => Object.assign({ name }, prs[name]))
-      .sort((a, b) => b.weight - a.weight);
-  }
-
-  // Feeds the body-composition estimate (see wtRenderComposition below):
-  // { [exerciseName]: [{date, weight, reps}, ...] }, chronological, pesas
-  // sessions only (cardio/martial-arts entries carry no lifting sets).
-  function whGetPesasSetsGroupedByExercise() {
-    const out = {};
-    (whData.workouts || []).forEach(w => {
-      if (w.discipline && w.discipline !== 'pesas') return;
-      (w.exercises || []).forEach(ex => {
-        (ex.sets || []).forEach(s => {
-          if (!out[ex.name]) out[ex.name] = [];
-          out[ex.name].push({ date: w.date, weight: s.weight, reps: s.reps });
-        });
-      });
-    });
-    Object.keys(out).forEach(name => out[name].sort((a, b) => (a.date || '').localeCompare(b.date || '')));
-    return out;
-  }
-
-  // ISO week (Mon-Sun) key for a Date, e.g. "2026-W27".
-  function whSourceLabel(source) {
-    if (source === 'manual') return 'Manual';
-    return 'Lyfta';
-  }
-  function whSourceBadgeClass(source) {
-    if (source === 'manual') return 'wh-badge-manual';
-    return 'wh-badge-lyfta';
-  }
-
-  function whRenderRecent() {
-    const wrap = $('whRecentList');
-    const list = whSortedWorkouts().slice(0, 5);
-    if (!list.length) { wrap.innerHTML = '<div class="po-empty">No workouts yet.</div>'; return; }
-    wrap.innerHTML = list.map(w => {
-      // Cardio/martial-arts sessions carry no `exercises` — summarize
-      // from `cardio` instead of showing an empty exercise list.
-      let exNames;
-      if (w.discipline && w.discipline !== 'pesas' && w.cardio) {
-        const parts = [w.cardio.duration ? (w.cardio.duration + ' min') : null,
-          w.cardio.distance != null ? (w.cardio.distance + ' km') : null].filter(Boolean);
-        exNames = escape(parts.join(' · '));
-      } else {
-        const names = (w.exercises || []).map(e => e.name);
-        exNames = escape(names.slice(0, 4).join(', ')) + (names.length > 4 ? '…' : '');
-      }
-      return '<div class="wh-session">'
-        + '<div class="wh-session-head">'
-        +   '<span class="wh-session-date">' + escape(w.date || '') + '</span>'
-        +   '<span class="wh-badge ' + whSourceBadgeClass(w.source) + '">' + whSourceLabel(w.source) + '</span>'
-        + '</div>'
-        + '<div class="wh-session-title">' + escape(w.title || 'Workout') + '</div>'
-        + '<div class="wh-session-ex">' + exNames + '</div>'
-        + '</div>';
-    }).join('');
-  }
-
-  function whRenderPRs() {
-    const wrap = $('whPrList');
-    const prs = whComputePRs();
-    if (!prs.length) { wrap.innerHTML = '<div class="po-empty">No PR data yet.</div>'; return; }
-    wrap.innerHTML = prs.slice(0, 12).map(p =>
-      '<div class="wh-pr-row">'
-      + '<span class="wh-pr-name">' + escape(p.name) + '</span>'
-      + '<span class="wh-pr-val">' + p.weight + 'kg × ' + p.reps + '</span>'
-      + '</div>'
-    ).join('');
-  }
-
+  let recentLimit=8, weekOffset=0, historyLoaded=false, partialPage=false;
+  window.addEventListener('fitness-read-error',()=>{ $('historyStatus').textContent='Sin conexión con el historial. Se conservan los últimos datos disponibles.'; });
+  window.addEventListener('fitness-read-ok',()=>{ $('historyStatus').textContent=''; });
   function renderWorkoutHistory() {
-    const latest = whSortedWorkouts().find(w => w.source === 'lyfta');
-    $('lyftaSummary').textContent = latest
-      ? latest.title + ' · ' + latest.date + ' · ' + latest.exercises.reduce((n, ex) => n + ex.sets.length, 0) + ' series'
-      : 'Todavía no hay sesiones de Lyfta en el historial.';
-    $('lyftaDetails').hidden = !latest || !latest.exercises.length;
-    $('lyftaSets').innerHTML = latest ? latest.exercises.map(ex =>
-      '<div class="lyfta-row"><strong>' + escape(ex.name) + '</strong><span>' +
-      ex.sets.map(set => escape(set.reps + ' rep × ' + set.weight + ' kg' +
-        (set.rir != null ? ' · RIR ' + set.rir : ''))).join(' / ') + '</span></div>'
-    ).join('') : '';
-    document.dispatchEvent(new Event('fitness-workouts-changed'));
-    whRenderRecent();
-    whRenderPRs();
-    const meta = $('whMeta');
-    const n = (whData.workouts || []).length;
-    meta.textContent = n ? (n + ' workout' + (n === 1 ? '' : 's') + ' logged') : '';
+    const rows=whSortedWorkouts(), today=FitnessHistory.day();
+    const start=FitnessHistory.offset(FitnessHistory.monday(today),weekOffset*7);
+    const days=Array.from({length:7},(_,i)=>FitnessHistory.offset(start,i));
+    const counts=days.map(d=>rows.filter(w=>w.date===d).length);
+    const streak=FitnessHistory.streak(rows);
+    const known=!partialPage && (rows.length || historyLoaded);
+    $('trHomeStats').innerHTML=[['Racha actual',streak+(streak===1?' día':' días')],[weekOffset?'Entrenamientos en la semana':'Entrenamientos esta semana',counts.reduce((a,b)=>a+b,0)]].map(([label,value])=>
+      '<div class="tr-home-stat"><strong class="tr-home-stat-val">'+(known?value:'—')+'</strong><div>'+label+'</div></div>').join('');
+    $('fitnessDays').innerHTML=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map((d,i)=>'<span class="'+(known && counts[i]?'active':'')+'">'+d+' '+(known?counts[i]:'—')+'</span>').join('');
+    $('fitnessRange').textContent=start+' al '+days[6];
+    $('whRecentList').innerHTML=rows.slice(0,recentLimit).map((w,i)=>
+      '<details class="wh-session" id="session-'+i+'"><summary>'+escape(w.date+' · '+w.title)+'<small>'+escape((w.cardio?.subtype||w.discipline)+' · '+(w.cardio?[w.cardio.duration+' min',w.cardio.distance!=null?w.cardio.distance+' km':null].filter(Boolean).join(' · '):w.exercises.length+' ejercicios · '+w.exercises.reduce((n,e)=>n+e.sets.filter(FitnessHistory.performed).length,0)+' series'))+'</small></summary>'+
+      w.exercises.map((e,ei)=>'<p>'+escape(e.name)+'</p>'+e.sets.map((s,si)=>'<div tabindex="-1" id="set-'+i+'-'+ei+'-'+si+'">'+escape([s.reps!=null?s.reps+' rep':null,s.weight!=null?s.weight+' '+(s.unit||(['manual','lyfta'].includes(w.source)?'kg':'(unidad sin confirmar)')):null,s.rir!=null?(/^rir|fallo/i.test(s.rir)?s.rir:'RIR '+s.rir):null,s.duration!=null?'Duración '+s.duration:null,s.distance!=null?'Distancia '+s.distance:null,s.completed===false?'Sin realizar':s.completed===null?'Realización sin confirmar':null].filter(Boolean).join(' · '))+'</div>').join('')).join('')+
+      '<p>'+escape(w.notes||'')+'</p><small>Origen · '+escape((w.sources || [w.source]).join(' + '))+'</small></details>').join('') || (known?'Sin sesiones registradas':'Esperando el historial');
+    $('moreSessions').hidden=rows.length<=recentLimit;
+    $('whPrList').innerHTML=!known?'Esperando el historial para calcular las marcas…':FitnessHistory.records(rows).map(({label,best})=>'<div class="wh-pr-row"><span>'+label+'</span>'+(best?'<button data-session="'+rows.indexOf(best.w)+'" data-set="'+best.ei+'-'+best.si+'">'+Number(best.kg.toFixed(2))+' kg × '+best.reps+' · '+escape(best.w.date)+'</button>':'Sin marca registrada')+'</div>').join('');
+    if(!partialPage)document.dispatchEvent(new Event('fitness-workouts-changed'));
   }
-
+  $('moreSessions').onclick=()=>{recentLimit+=8;renderWorkoutHistory();};
+  $('fitnessWeek').onclick=e=>{if(!e.target.hasAttribute('data-weeks'))return; const n=Number(e.target.dataset.weeks);weekOffset=n?weekOffset+n:0;renderWorkoutHistory();};
+  window.openFitnessSession=function(i,set){
+    recentLimit=Math.max(recentLimit,i+1);renderWorkoutHistory();
+    const detail=$('session-'+i);if(!detail)return;
+    detail.open=true;
+    const target=set?$('set-'+i+'-'+set):detail.querySelector('summary');
+    target.focus();target.scrollIntoView({block:'center'});
+  };
+  $('whPrList').onclick=e=>{if(e.target.dataset.session!=null)openFitnessSession(Number(e.target.dataset.session),e.target.dataset.set);};
   // Bridge for the new multi-discipline training module (js/gymData.js,
   // js/gymUI.js — loaded after this script closes) to reuse the existing
   // normalize-before-saving workout_history pipeline instead of duplicating
   // it. Additive only — nothing above this line changes behavior.
   window.WH = {
-    appendWorkout: whAppendWorkout,
-    commit: whCommit,
+
     normalizeWorkout: whNormalizeWorkout,
-    computePRs: whComputePRs,
+    computePRs: () => FitnessHistory.records(whSortedWorkouts()),
     getAllWorkouts: whSortedWorkouts,
   };
 
@@ -2111,12 +1864,12 @@ img, video, canvas, svg { max-width: 100%; }
     reader.onload = () => {
       try {
         const parsed = JSON.parse(reader.result);
-        if (!confirm('Replace ALL current training data with the imported file? This cannot be undone.')) return;
+        if (!confirm('¿Reemplazar los ajustes de entrenamiento por los del archivo?')) return;
         if (parsed.units) { state.units = parsed.units; saveState(); }
         if (parsed.training) window.GymPesasStore.importSnapshot(parsed.training);
         renderSettings();
         if (typeof wtRender === 'function') wtRender();
-      } catch (err) { alert('Import failed: ' + err.message); }
+      } catch (err) { alert('Falló la importación. ' + err.message); }
     };
     reader.readAsText(file);
   });
@@ -2163,26 +1916,28 @@ img, video, canvas, svg { max-width: 100%; }
     return d;
   }
 
-  let wtEntries = wtLoad();
+  let wtEntries = [];
 
   async function wtSaveEntry(weight) {
-    const key = wtDateKey(new Date());
+    const key = FitnessHistory.day();
     const existing = wtEntries.find(e => e.dateKey === key);
-    if (existing) existing.weight = weight;
-    else { wtEntries.push({ dateKey: key, weight }); wtEntries.sort((a,b) => a.dateKey.localeCompare(b.dateKey)); }
-    await DataLayer.put(WT_COL, key, { weight });
+    if (existing) Object.assign(existing,{weight,unit:state.units});
+    else { wtEntries.push({ dateKey: key, weight, unit:state.units }); wtEntries.sort((a,b) => a.dateKey.localeCompare(b.dateKey)); }
+    await DataLayer.put(WT_COL, key, { weight, unit:state.units, source:'manual' });
+    $('weightStatus').textContent=(existing?'Pesaje actualizado':'Pesaje registrado')+
+      (DataLayer.weightPending?.(key)?' en este dispositivo. Pendiente de sincronización.':' en este dispositivo.');
     wtRender();
   }
 
   function wtRender() {
     const last = wtEntries[wtEntries.length - 1] || null;
-    const todayKey = wtDateKey(new Date());
+    const todayKey = FitnessHistory.day();
     const todayEntry = wtEntries.find(e => e.dateKey === todayKey);
-    const u = state.units;
+    const u = last?.unit || state.units;
 
     // Sync unit labels everywhere
     $('wtUnit').textContent = u;
-    $('wtUnitStatic').textContent = u;
+    $('wtUnitStatic').textContent = state.units;
     $('wtNum').textContent = last ? last.weight.toFixed(1) : '—';
 
     // Locked vs input
@@ -2200,42 +1955,22 @@ img, video, canvas, svg { max-width: 100%; }
     }
 
     // Chart, delta, composition need 2+ entries
-    if (wtEntries.length >= 2) {
+    if (wtEntries.length >= 1) {
       $('wtChartWrap').classList.remove('hidden');
       $('wtLegend').classList.remove('hidden');
       wtRenderChart();
-      wtRenderDelta();
-      wtRenderComposition();
+
     } else {
       $('wtChartWrap').classList.add('hidden');
       $('wtLegend').classList.add('hidden');
       $('wtDelta').classList.add('hidden');
       $('wtComp').classList.add('hidden');
     }
-    wtRenderStreak();
+
   }
 
   // Streak — consecutive days ending at today (or yesterday if today
   // hasn't been logged yet) with at least one weight entry.
-  function wtRenderStreak() {
-    const el = $('wtStreak');
-    let streak = 0;
-    let cursor = new Date(new Date());
-    if (!wtEntries.find(e => e.dateKey === wtDateKey(cursor))) {
-      cursor.setDate(cursor.getDate() - 1);
-    }
-    while (wtEntries.find(e => e.dateKey === wtDateKey(cursor))) {
-      streak++;
-      cursor.setDate(cursor.getDate() - 1);
-    }
-    if (streak >= 2) {
-      $('wtStreakNum').textContent = streak + ' day streak';
-      el.classList.remove('hidden');
-    } else {
-      el.classList.add('hidden');
-    }
-  }
-
   function wtRenderChart() {
     const svg = $('wtChartSvg');
     // W matches the SVG's actual rendered pixel width, same technique as
@@ -2246,7 +1981,15 @@ img, video, canvas, svg { max-width: 100%; }
     svg.setAttribute('viewBox', '0 0 ' + W.toFixed(1) + ' ' + H);
     svg.querySelectorAll('.wt-grid').forEach(function (g) { g.setAttribute('x2', W.toFixed(1)); });
 
-    const recent = wtEntries.slice(-30);
+    if(!wtEntries.length)return;
+    const end=FitnessHistory.day(), start=FitnessHistory.offset(end,-29);
+    const displayUnit=wtEntries.at(-1).unit || state.units;
+    const recent=wtEntries.filter(e=>e.dateKey>=start && e.dateKey<=end).map(e=>{
+      const from=e.unit || state.units;
+      return {...e,weight:from===displayUnit?e.weight:from==='lb'?e.weight*0.45359237:e.weight/0.45359237};
+    });
+    $('wtMeta').textContent='Últimos 30 días · último pesaje '+wtEntries.at(-1).dateKey;
+    if(!recent.length){$('wtChartContent').innerHTML='';return;}
     const weights = recent.map(e => e.weight);
     const min = Math.min.apply(null, weights);
     const max = Math.max.apply(null, weights);
@@ -2254,22 +1997,12 @@ img, video, canvas, svg { max-width: 100%; }
     const yMin = min - pad, yMax = max + pad;
     const xLeft = 8, xRight = W - 8, yTop = 20, yBot = 110;
     const xRange = xRight - xLeft, yRange = yBot - yTop;
-    const xFor = (i) => recent.length === 1 ? xRight : xLeft + (i / (recent.length - 1)) * xRange;
+    const xFor = (i) => xLeft + (Date.parse(recent[i].dateKey)-Date.parse(start))/86400000/29*xRange;
     const yFor = (w) => yBot - ((w - yMin) / (yMax - yMin)) * yRange;
     const points = recent.map((e, i) => ({ x: xFor(i), y: yFor(e.weight) }));
     const linePath = wtSmoothPath(points);
-    const areaPath = linePath + ' L ' + points[points.length - 1].x.toFixed(2) + ' ' + yBot + ' L ' + points[0].x.toFixed(2) + ' ' + yBot + ' Z';
-    // 7d moving avg
-    const avgPoints = recent.map((_, i) => {
-      const start = Math.max(0, i - 6);
-      const win = recent.slice(start, i + 1);
-      const avg = win.reduce((s, p) => s + p.weight, 0) / win.length;
-      return { x: xFor(i), y: yFor(avg) };
-    });
-    const avgPath = wtSmoothPath(avgPoints);
-    let html = '<path class="wt-avg-line" d="' + avgPath + '"></path>'
-             + '<path class="wt-area" d="' + areaPath + '"></path>'
-             + '<path class="wt-line" filter="url(#wtGlow)" d="' + linePath + '"></path>';
+    // Área bajo la curva
+    let html = '<path class="wt-line" d="' + linePath + '"></path>';
     points.forEach((p, i) => {
       const cls = (i === points.length - 1) ? 'wt-dot-today' : 'wt-dot';
       const r = (i === points.length - 1) ? 5 : 3;
@@ -2278,189 +2011,15 @@ img, video, canvas, svg { max-width: 100%; }
     $('wtChartContent').innerHTML = html;
     $('wtYAxisMax').textContent = yMax.toFixed(1);
     $('wtYAxisMin').textContent = yMin.toFixed(1);
-    $('wtMeta').textContent = wtEntries.length + ' ' + (wtEntries.length === 1 ? 'entry' : 'entries') + ' · last ' + recent.length + ' days';
-  }
-
-  function wtRenderDelta() {
-    const last = wtEntries[wtEntries.length - 1];
-    const lastDate = wtParseKey(last.dateKey);
-    const cutoff = new Date(lastDate); cutoff.setDate(cutoff.getDate() - 7);
-    const baseline = wtEntries.find(e => wtParseKey(e.dateKey) >= cutoff) || wtEntries[0];
-    const diff = last.weight - baseline.weight;
-    const el = $('wtDelta');
-    if (Math.abs(diff) < 0.05) { el.classList.add('hidden'); return; }
-    const arrow = diff > 0 ? '↑' : '↓';
-    const sign = diff > 0 ? '+' : '−';
-    el.textContent = arrow + ' ' + sign + Math.abs(diff).toFixed(1) + ' ' + state.units + ' · last 7d';
-    el.classList.toggle('up',   diff > 0);
-    el.classList.toggle('down', diff < 0);
-    el.classList.remove('hidden');
-  }
-
-  // ============================================================
-  // COMPOSITION ESTIMATE — muscle vs fat from weight + strength trend
-  //
-  // Math:
-  //   weightDelta   = current weight − weight ~30 days ago
-  //   strengthDelta = avg of (current 1RM / 1RM 30 days ago across all
-  //                   exercises with logs in BOTH windows)
-  //   yearsTraining → max muscle gain rate per week:
-  //     1y → 0.45 kg, 2y → 0.23 kg, 3y+ → 0.11 kg (Lyle McDonald's
-  //     model — cited intermediate intermediate values are real ceilings)
-  //   estimated muscle gain = max muscle rate × weeks × (1 + strengthDelta)
-  //                           clipped to [0, weightDelta]
-  //   estimated fat gain    = weightDelta − estimated muscle gain
-  //
-  // If you LOSE weight: any positive strength delta means you're keeping
-  // (or building) muscle, so the loss is mostly fat.
-  // ============================================================
-  function wtRenderComposition() {
-    const compEl = $('wtComp');
-    if (!CONFIG.composition || !CONFIG.composition.enabled) {
-      compEl.classList.add('hidden'); return;
-    }
-    const window = CONFIG.composition.windowDays || 30;
-    if (wtEntries.length < 2) { compEl.classList.add('hidden'); return; }
-
-    const now = wtParseKey(wtEntries[wtEntries.length - 1].dateKey);
-    const start = new Date(now); start.setDate(start.getDate() - window);
-
-    // Find weight at start of window (closest entry on or after start)
-    const startEntry = wtEntries.find(e => wtParseKey(e.dateKey) >= start);
-    const endEntry = wtEntries[wtEntries.length - 1];
-    if (!startEntry || startEntry === endEntry) { compEl.classList.add('hidden'); return; }
-    const weightDelta = endEntry.weight - startEntry.weight;
-    const actualDays = Math.max(1, Math.round((wtParseKey(endEntry.dateKey) - wtParseKey(startEntry.dateKey)) / 86400000));
-    const weeks = actualDays / 7;
-
-    // Strength delta — for each exercise, take the AVG 1RM of logs inside
-    // the window vs AVG of logs of equal count just before the window.
-    // Sets come from workout_history (whGetPesasSetsGroupedByExercise),
-    // not the old per-exercise state.logs — that tracker was discarded.
-    let strengthRatios = [];
-    let workoutDays = new Set();
-    let totalVolumeInWindow = 0;
-    const pesasSetsByExercise = whGetPesasSetsGroupedByExercise();
-    Object.keys(pesasSetsByExercise).forEach(exName => {
-      const logs = pesasSetsByExercise[exName].slice();
-      if (logs.length < 2) {
-        // Still count volume / sessions even for sparse exercises. Pure
-        // bodyweight sets (weight 0) contribute 0 to strength ratios via
-        // the `a <= 0` guard below, so no separate bw flag is needed.
-        logs.forEach(l => {
-          if (new Date(l.date) >= start) {
-            workoutDays.add(l.date.slice(0, 10));
-            totalVolumeInWindow += (l.weight || 0) * (l.reps || 0);
-          }
-        });
-        return;
-      }
-      const inWin  = logs.filter(l => new Date(l.date) >= start);
-      const before = logs.filter(l => new Date(l.date) < start);
-      inWin.forEach(l => {
-        workoutDays.add(l.date.slice(0, 10));
-        totalVolumeInWindow += (l.weight || 0) * (l.reps || 0);
-      });
-      if (!inWin.length || !before.length) return;
-      const avg = arr => arr.reduce((s, l) => s + estimate1RM(l.weight, l.reps), 0) / arr.length;
-      const a = avg(before), b = avg(inWin);
-      if (a <= 0) return;
-      strengthRatios.push(b / a);
-    });
-    const strengthDelta = strengthRatios.length
-      ? (strengthRatios.reduce((s, r) => s + r, 0) / strengthRatios.length) - 1
-      : 0;
-    // Frequency factor: 4+ training days/week = full credit, fewer = penalty.
-    // Volume factor: moderate cap so a single huge day doesn't game the score.
-    const sessionsPerWeek = (workoutDays.size / actualDays) * 7;
-    const frequencyFactor = Math.max(0.4, Math.min(1.2, sessionsPerWeek / 4));
-
-    // Max muscle gain rate per week (kg). Convert to lb if user's units are lb.
-    const yt = CONFIG.composition.yearsTraining || 1;
-    let maxMuscleKgPerWeek;
-    if (yt <= 1) maxMuscleKgPerWeek = 0.45;
-    else if (yt === 2) maxMuscleKgPerWeek = 0.23;
-    else maxMuscleKgPerWeek = 0.11;
-    const unitConv = (state.units === 'lb') ? 2.20462 : 1;
-    const maxMusclePerWeek = maxMuscleKgPerWeek * unitConv;
-
-    // Estimated muscle: scale by strength gain (capped between 0.5x and 1.5x)
-    // AND by training frequency (you can't build muscle you didn't stimulate).
-    const strengthBoost = Math.max(0.5, Math.min(1.5, 1 + strengthDelta * 4));
-    let estMuscle = maxMusclePerWeek * weeks * strengthBoost * frequencyFactor;
-
-    let estFat;
-    let headlineCls = '';
-    let headline = '';
-    if (weightDelta > 0) {
-      // Surplus: split between muscle and fat. Cap muscle at the weight gained.
-      estMuscle = Math.min(estMuscle, weightDelta);
-      estFat = Math.max(0, weightDelta - estMuscle);
-      const musclePct = estMuscle / weightDelta;
-      if (musclePct >= 0.6 && strengthDelta > 0) {
-        headlineCls = 'good';
-        headline = '+' + weightDelta.toFixed(1) + ' ' + state.units + ' — mostly muscle, strength up.';
-      } else if (musclePct >= 0.35) {
-        headlineCls = 'warn';
-        headline = '+' + weightDelta.toFixed(1) + ' ' + state.units + ' — mixed. Tighten kcal or push lifts harder.';
-      } else {
-        headlineCls = 'bad';
-        headline = '+' + weightDelta.toFixed(1) + ' ' + state.units + ' — mostly fat. Strength flat. Cut kcal.';
-      }
-    } else {
-      // Deficit: assume fat first, only credit muscle loss if strength dropped.
-      const wDown = Math.abs(weightDelta);
-      if (strengthDelta >= 0) {
-        // Strength preserved or up → all fat lost, slight muscle gain
-        estMuscle = Math.min(maxMusclePerWeek * weeks * 0.3, 0.5);
-        estFat = wDown + estMuscle;
-        headlineCls = 'good';
-        headline = '−' + wDown.toFixed(1) + ' ' + state.units + ' — strength holding, fat dropping.';
-      } else {
-        // Strength dropped → some muscle loss
-        const lossPct = Math.min(0.4, Math.abs(strengthDelta) * 2);
-        estMuscle = -wDown * lossPct;
-        estFat = -(wDown + estMuscle);
-        headlineCls = 'warn';
-        headline = '−' + wDown.toFixed(1) + ' ' + state.units + ' — strength slipping. You may be losing muscle.';
-      }
-    }
-
-    // Render
-    compEl.classList.remove('hidden');
-    $('wtCompWindow').textContent = 'last ' + actualDays + 'd';
-    const headlineEl = $('wtCompHeadline');
-    headlineEl.textContent = headline;
-    headlineEl.className = 'wt-comp-headline ' + headlineCls;
-
-    // Bars
-    const totalAbs = Math.abs(estMuscle) + Math.abs(estFat) || 1;
-    const musclePct = (Math.abs(estMuscle) / totalAbs) * 100;
-    const fatPct = (Math.abs(estFat) / totalAbs) * 100;
-    $('wtCompBars').innerHTML =
-      '<div class="wt-comp-bar muscle" style="width:' + musclePct.toFixed(1) + '%"></div>' +
-      '<div class="wt-comp-bar fat" style="width:' + fatPct.toFixed(1) + '%"></div>';
-
-    // Foot line — strength + training frequency (so you can see why the
-    // muscle estimate is what it is).
-    const sd = strengthDelta * 100;
-    const sdStr = (sd >= 0 ? '+' : '') + sd.toFixed(1) + '%';
-    const muscleSign = estMuscle >= 0 ? '+' : '';
-    const fatSign = estFat >= 0 ? '+' : '';
-    const freqStr = sessionsPerWeek.toFixed(1) + ' sessions/wk';
-    $('wtCompFoot').textContent =
-      '~' + muscleSign + estMuscle.toFixed(1) + ' ' + state.units + ' muscle · '
-      + '~' + fatSign + estFat.toFixed(1) + ' ' + state.units + ' fat · '
-      + 'strength ' + sdStr
-      + ' · ' + freqStr
-      + (strengthRatios.length ? '' : ' (no lift data)');
   }
 
   // Wire weight UI
   $('wtSaveBtn').addEventListener('click', () => {
-    const v = parseFloat($('wtInput').value);
-    if (isNaN(v) || v <= 0) return;
-    wtSaveEntry(v);
+    const v = Number($('wtInput').value.trim().replace(',','.'));
+    if (!Number.isFinite(v) || v<=0 || !dlReady) { $('weightStatus').textContent=dlReady?'Ingresá un peso válido.':'Esperá la conexión antes de guardar.'; return; }
+    $('wtSaveBtn').disabled=true;
+    wtSaveEntry(v).catch(()=>{ $('weightStatus').textContent='No se pudo guardar. Volvé a intentar.'; })
+      .finally(()=>{ $('wtSaveBtn').disabled=false; });
   });
   $('wtInput').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') $('wtSaveBtn').click();
@@ -2468,8 +2027,8 @@ img, video, canvas, svg { max-width: 100%; }
   $('wtEditBtn').addEventListener('click', () => {
     $('wtLocked').classList.add('hidden');
     $('wtInputRow').classList.remove('hidden');
-    const todayEntry = wtEntries.find(e => e.dateKey === wtDateKey(new Date()));
-    if (todayEntry) $('wtInput').value = todayEntry.weight.toFixed(1);
+    const todayEntry = wtEntries.find(e => e.dateKey === FitnessHistory.day());
+    if (todayEntry) $('wtInput').value = (todayEntry.unit && todayEntry.unit!==state.units ? (state.units==='kg'?todayEntry.weight*0.45359237:todayEntry.weight/0.45359237) : todayEntry.weight).toFixed(1);
     $('wtInput').focus(); $('wtInput').select();
   });
 
@@ -2652,6 +2211,7 @@ img, video, canvas, svg { max-width: 100%; }
     const points = data.map((d, i) => ({ x: xFor(i), y: yFor(d.value), v: d.value, label: d.label, isCurrent: d.isCurrent }));
     const linePath = wtSmoothPath(points);
     const baseY = (padTop + plotH).toFixed(1);
+    // Área bajo la curva
     const areaPath = linePath
       + ' L ' + points[points.length - 1].x.toFixed(2) + ' ' + baseY
       + ' L ' + points[0].x.toFixed(2) + ' ' + baseY + ' Z';
@@ -2996,35 +2556,6 @@ img, video, canvas, svg { max-width: 100%; }
   // ============================================================
   const GYM_WORKOUTS_COL = 'gym_workouts';
 
-  function whSlug(s) {
-    return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'workout';
-  }
-  // Workouts have no natural stable id (whNormalizeWorkout never sets
-  // one) — derive one deterministically from date+title+position so
-  // repeated pushes of the same logical workout upsert instead of
-  // duplicating. The index is scoped PER SOURCE (position within just
-  // that source's own subset, in array order) rather than the workout's
-  // absolute position in whData.workouts — same reason
-  // whSyncSourceToDataLayer below diffs per source instead of
-  // wholesale: a source-scoped index stays stable even if another
-  // source's entries are added/removed elsewhere in the array.
-  function whWorkoutId(w, sourceIndex) {
-    return (w && w.id) || ((w.date || 'nodate') + '_' + whSlug(w.title) + '_' + sourceIndex);
-  }
-
-  // Manual add only ever appends — no diff/prune needed, just push the
-  // one new record.
-  async function whPushSingleWorkout(workout) {
-    const sourceWorkouts = (whData.workouts || []).filter((w) => w.source === workout.source);
-    const index = sourceWorkouts.length - 1;
-    await DataLayer.put(GYM_WORKOUTS_COL, whWorkoutId(workout, index), workout);
-  }
-  // Recuperar el caché local cuando la colección esté vacía.
-  async function whSyncSourceToDataLayer(source) {
-    const workouts = whData.workouts.filter(w => w.source === source);
-    await Promise.all(workouts.map((w, i) => DataLayer.put(GYM_WORKOUTS_COL, whWorkoutId(w, i), w)));
-  }
-
   let chartResizeTimer = null;
   function redrawWidthDependentCharts() {
     clearTimeout(chartResizeTimer);
@@ -3049,13 +2580,15 @@ img, video, canvas, svg { max-width: 100%; }
   document.addEventListener('DOMContentLoaded', async function initGymDataLayer() {
     if (typeof DataLayer === 'undefined') return;
     const session = await DataLayer.init({ requireAuth: true });
-    if (!session) return; // redirected to login.html
+    if (!session) { $('fitnessSync').textContent='Iniciá sesión para verificar tu historial.'; return; }
 
     // ---- Body weight ----
     function rowsToWeights(rows) {
-      return rows.map((r) => ({ dateKey: r.id, weight: r.weight })).sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+      return rows.map((r) => ({ dateKey: r.id, weight: r.weight, unit:r.unit })).sort((a, b) => a.dateKey.localeCompare(b.dateKey));
     }
     wtEntries = rowsToWeights(await DataLayer.list(WT_COL));
+    if(localStorage.getItem(WT_KEY) && !localStorage.getItem(WT_KEY+':original'))
+      localStorage.setItem(WT_KEY+':original',localStorage.getItem(WT_KEY));
     DataLayer.setLegacyMirror(WT_COL, WT_KEY, rowsToWeights);
     DataLayer.subscribe(WT_COL, async () => {
       wtEntries = rowsToWeights(await DataLayer.list(WT_COL));
@@ -3079,19 +2612,29 @@ img, video, canvas, svg { max-width: 100%; }
 
     // ---- Workout history ----
     function rowsToWorkouts(rows) { return { workouts: rows.map((r) => whNormalizeWorkout(r)) }; }
+    const firstPage=await DataLayer.recentWorkouts?.(8);
+    if(firstPage?.length){partialPage=true;whData=rowsToWorkouts(firstPage);renderWorkoutHistory();}
     const workoutRows = await DataLayer.list(GYM_WORKOUTS_COL);
+    partialPage=false;
+    historyLoaded = DataLayer.collectionVerified(GYM_WORKOUTS_COL);
+    async function renderLyftaSync() {
+      const sync=await DataLayer.getSingleton('gym_lyfta_sync');
+      if(!sync?.verifiedAt)return;
+      const time=new Date(sync.verifiedAt);
+      const label=Date.now()-time>3600000?'Verificación de Lyfta atrasada':'Lyfta verificada';
+      $('fitnessSync').textContent=label+' · '+time.toLocaleString('es-AR',{timeZone:'America/Argentina/Cordoba'});
+    }
+    renderLyftaSync();
+    DataLayer.subscribe('gym_lyfta_sync',renderLyftaSync);
+    if (!workoutRows.length && !historyLoaded) $('historyStatus').textContent='No se pudo verificar el historial. Reintentá al recuperar la conexión.';
+    if(localStorage.getItem(WH_LS_KEY) && !localStorage.getItem(WH_LS_KEY+':original'))
+      localStorage.setItem(WH_LS_KEY+':original',localStorage.getItem(WH_LS_KEY));
+    if (!workoutRows.length && firstPage?.length) partialPage=true;
     if (workoutRows.length) {
       whData = rowsToWorkouts(workoutRows);
       whSaveLocal(whData);
       renderWorkoutHistory();
-    } else if ((whData.workouts || []).length) {
-      // Local cache has workouts DataLayer doesn't know about yet —
-      // shouldn't normally happen (the one-time SQL migration already
-      // seeded gym_workouts from workout_history), just a safety net for
-      // a browser profile that never pulled workout_history either.
-      const sources = Array.from(new Set(whData.workouts.map((w) => w.source)));
-      await Promise.all(sources.map((s) => whSyncSourceToDataLayer(s)));
-    }
+    } else renderWorkoutHistory();
     DataLayer.setLegacyMirror(GYM_WORKOUTS_COL, WH_LS_KEY, rowsToWorkouts);
     DataLayer.subscribe(GYM_WORKOUTS_COL, async () => {
       whData = rowsToWorkouts(await DataLayer.list(GYM_WORKOUTS_COL));
@@ -3145,6 +2688,7 @@ img, video, canvas, svg { max-width: 100%; }
   });
 })();
 </script>
+<script src="assets/musclemap/paths.js"></script>
 <script src="gymUI.js"></script>
 
 </body>

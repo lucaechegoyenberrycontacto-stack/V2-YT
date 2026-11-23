@@ -54,7 +54,11 @@
   /* ================= local cache (localStorage 'dlcache:<collection>') =================
      Always stored as an array of {id, ...data} rows, regardless of whether
      the collection is used as a list or as a singleton (id 'main'). */
-  function cacheKey(collection) { return 'dlcache:' + collection; }
+  let cacheOwner = '';
+  const personalFitness = new Set(['gym_workouts','gym_body_weight','gym_lyfta_sync']);
+  function cacheKey(collection) {
+    return 'dlcache:' + (personalFitness.has(collection) ? cacheOwner + ':' : '') + collection;
+  }
   function readCache(collection) {
     try {
       const v = JSON.parse(localStorage.getItem(cacheKey(collection)));
@@ -180,7 +184,7 @@
   function enqueue(item) {
     // Last write wins: drop any earlier queued op for the same row so we
     // never replay a stale intermediate state once connectivity returns.
-    const rest = readQueue().filter((x) => !(x.collection === item.collection && x.id === item.id));
+    const rest = readQueue().filter((x) => !(x.collection === item.collection && x.id === item.id && x.owner === item.owner));
     rest.push(item);
     writeQueue(rest);
   }
@@ -194,7 +198,8 @@
       while (true) {
         const q = readQueue();
         if (!q.length) break;
-        const item = q[0];
+        const item = q.find(op=>!op.owner || op.owner===cacheOwner);
+        if(!item)break;
         let ok = false;
         try {
           if (item.op === 'delete') {
@@ -209,10 +214,10 @@
           }
           ok = true;
         } catch (e) {
-          console.warn('[DataLayer] queue flush failed, will retry later', item, e);
+          console.warn('[DataLayer] queue flush failed, will retry later', item.collection, e);
         }
         if (!ok) break;
-        writeQueue(readQueue().slice(1));
+        writeQueue(readQueue().filter(op=>!(op.id===item.id && op.collection===item.collection && op.ts===item.ts && op.owner===item.owner)));
       }
     } finally {
       queueProcessing = false;
@@ -271,9 +276,10 @@
   // pattern every migrated page uses) re-triggers another unconditional
   // notify — an infinite loop from a single realtime event, since nothing
   // ever needed to have changed for the cycle to keep going.
+  const verifiedCollections = new Set();
   async function fetchAndCache(collection) {
     try {
-      const rows = [];
+      let rows = [];
       let lastId;
       while (true) {
         let query = supa.from('records').select('id,data').eq('collection', collection)
@@ -282,14 +288,26 @@
         const { data, error } = await query;
         if (error) throw error;
         if (!data || !data.length) break;
-        rows.push(...data.map((r) => Object.assign({ id: r.id }, r.data)));
+        rows.push(...data.map((r) => Object.assign({}, r.data, { id: r.id })));
         lastId = data[data.length - 1].id;
         if (data.length < 500) break;
       }
+      if(collection==='gym_body_weight'){
+        const merged=new Map(rows.map(row=>[row.id,row]));
+        for(const op of readQueue()){
+          if(op.collection===collection && op.owner===cacheOwner && op.op==='put')
+            merged.set(op.id,{...op.data,id:op.id});
+        }
+        rows=[...merged.values()];
+      }
       const changed = JSON.stringify(rows) !== JSON.stringify(readCache(collection));
       writeCache(collection, rows);
+      verifiedCollections.add(collection);
+      if(collection==='gym_workouts')window.dispatchEvent?.(new Event('fitness-read-ok'));
       return { rows: rows, changed: changed };
     } catch (e) {
+      verifiedCollections.delete(collection);
+      if(collection==='gym_workouts')window.dispatchEvent?.(new Event('fitness-read-error'));
       console.warn('[DataLayer] list fetch failed, serving cache for', collection, e);
       return { rows: readCache(collection), changed: false };
     }
@@ -325,6 +343,7 @@
       return null;
     }
 
+    cacheOwner = session?.user?.id || '';
     setStatus('ok');
     window.addEventListener('online', processQueue);
     window.addEventListener('offline', () => setStatus('error', 'Sin conexión con la nube'));
@@ -405,6 +424,13 @@
     const key = collection + ':' + id;
     recentLocalWrites.set(key, Date.now());
     upsertCacheEntry(collection, Object.assign({ id: id }, dataObj));
+    if(collection==='gym_body_weight'){
+      enqueue({owner:cacheOwner,collection,id,op:'put',data:dataObj,ts:Date.now()});
+      refreshLegacyMirrors(collection);
+      notifySubscribers(collection);
+      await processQueue();
+      return true;
+    }
     refreshLegacyMirrors(collection);
     notifySubscribers(collection);
 
@@ -417,7 +443,7 @@
       if (error) throw error;
     });
     if (!ok) {
-      enqueue({ collection: collection, id: id, op: 'put', data: dataObj, ts: Date.now() });
+      enqueue({ owner:personalFitness.has(collection)?cacheOwner:undefined, collection: collection, id: id, op: 'put', data: dataObj, ts: Date.now() });
       showOfflineToastOnce();
     }
     endOp();
@@ -499,6 +525,15 @@
   window.DataLayer = {
     init: init,
     list: list,
+    weightPending: id => readQueue().some(op=>op.collection==='gym_body_weight' && op.id===id && op.owner===cacheOwner),
+    async recentWorkouts(limit) {
+      if (!supa) return [];
+      const {data,error}=await supa.from('records').select('id,data').eq('collection','gym_workouts')
+        .order('data->>date',{ascending:false}).order('data->>startedAt',{ascending:false,nullsFirst:false})
+        .order('id',{ascending:true}).limit(limit);
+      return error ? [] : data.map(row=>({...row.data,id:row.id}));
+    },
+    collectionVerified: collection => verifiedCollections.has(collection),
     get: get,
     getSingleton: getSingleton,
     put: put,
