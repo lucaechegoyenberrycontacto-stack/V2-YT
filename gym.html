@@ -6,7 +6,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0a0a0b">
-<title>Progressive Overload Coach</title>
+<title>Fitness</title>
 <script src="topbar.js" defer></script>
 
 <!-- =============================================================
@@ -18,7 +18,7 @@
      ============================================================= -->
 <script>
 const CONFIG = {
-  appTitle: "Progressive Overload Coach",
+  appTitle: "Fitness",
 
   // Weight unit shown everywhere. "kg" or "lb".
   units: "kg",
@@ -735,9 +735,6 @@ img, video, canvas, svg { max-width: 100%; }
   .po-modal { padding: 18px; max-height: 86vh; max-width: calc(100vw - 32px); }
 
   /* Today's / Past workouts — tighter rows, allow text to wrap */
-  .po-tw { padding: 14px; }
-  .po-tw-row { gap: 8px; }
-  .po-tw-row-name { min-width: 0; word-break: break-word; }
 
   /* Progress photos grid — match the available width */
   .wt-photo-grid { gap: 8px; }
@@ -752,131 +749,6 @@ img, video, canvas, svg { max-width: 100%; }
   .po-shell { padding-left: 8px; padding-right: 8px; }
   .po-title { font-size: 17px; }
   .po-reps-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
-
-/* Today's Workout + Past Workouts */
-.po-tw {
-  background: rgba(255,255,255,0.025);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 16px;
-}
-.po-tw-head {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 10px; margin-bottom: 12px;
-}
-.po-tw-eyebrow {
-  font-size: 10px; letter-spacing: 0.16em; font-weight: 700;
-  text-transform: uppercase; color: var(--text-tertiary);
-  margin-bottom: 4px;
-}
-.po-tw-summary {
-  display: flex; align-items: baseline; gap: 6px;
-  font-variant-numeric: tabular-nums;
-}
-.po-tw-summary-num {
-  font-size: 28px; font-weight: 700; color: var(--text-primary);
-  letter-spacing: -0.02em;
-}
-.po-tw-summary-label {
-  font-size: 12px; color: var(--text-tertiary); font-weight: 500;
-}
-.po-tw-summary-sep { color: var(--text-tertiary); margin: 0 4px; }
-.po-tw-summary-vol { font-size: 13px; color: var(--text-secondary); font-weight: 500; }
-.po-tw-done-btn {
-  background: linear-gradient(180deg, #ffffff 0%, #e8e5dd 100%);
-  color: #0a0a0b; border: none; border-radius: 999px;
-  padding: 9px 16px;
-  font-family: inherit; font-size: 12px; font-weight: 700;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  white-space: nowrap;
-}
-.po-tw-done-btn:hover { transform: translateY(-1px); }
-.po-tw-done-btn:active { transform: scale(0.98); }
-.po-tw-done-btn.is-done {
-  background: rgba(110,231,183,0.16);
-  color: var(--success);
-}
-.po-tw-list {
-  list-style: none; margin: 0; padding: 0;
-  display: flex; flex-direction: column; gap: 6px;
-}
-.po-tw-row {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 12px;
-  background: rgba(255,255,255,0.025);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  font-size: 13px;
-}
-.po-tw-row-name { font-weight: 600; color: var(--text-primary); }
-.po-tw-row-meta {
-  font-size: 11px; color: var(--text-tertiary);
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-}
-.po-tw-empty {
-  text-align: center; padding: 14px 0;
-  font-size: 12px; color: var(--text-tertiary); font-style: italic;
-}
-.po-tw-empty.hidden { display: none; }
-
-.po-tw-past-toggle {
-  width: 100%; margin-top: 10px;
-  display: flex; align-items: center; justify-content: space-between;
-  background: transparent; border: 1px solid var(--border);
-  color: var(--text-secondary); border-radius: 10px;
-  padding: 11px 14px; cursor: pointer;
-  font-family: inherit; font-size: 12px; font-weight: 600;
-  letter-spacing: 0.04em;
-  -webkit-tap-highlight-color: transparent;
-}
-.po-tw-past-toggle:hover { background: rgba(255,255,255,0.04); color: var(--text-primary); }
-.po-tw-past-count {
-  display: inline-block; margin-left: 6px;
-  background: rgba(255,255,255,0.06); color: var(--text-secondary);
-  padding: 1px 7px; border-radius: 999px;
-  font-size: 11px; font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-.po-tw-past-arrow {
-  transition: transform 0.2s; font-size: 14px;
-}
-.po-tw-past-toggle[aria-expanded="true"] .po-tw-past-arrow {
-  transform: rotate(180deg);
-}
-.po-tw-past-body {
-  margin-top: 6px;
-  display: flex; flex-direction: column; gap: 6px;
-}
-.po-tw-past-day {
-  background: rgba(255,255,255,0.025);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px 12px;
-}
-.po-tw-past-day-h {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 10px;
-}
-.po-tw-past-day-date {
-  font-size: 11px; color: var(--text-tertiary);
-  font-family: var(--font-mono); font-weight: 700;
-  letter-spacing: 0.06em;
-}
-.po-tw-past-day-summary {
-  font-size: 12px; color: var(--text-secondary);
-  font-variant-numeric: tabular-nums;
-}
-.po-tw-past-day-done {
-  display: inline-block; padding: 2px 7px; border-radius: 999px;
-  background: rgba(110,231,183,0.14); color: var(--success);
-  font-size: 9px; font-weight: 800; letter-spacing: 0.08em;
-}
-.po-tw-past-empty {
-  text-align: center; padding: 16px;
-  color: var(--text-tertiary); font-size: 12px; font-style: italic;
 }
 
 /* ----- Workout History (multi-source: Lyfta import, manual) ----- */
@@ -1777,6 +1649,13 @@ img, video, canvas, svg { max-width: 100%; }
 .tr-card-foot { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
 .tr-card-context { font-size: 11px; color: var(--text-tertiary); }
 .tr-card-week { font-size: 11px; color: var(--text-secondary); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.tr-home-stats > .po-empty { grid-column:1 / -1; }
+.lyfta-panel { padding:clamp(16px,3vw,24px); margin:16px 0; border:1px solid var(--border-strong); border-left:3px solid #a78bfa; border-radius:12px; background:rgba(167,139,250,.07); }
+.lyfta-panel h2 { margin:0; font-size:14px; color:#c4b5fd; }
+.lyfta-panel p { margin:8px 0; font-size:16px; overflow-wrap:anywhere; }
+.lyfta-panel summary { cursor:pointer; padding:8px 0; }
+.lyfta-row { display:grid; gap:3px; border-top:1px solid var(--border-strong); padding:9px 0; overflow-wrap:anywhere; }
+.lyfta-row span { color:var(--text-secondary); font-variant-numeric:tabular-nums; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="dataLayer.js" defer></script>
@@ -1794,7 +1673,7 @@ img, video, canvas, svg { max-width: 100%; }
 
 <div class="po-shell">
   <div class="po-header">
-    <h1 class="po-title" id="appTitle">Progressive Overload Coach</h1>
+    <h1 class="po-title" id="appTitle">Fitness</h1>
     <button class="po-icon-btn" id="settingsBtn" title="Settings" aria-label="Settings">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     </button>
@@ -1809,10 +1688,15 @@ img, video, canvas, svg { max-width: 100%; }
     <div class="po-group-today">
       <div class="card">
         <div class="po-sub-section">
-          <div class="po-sub-title">Hoy</div>
+          <div class="po-sub-title">Entrenamiento</div>
           <div class="tr-home-stats" id="trHomeStats"></div>
         </div>
 
+        <section class="lyfta-panel" aria-labelledby="lyftaHeading">
+          <h2 id="lyftaHeading">Última sesión de Lyfta</h2>
+          <p id="lyftaSummary"></p>
+          <details id="lyftaDetails" hidden><summary>Ver ejercicios y series</summary><div id="lyftaSets"></div></details>
+        </section>
         <div class="po-sub-section">
           <div class="po-sub-title">Registrar entrenamiento</div>
           <div class="tr-cards" id="trCards"></div>
@@ -2480,7 +2364,7 @@ img, video, canvas, svg { max-width: 100%; }
     if (dlReady) DataLayer.putSingleton('gym_routine_config', { units: state.units });
   }
   let state = loadState();
-  document.getElementById('appTitle').textContent = CONFIG.appTitle || 'Progressive Overload Coach';
+  document.getElementById('appTitle').textContent = CONFIG.appTitle || 'Fitness';
 
   // ============================================================
   // HELPERS
@@ -2509,6 +2393,7 @@ img, video, canvas, svg { max-width: 100%; }
   function whNormalizeWorkout(raw, fallbackSource) {
     raw = raw || {};
     return {
+      ...(raw.id ? { id: raw.id } : {}),
       date: raw.date || '',
       title: raw.title || 'Workout',
       source: raw.source || fallbackSource || 'manual',
@@ -2804,6 +2689,17 @@ img, video, canvas, svg { max-width: 100%; }
   }
 
   function renderWorkoutHistory() {
+    const latest = whSortedWorkouts().find(w => w.source === 'lyfta');
+    $('lyftaSummary').textContent = latest
+      ? latest.title + ' · ' + latest.date + ' · ' + latest.exercises.reduce((n, ex) => n + ex.sets.length, 0) + ' series'
+      : 'Todavía no hay sesiones de Lyfta en el historial.';
+    $('lyftaDetails').hidden = !latest || !latest.exercises.length;
+    $('lyftaSets').innerHTML = latest ? latest.exercises.map(ex =>
+      '<div class="lyfta-row"><strong>' + escape(ex.name) + '</strong><span>' +
+      ex.sets.map(set => escape(set.reps + ' rep × ' + set.weight + ' kg' +
+        (set.rir != null ? ' · RIR ' + set.rir : ''))).join(' / ') + '</span></div>'
+    ).join('') : '';
+    document.dispatchEvent(new Event('fitness-workouts-changed'));
     whRenderRecent();
     whRenderPRs();
     whRenderFrequency();
@@ -2914,9 +2810,6 @@ img, video, canvas, svg { max-width: 100%; }
       const arr = raw ? JSON.parse(raw) : [];
       return Array.isArray(arr) ? arr.sort((a,b) => a.dateKey.localeCompare(b.dateKey)) : [];
     } catch (e) { return []; }
-  }
-  function wtSave(arr) {
-    try { localStorage.setItem(WT_KEY, JSON.stringify(arr)); } catch (e) {}
   }
   function wtDateKey(d) {
     return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
@@ -3268,9 +3161,6 @@ img, video, canvas, svg { max-width: 100%; }
       const obj = raw ? JSON.parse(raw) : {};
       return (obj && typeof obj === 'object' && !Array.isArray(obj)) ? obj : {};
     } catch (e) { return {}; }
-  }
-  function stepsSave(obj) {
-    try { localStorage.setItem(STEPS_KEY, JSON.stringify(obj)); } catch (e) {}
   }
   function stepsLoadGoal() {
     try {
@@ -4428,25 +4318,10 @@ img, video, canvas, svg { max-width: 100%; }
     const index = sourceWorkouts.length - 1;
     await DataLayer.put(GYM_WORKOUTS_COL, whWorkoutId(workout, index), workout);
   }
-  // Used by the DataLayer boot's local-cache fallback below (a browser
-  // profile with workouts cached locally that DataLayer doesn't know
-  // about yet) — pushes every current workout of `source` (upsert) and
-  // removes any gym_workouts row previously tagged with that source no
-  // longer present locally. This per-record delete capability used to
-  // also back the Lyfta re-import UI (removed — imports are no longer
-  // supported, all entry is manual now); kept because the boot fallback
-  // still needs it.
+  // Recuperar el caché local cuando la colección esté vacía.
   async function whSyncSourceToDataLayer(source) {
-    const sourceWorkouts = (whData.workouts || []).filter((w) => w.source === source);
-    const currentIds = new Set();
-    const puts = sourceWorkouts.map((w, i) => {
-      const id = whWorkoutId(w, i);
-      currentIds.add(id);
-      return DataLayer.put(GYM_WORKOUTS_COL, id, w);
-    });
-    const cached = await DataLayer.list(GYM_WORKOUTS_COL);
-    const staleIds = cached.filter((r) => r.source === source && !currentIds.has(r.id)).map((r) => r.id);
-    await Promise.all(puts.concat(staleIds.map((id) => DataLayer.remove(GYM_WORKOUTS_COL, id))));
+    const workouts = whData.workouts.filter(w => w.source === source);
+    await Promise.all(workouts.map((w, i) => DataLayer.put(GYM_WORKOUTS_COL, whWorkoutId(w, i), w)));
   }
 
   document.addEventListener('focusout', () => {

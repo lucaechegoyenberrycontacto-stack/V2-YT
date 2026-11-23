@@ -841,12 +841,6 @@
     }
 
     closePesasLogModal();
-    renderTrCards();
-    renderTrHomeStats();
-    renderMuscleMap();
-    renderPeriodCharts();
-    renderBoxeoInsights();
-    renderExerciseProgression();
     renderMobilityHistory();
   }
 
@@ -983,11 +977,7 @@
     window.WH.appendWorkout(workout);
     window.WH.commit(workout);
     closeCardioModal();
-    renderTrCards();
-    renderTrHomeStats();
-    renderMuscleMap();
-    renderPeriodCharts();
-    renderBoxeoInsights();
+
   }
 
   function initCardioModal() {
@@ -1297,6 +1287,14 @@
   }
 
   function init() {
+    document.addEventListener('fitness-workouts-changed', function () {
+      renderTrCards();
+      renderTrHomeStats();
+      renderMuscleMap();
+      renderPeriodCharts();
+      renderBoxeoInsights();
+      renderExerciseProgression();
+    });
     renderMuscleMapAfterWarmUp();
     initExerciseLibraryModals();
     initPesasLogModal();
