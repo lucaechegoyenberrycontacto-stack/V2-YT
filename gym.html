@@ -95,7 +95,7 @@ html, body {
 .po-shell *, .tabbar * { min-width: 0; }
 
 /* ---------- Mode grouping: "entrená hoy" (logging) vs "tu progreso"
-   (weight/photos/history). Mobile stacks both in that order; desktop
+   (weight/history). Mobile stacks both in that order; desktop
    gets a 2-column layout so logging a set never requires scrolling
    past the weight/progress card. ---------- */
 .po-groups { display: flex; flex-direction: column; gap: 22px; }
@@ -725,8 +725,6 @@ img, video, canvas, svg { max-width: 100%; }
 
   /* Today's / Past workouts — tighter rows, allow text to wrap */
 
-  /* Progress photos grid — match the available width */
-  .wt-photo-grid { gap: 8px; }
 
   /* Bottom tab bar — slightly smaller pills so both labels always fit */
   .tab { padding: 11px 10px; font-size: 13px; }
@@ -793,11 +791,6 @@ img, video, canvas, svg { max-width: 100%; }
 .wh-pr-row:last-child { border-bottom: none; }
 .wh-pr-name { color: var(--text-secondary); }
 .wh-pr-val { color: var(--text-primary); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.wh-freq-wrap { position: relative; }
-.wh-freq-svg { width: 100%; height: 220px; display: block; }
-.wh-freq-svg.hidden { display: none; }
-.wh-freq-bar { fill: var(--success); opacity: 0.6; }
-.wh-freq-bar-current { opacity: 1; stroke: rgba(110,231,183,0.7); stroke-width: 1.5; }
 .wh-freq-label { font-size: 11px; fill: var(--text-tertiary); font-family: var(--font-mono); }
 .wh-freq-grid { stroke: rgba(255,255,255,0.06); stroke-width: 1; }
 .wh-freq-yaxis-label { font-size: 10px; fill: var(--text-tertiary); font-family: var(--font-mono); }
@@ -809,7 +802,7 @@ img, video, canvas, svg { max-width: 100%; }
 .wh-meta { font-size: 11px; color: var(--text-tertiary); }
 
 /* ============================================================
-   WEIGHT TRACKER + PROGRESS PHOTOS — scoped under .wt-* so the
+   WEIGHT TRACKER — scoped under .wt-* so the
    styles can't leak into the rest of the app.
    ============================================================ */
 .wt-section { margin-bottom: 22px; }
@@ -1120,268 +1113,7 @@ img, video, canvas, svg { max-width: 100%; }
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Progress link */
-.wt-progress-link {
-  display: flex; align-items: center; justify-content: space-between;
-  /* Glass card background (see .po-sub-section above) — its accent
-     border stays as-is, that's an intentional "this is clickable" hint,
-     not the opaque-chassis issue being fixed here. */
-  background: rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(24px) saturate(1.2);
-  -webkit-backdrop-filter: blur(24px) saturate(1.2);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
-  border: 1px solid rgba(110,231,183,0.10);
-  border-radius: 16px;
-  padding: 18px 20px;
-  color: var(--text-primary);
-  margin-top: 12px; cursor: pointer; width: 100%;
-  font-family: inherit; text-align: left;
-  transition: border-color 0.2s, transform 0.15s;
-  -webkit-tap-highlight-color: transparent;
-}
-.wt-progress-link:hover { border-color: rgba(110,231,183,0.25); }
-.wt-progress-link:active { transform: scale(0.99); }
-.wt-progress-label {
-  font-size: 11px; letter-spacing: 0.20em; font-weight: 600;
-  color: var(--text-tertiary); margin-bottom: 4px;
-}
-.wt-progress-count { font-size: 14px; font-weight: 500; }
-.wt-progress-arrow { color: var(--success); font-size: 20px; }
-
-/* Overlay */
-.wt-overlay {
-  position: fixed; inset: 0;
-  background: var(--bg);
-  z-index: 100; overflow-y: auto;
-  transform: translateY(100%);
-  transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
-}
-.wt-overlay.is-open { transform: translateY(0); }
-.wt-overlay-inner {
-  max-width: 720px; margin: 0 auto;
-  padding: 24px 20px 40px;
-}
-.wt-overlay-h {
-  display: flex; align-items: center; gap: 14px;
-  margin-bottom: 22px;
-}
-.wt-back {
-  width: 40px; height: 40px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  color: var(--text-primary); cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  font-family: inherit;
-  -webkit-tap-highlight-color: transparent;
-}
-.wt-overlay-title {
-  font-size: 26px; font-weight: 600; letter-spacing: -0.015em;
-}
-.wt-overlay-actions {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-  margin-bottom: 22px;
-}
-.wt-overlay-action {
-  height: 50px; border-radius: 12px; border: none;
-  font-family: inherit; font-size: 14px; font-weight: 600;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.wt-overlay-primary { background: var(--success); color: #000; }
-.wt-overlay-secondary {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid var(--border);
-  color: var(--text-primary);
-}
-.wt-photo-grid {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-}
-.wt-photo-empty {
-  grid-column: 1 / -1; text-align: center;
-  padding: 50px 20px; color: var(--text-tertiary); font-size: 13px;
-}
-.wt-photo-card {
-  position: relative; aspect-ratio: 3 / 4;
-  border-radius: 12px; overflow: hidden;
-  background: linear-gradient(135deg, #1a1a24, #0a0f0a);
-  cursor: pointer; border: 1px solid rgba(110,231,183,0.08);
-  font-family: inherit;
-  -webkit-tap-highlight-color: transparent;
-}
-.wt-photo-card.is-removing { opacity: 0; transform: scale(0.92); transition: 0.25s; }
-.wt-photo-card img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.wt-photo-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.7) 100%); pointer-events: none; }
-.wt-photo-meta {
-  position: absolute; left: 0; right: 0; bottom: 0;
-  padding: 12px 14px;
-  display: flex; justify-content: space-between; align-items: flex-end;
-  font-size: 12px; font-weight: 500;
-}
-.wt-photo-date { color: var(--success); }
-.wt-photo-weight { color: var(--text-primary); }
-/* UI_AUDIT.md CRÍTICO #3 — shown only when a photo's background upload
-   to Supabase Storage failed, so it doesn't look identical to a synced
-   one. Retry is explicit (button), never automatic/looping. */
-.wt-photo-cell { position: relative; }
-.wt-photo-fail-badge {
-  margin-top: 6px; font-size: 11px; color: var(--danger); line-height: 1.35;
-}
-.wt-photo-retry-btn {
-  margin-top: 4px; width: 100%; padding: 6px 8px;
-  background: rgba(255,138,138,0.08); border: 1px solid rgba(255,138,138,0.24);
-  border-radius: 8px; color: var(--danger); font-size: 11px; font-weight: 600;
-  font-family: inherit; cursor: pointer;
-}
-.wt-photo-retry-btn:disabled { opacity: 0.6; cursor: default; }
-
-/* Camera modal */
-.wt-cam {
-  position: fixed; inset: 0; background: #000; z-index: 300;
-  display: none; flex-direction: column;
-}
-.wt-cam.is-open { display: flex; }
-.wt-cam-stage {
-  flex: 1; display: flex; align-items: center; justify-content: center;
-  overflow: hidden; position: relative;
-}
-.wt-cam-video {
-  width: 100%; height: 100%; object-fit: cover; background: #000;
-}
-.wt-cam-actions {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 24px 28px calc(24px + env(safe-area-inset-bottom));
-  background: #000;
-}
-.wt-cam-btn {
-  background: transparent; border: none; color: var(--text-primary);
-  font-family: inherit; font-size: 14px; font-weight: 500;
-  cursor: pointer; padding: 10px; min-width: 60px;
-  display: flex; align-items: center; justify-content: center;
-  -webkit-tap-highlight-color: transparent;
-}
-.wt-cam-shutter {
-  width: 64px; height: 64px; border-radius: 50%;
-  background: #fff;
-  border: 4px solid rgba(255,255,255,0.3);
-  box-shadow: 0 0 0 2px #fff inset;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.wt-cam-shutter:active { transform: scale(0.92); }
-
-/* Photo viewer */
-.wt-viewer {
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,0.96); z-index: 200;
-  opacity: 0; pointer-events: none;
-  transition: opacity 0.2s;
-  display: flex; flex-direction: column;
-  padding: 24px 16px;
-}
-.wt-viewer.is-open { opacity: 1; pointer-events: auto; }
-.wt-viewer-stage {
-  flex: 1; display: flex; align-items: center; justify-content: center;
-  overflow: hidden;
-}
-.wt-viewer-meta {
-  text-align: center; padding: 16px 0 8px;
-}
-.wt-viewer-date {
-  color: var(--success); font-size: 11px; letter-spacing: 0.18em;
-  font-weight: 600; margin-bottom: 4px;
-}
-.wt-viewer-weight {
-  color: var(--text-primary); font-size: 20px; font-weight: 600;
-}
-.wt-viewer-actions {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
-}
-.wt-viewer-btn {
-  background: transparent; border: 1px solid var(--border);
-  font-family: inherit; font-size: 14px; font-weight: 500;
-  padding: 12px; cursor: pointer; border-radius: 10px;
-  -webkit-tap-highlight-color: transparent;
-}
-.wt-viewer-close { color: var(--text-primary); }
-.wt-viewer-delete { color: var(--danger); border-color: rgba(248,113,113,0.3); }
-.wt-viewer-delete.is-confirm { background: rgba(248,113,113,0.10); }
-.wt-viewer-compare { color: var(--success); border-color: rgba(110,231,183,0.30); }
-.wt-viewer-back    { color: var(--success); border-color: rgba(110,231,183,0.30); }
-
-/* Mode toggle: hide the inactive mode */
-.wt-viewer .wt-viewer-single,
-.wt-viewer .wt-viewer-compare-view {
-  display: none;
-  flex-direction: column; flex: 1; min-height: 0;
-}
-.wt-viewer[data-mode="single"]  .wt-viewer-single        { display: flex; }
-.wt-viewer[data-mode="compare"] .wt-viewer-compare-view  { display: flex; }
-
-/* Compare-mode side-by-side layout */
-.wt-compare-stage {
-  flex: 1; display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px; min-height: 0;
-  align-items: stretch;
-}
-.wt-compare-side {
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  min-height: 0; min-width: 0;
-  background: transparent;
-  border: none; padding: 0; cursor: default;
-  font-family: inherit;
-}
-.wt-compare-side img {
-  max-width: 100%; max-height: calc(100% - 28px);
-  object-fit: contain; border-radius: 6px;
-}
-.wt-compare-meta-line {
-  margin-top: 6px;
-  font-size: 12px; color: var(--text-tertiary);
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-.wt-compare-other { cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.wt-compare-other:hover img { outline: 1px solid rgba(110,231,183,0.30); }
-.wt-compare-headline {
-  text-align: center; padding: 14px 8px 12px;
-  font-size: 14px; font-weight: 600;
-  color: var(--success);
-  font-variant-numeric: tabular-nums;
-}
-.wt-compare-headline.up   { color: var(--warning); }
-.wt-compare-headline.down { color: var(--success); }
-.wt-compare-headline.flat { color: var(--text-secondary); }
-
-@media (max-width: 480px) {
-  .wt-compare-stage { gap: 4px; }
-  .wt-compare-meta-line { font-size: 11px; }
-}
-
 .hidden { display: none !important; }
-
-/* ----- Training module (Pesas/Boxeo-MuayThai/Bici/Running) — reusable
-   primitives shared across all 4 disciplines. Only existing :root vars
-   are used, no new colors introduced. ----- */
-.tr-cmp-bar-current { fill: var(--success); opacity: 0.9; }
-.tr-cmp-bar-prev { fill: var(--text-tertiary); opacity: 0.35; }
-
-/* Weekly sets-per-muscle chart — bar color is informational, not a
-   severity signal (unlike the muscle-map fatigue colors), so above-range
-   deliberately stays neutral instead of --danger: training a muscle past
-   the 10-20/week reference isn't inherently bad. */
-.tr-mvol-bar-low { fill: var(--warning); opacity: 0.85; }
-.tr-mvol-bar-ref { fill: var(--success); opacity: 0.85; }
-.tr-mvol-bar-high { fill: var(--text-secondary); opacity: 0.55; }
-.tr-mvol-band { fill: rgba(255,255,255,0.05); }
-.tr-mvol-band-label { font-size: 10px; fill: var(--text-tertiary); font-family: var(--font-mono); }
-
-/* Delta micro-label on the period-comparison charts (renderPeriodComparisonChart) */
-.cht-delta { font-size: 10px; font-weight: 700; font-family: var(--font-mono); }
-.cht-delta-pos { fill: var(--success); }
-.cht-delta-neg { fill: var(--danger); }
 
 /* "Métricas de la sesión" block in the Pesas log modal (CAMBIO 2) — a
    subtle top divider separates it from the datepicker above. */
@@ -1398,24 +1130,6 @@ img, video, canvas, svg { max-width: 100%; }
 @media (max-width: 480px) {
   .tr-metrics-grid { grid-template-columns: 1fr; }
   .tr-metrics-hr-row { grid-template-columns: 1fr; }
-}
-
-/* Measured/estimated HR line for the last pesas session (CAMBIO 5) —
-   :empty collapses the row entirely when there's nothing to show. */
-.tr-session-hr-line { font-size: 11.5px; color: var(--text-tertiary); margin-bottom: 8px; }
-.tr-session-hr-line:empty { display: none; margin: 0; }
-
-/* ----- Unified chart tooltip (cht-) — same recipe as habits.html's
-   .hb-week-tooltip, reused here for a consistent look. Any chart wrap
-   that wants one just needs position:relative (.wh-freq-wrap already has
-   it) and a .cht-tooltip child div. ----- */
-.cht-tooltip {
-  position: absolute; display: none; pointer-events: none;
-  transform: translate(-50%, calc(-100% - 10px));
-  background: rgba(20,20,24,0.97); border: 1px solid rgba(255,255,255,0.14);
-  color: var(--text-primary); font-size: 11px; font-weight: 700;
-  font-family: var(--font-mono); padding: 5px 9px; border-radius: 8px;
-  white-space: nowrap; box-shadow: 0 6px 18px rgba(0,0,0,0.45); z-index: 5;
 }
 
 /* One-tap effort/difficulty selector (RIR/Fallo, Boxeo-MuayThai
@@ -1574,7 +1288,7 @@ img, video, canvas, svg { max-width: 100%; }
 }
 
 /* Home strip (streak / weekly volume / muscle teaser) + 4 discipline cards. */
-.tr-home-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.tr-home-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
 .tr-home-stat {
   background: rgba(255,255,255,0.025); border: 1px solid var(--border);
   border-radius: 10px; padding: 10px 8px; text-align: center;
@@ -1616,7 +1330,6 @@ img, video, canvas, svg { max-width: 100%; }
 <script src="gymExerciseMuscleSeed.js"></script>
 <script src="syncStatus.js"></script>
 <script src="gymPesasStore.js"></script>
-<script src="gymCharts.js"></script>
 <script src="gymDomain.js"></script>
 <script src="datePicker.js"></script>
 </head>
@@ -1743,7 +1456,7 @@ img, video, canvas, svg { max-width: 100%; }
       </div>
     </div>
 
-    <!-- ===== TU PROGRESO — body weight, progress photos, and the
+    <!-- ===== TU PROGRESO — body weight and the
          historical workout log (recent sessions, PRs, weekly
          frequency). Reviewed less often than "entrená hoy", so it
          comes second and no longer forces a scroll past it every time
@@ -1753,7 +1466,7 @@ img, video, canvas, svg { max-width: 100%; }
 
       <div class="po-progress-grid">
 
-      <!-- WEIGHT + PROGRESS PHOTOS -->
+      <!-- WEIGHT -->
       <div class="wt-section">
         <div class="wt-divider"><span>WEIGHT</span></div>
 
@@ -1825,90 +1538,6 @@ img, video, canvas, svg { max-width: 100%; }
           </div>
         </div>
 
-        <button class="wt-progress-link" id="wtProgressLink" type="button" aria-label="Open progress photos">
-          <div>
-            <div class="wt-progress-label">PROGRESS PHOTOS</div>
-            <div class="wt-progress-count" id="wtProgressCount">0 photos</div>
-          </div>
-          <span class="wt-progress-arrow">→</span>
-        </button>
-      </div>
-
-      <!-- Progress photos overlay -->
-      <div class="wt-overlay" id="wtOverlay" aria-hidden="true">
-        <div class="wt-overlay-inner">
-          <div class="wt-overlay-h">
-            <button class="wt-back" id="wtBack" aria-label="Back">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-            </button>
-            <div class="wt-overlay-title">Progress</div>
-          </div>
-          <div class="wt-overlay-actions">
-            <button class="wt-overlay-action wt-overlay-primary" id="wtTakePhotoBtn">Take Photo</button>
-            <button class="wt-overlay-action wt-overlay-secondary" id="wtFromLibraryBtn">From Library</button>
-          </div>
-          <input type="file" id="wtFileCamera" accept="image/*" capture="environment" style="display:none">
-          <input type="file" id="wtFileLibrary" accept="image/*" style="display:none">
-          <div class="wt-photo-grid" id="wtPhotoGrid">
-            <div class="wt-photo-empty">No photos yet · tap Take Photo to start</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Camera modal -->
-      <div class="wt-cam" id="wtCam" aria-hidden="true">
-        <div class="wt-cam-stage">
-          <video class="wt-cam-video" id="wtCamVideo" autoplay playsinline muted></video>
-          <canvas id="wtCamCanvas" style="display:none"></canvas>
-        </div>
-        <div class="wt-cam-actions">
-          <button class="wt-cam-btn" id="wtCamCancel">Cancel</button>
-          <button class="wt-cam-shutter" id="wtCamShutter" aria-label="Capture"></button>
-          <button class="wt-cam-btn" id="wtCamFlip" aria-label="Flip camera">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-          </button>
-        </div>
-      </div>
-
-      <!-- Photo viewer — has two modes: single (one photo) and compare (two photos side-by-side) -->
-      <div class="wt-viewer" id="wtViewer" data-mode="single" aria-hidden="true">
-
-        <!-- SINGLE MODE -->
-        <div class="wt-viewer-single">
-          <div class="wt-viewer-stage">
-            <img id="wtViewerImg" alt="" style="max-width:100%; max-height:100%; object-fit:contain;">
-          </div>
-          <div class="wt-viewer-meta">
-            <div class="wt-viewer-date" id="wtViewerDate">—</div>
-            <div class="wt-viewer-weight" id="wtViewerWeight">—</div>
-          </div>
-          <div class="wt-viewer-actions">
-            <button class="wt-viewer-btn wt-viewer-compare" id="wtViewerCompare">Compare</button>
-            <button class="wt-viewer-btn wt-viewer-close" id="wtViewerClose">Close</button>
-            <button class="wt-viewer-btn wt-viewer-delete" id="wtViewerDelete">Delete</button>
-          </div>
-        </div>
-
-        <!-- COMPARE MODE -->
-        <div class="wt-viewer-compare-view">
-          <div class="wt-compare-stage">
-            <div class="wt-compare-side" id="wtCmpSideA">
-              <img id="wtCmpImgA" alt="">
-              <div class="wt-compare-meta-line" id="wtCmpMetaA">—</div>
-            </div>
-            <button type="button" class="wt-compare-side wt-compare-other" id="wtCmpSideB" title="Tap to compare to a different photo" aria-label="Compare to a different photo">
-              <img id="wtCmpImgB" alt="">
-              <div class="wt-compare-meta-line" id="wtCmpMetaB">—</div>
-            </button>
-          </div>
-          <div class="wt-compare-headline" id="wtCompareHeadline">—</div>
-          <div class="wt-viewer-actions">
-            <button class="wt-viewer-btn wt-viewer-back" id="wtCompareBack">← Back</button>
-            <button class="wt-viewer-btn wt-viewer-close" id="wtCompareClose">Close</button>
-            <button class="wt-viewer-btn wt-viewer-delete" id="wtCompareDelete">Delete</button>
-          </div>
-        </div>
-
       </div>
 
       <!-- Workout History — one unified view over the gym_workouts
@@ -1942,38 +1571,6 @@ img, video, canvas, svg { max-width: 100%; }
         </div>
       </div>
 
-      <!-- Weekly Frequency — pulled out of .wh-stats-group into its own
-           full-width card so the chart has room to be the protagonist
-           instead of a thumbnail squeezed next to Recent sessions/PRs. -->
-      <div class="wh-block">
-        <div class="wh-block-title">Weekly frequency</div>
-        <div class="wh-freq-wrap">
-          <div class="po-empty" id="whFreqEmpty">Log or import workouts to see this.</div>
-          <svg class="wh-freq-svg hidden" id="whFreqSvg" viewBox="0 0 700 220"></svg>
-        </div>
-      </div>
-
-      <!-- Period comparisons — one reusable chart (renderPeriodComparisonChart,
-           gymCharts.js), fed 3x with different data. Monday-starting weeks. -->
-      <div class="wh-block">
-        <div class="wh-block-title">Volumen semanal (pesas)</div>
-        <!-- Measured HR (sessionMetrics) for the last pesas session, or an
-             estimateHrRange(intensity) fallback tagged "(estimado)" — purely
-             cosmetic, see pesasHrLineFor() in gymUI.js. Empty when neither
-             is available; :empty collapses it with no layout gap. -->
-        <div class="tr-session-hr-line" id="trPesasLastHr"></div>
-        <div class="wh-freq-wrap">
-          <div class="po-empty" id="trWeeklyVolEmpty">Registrá una sesión de pesas para ver esto.</div>
-          <svg class="wh-freq-svg hidden" id="trWeeklyVolSvg" viewBox="0 0 700 220"></svg>
-        </div>
-      </div>
-      <div class="wh-block">
-        <div class="wh-block-title">Cardio (minutos)</div>
-        <div class="wh-freq-wrap">
-          <div class="po-empty" id="trCardioMinEmpty">Registrá una sesión de Boxeo/Muay Thai, Running o Bici para ver esto.</div>
-          <svg class="wh-freq-svg hidden" id="trCardioMinSvg" viewBox="0 0 700 220"></svg>
-        </div>
-      </div>
       <!-- Muscle recovery map — the actual fatigue-scoring logic is a
            placeholder until the user loads their own training config (see
            gymMuscleFatigue.js). Never shows invented colors/numbers before
@@ -1983,15 +1580,7 @@ img, video, canvas, svg { max-width: 100%; }
         <div id="trMuscleMapWrap"></div>
       </div>
 
-      <!-- Movilidad — sub-sección de Pesas: ejercicios marcados isMobility
-           quedan afuera de PRs/volumen/mapa muscular y viven acá. -->
-      <div class="wh-block">
-        <div class="wh-actions" style="margin-bottom:10px;">
-          <div class="wh-block-title" style="margin-bottom:0;">Movilidad</div>
-          <button class="po-btn-secondary" id="trMobilityOpenBtn" type="button">+ Registrar movilidad</button>
-        </div>
-        <div id="trMobilityHistoryList"></div>
-      </div>
+
 
       </div>
     </div>
@@ -2059,10 +1648,6 @@ img, video, canvas, svg { max-width: 100%; }
       <label style="font-size:11px;color:var(--text-tertiary);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Nombre</label>
       <input type="text" id="trExName" placeholder="e.g. Press banca">
     </div>
-    <label class="po-bw-toggle">
-      <input type="checkbox" id="trExIsMobility">
-      Es ejercicio de movilidad (no suma a volumen/PRs ni al mapa muscular)
-    </label>
     <div id="trExMuscleFields">
       <div class="po-field">
         <label style="font-size:11px;color:var(--text-tertiary);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Músculo primario</label>
@@ -2132,31 +1717,6 @@ img, video, canvas, svg { max-width: 100%; }
     <div class="po-modal-actions">
       <button class="po-btn-secondary" id="trPesasLogCancel" type="button">Cancelar</button>
       <button class="po-btn-primary" id="trPesasLogSave" type="button">Guardar sesión</button>
-    </div>
-  </div>
-</div>
-
-<!-- Movilidad — sub-sección de Pesas, no una 5ta disciplina. Alta rápida:
-     fecha + nombre + reps opcional. -->
-<div class="po-modal-bg" id="trMobilityLogModalBg">
-  <div class="po-modal" style="max-width: 480px;">
-    <h3>Registrar Movilidad</h3>
-
-    <div id="trMobilityDatePicker"></div>
-
-    <div class="po-field">
-      <label style="font-size:11px;color:var(--text-tertiary);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Ejercicio</label>
-      <input type="text" id="trMobilityName" list="trExerciseNameOptions" placeholder="e.g. Kneeling Hip Flexor Stretch">
-    </div>
-    <div class="po-field">
-      <label style="font-size:11px;color:var(--text-tertiary);font-weight:700;letter-spacing:0.04em;text-transform:uppercase">Reps (opcional)</label>
-      <input type="number" id="trMobilityReps" min="0" placeholder="e.g. 10">
-    </div>
-
-    <div id="trMobilityStatus" style="text-align:center;font-size:12px;color:var(--danger);min-height:16px;"></div>
-    <div class="po-modal-actions">
-      <button class="po-btn-secondary" id="trMobilityCancel" type="button">Cancelar</button>
-      <button class="po-btn-primary" id="trMobilitySave" type="button">Guardar</button>
     </div>
   </div>
 </div>
@@ -2255,7 +1815,7 @@ img, video, canvas, svg { max-width: 100%; }
     return { units: CONFIG.units || 'kg' };
   }
   // dlReady flips true once initGymDataLayer (bottom of this IIFE) has
-  // pulled gym_routine_config/gym_steps_goal/gym_progress_photos — see
+  // pulled gym_routine_config/gym_steps_goal — see
   // that handler for why the rest of po_coach_v1 (days/gyms/exercises/
   // splitAnchor/etc) is NOT migrated here (stale data from a discarded
   // module, no longer read or written by any current code).
@@ -2281,7 +1841,7 @@ img, video, canvas, svg { max-width: 100%; }
   //
   // Every workout is normalized to the same shape before it's ever
   // saved — { date, title, source, exercises:[{name, sets:[{reps,weight}]}] }
-  // — so whRenderRecent/whComputePRs/whComputeWeeklyFrequency don't
+  // — so whRenderRecent/whComputePRs don't
   // know or care which source a workout came from.
   //
   // Synced to its own Supabase table (see WORKOUT HISTORY CLOUD SYNC
@@ -2425,47 +1985,6 @@ img, video, canvas, svg { max-width: 100%; }
   }
 
   // ISO week (Mon-Sun) key for a Date, e.g. "2026-W27".
-  function whIsoWeekInfo(d) {
-    const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-    const dayNr = (date.getUTCDay() + 6) % 7;
-    date.setUTCDate(date.getUTCDate() - dayNr + 3);
-    const firstThursday = new Date(Date.UTC(date.getUTCFullYear(), 0, 4));
-    const diff = date - firstThursday;
-    const week = 1 + Math.round(diff / (7 * 86400000));
-    return { year: date.getUTCFullYear(), week };
-  }
-  function whWeekKeyFromDateStr(dateStr) {
-    const [y, m, d] = (dateStr || '').split('-').map(Number);
-    if (!y || !m || !d) return null;
-    const info = whIsoWeekInfo(new Date(y, m - 1, d));
-    return info.year + '-W' + String(info.week).padStart(2, '0');
-  }
-  // Trailing N ISO weeks ending this week, each with a count of distinct
-  // training days that fell in it (missing weeks show as 0, not skipped).
-  function whComputeWeeklyFrequency(numWeeks) {
-    numWeeks = numWeeks || 8;
-    // Group by unique date first, so 2 sessions logged on the same day
-    // count as 1 training day, not 2.
-    const daysByWeek = {};
-    (whData.workouts || []).forEach(w => {
-      const wk = whWeekKeyFromDateStr(w.date);
-      if (!wk) return;
-      if (!daysByWeek[wk]) daysByWeek[wk] = new Set();
-      daysByWeek[wk].add(w.date);
-    });
-    const today = new Date();
-    const out = [];
-    for (let i = numWeeks - 1; i >= 0; i--) {
-      const d = new Date(today); d.setDate(d.getDate() - i * 7);
-      const info = whIsoWeekInfo(d);
-      const key = info.year + '-W' + String(info.week).padStart(2, '0');
-      const dow = (d.getDay() + 6) % 7; // 0=Mon..6=Sun
-      const weekStart = new Date(d); weekStart.setDate(d.getDate() - dow);
-      out.push({ week: key, count: daysByWeek[key] ? daysByWeek[key].size : 0, weekStart });
-    }
-    return out;
-  }
-
   function whSourceLabel(source) {
     if (source === 'manual') return 'Manual';
     return 'Lyfta';
@@ -2514,80 +2033,6 @@ img, video, canvas, svg { max-width: 100%; }
     ).join('');
   }
 
-  const WH_MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  function whRenderFrequency() {
-    const svg = $('whFreqSvg');
-    const empty = $('whFreqEmpty');
-    const data = whComputeWeeklyFrequency(8);
-    const hasAny = data.some(d => d.count > 0);
-    if (!hasAny) { svg.classList.add('hidden'); empty.classList.remove('hidden'); return; }
-    empty.classList.add('hidden'); svg.classList.remove('hidden');
-
-    // Full-width, protagonist-sized chart (moved out of the shared
-    // Recent sessions / PRs row) — wider viewBox with room for a Y
-    // axis (training days/week) and a value label above each bar.
-    // W matches the SVG's actual rendered pixel width, same technique as
-    // health.html's renderWeekChart — keeps the coordinate system 1:1 with
-    // its on-screen size instead of squashing on narrower screens.
-    const W = svg.getBoundingClientRect().width || 700, H = 220;
-    const padLeft = 26, padRight = 10, padTop = 22, padBottom = 30, gap = 14;
-    const n = data.length;
-    const plotW = W - padLeft - padRight;
-    const plotH = H - padTop - padBottom;
-    const barW = (plotW - gap * (n - 1)) / n;
-    const baseY = padTop + plotH;
-
-    // Y axis tops out at a "nice" round number above the real max
-    // (never below it), same spirit as the fixed/rounded axes used
-    // elsewhere in this file (e.g. the weight chart's min/max labels).
-    const rawMax = Math.max.apply(null, data.map(d => d.count).concat([1]));
-    const step = rawMax <= 4 ? 1 : Math.ceil(rawMax / 4);
-    const niceMax = Math.ceil(rawMax / step) * step;
-
-    let grid = '';
-    for (let v = 0; v <= niceMax; v += step) {
-      const y = baseY - (v / niceMax) * plotH;
-      grid += '<line class="wh-freq-grid" x1="' + padLeft + '" y1="' + y.toFixed(1) + '" x2="' + (W - padRight).toFixed(1) + '" y2="' + y.toFixed(1) + '"></line>'
-        + '<text class="wh-freq-yaxis-label" x="' + (padLeft - 8) + '" y="' + (y + 3).toFixed(1) + '" text-anchor="end">' + v + '</text>';
-    }
-
-    // Thin out X-axis date labels rather than let them collide at narrow
-    // widths. Always
-    // keeps the first and last (current week, already bar-highlighted).
-    const labels = data.map(d => d.weekStart ? (WH_MONTHS_SHORT[d.weekStart.getMonth()] + ' ' + d.weekStart.getDate()) : '');
-    const CHAR_W = 6.6; // calibrated in gymCharts.js's truncateLabel comment
-    const maxLabelW = Math.max.apply(null, labels.map(l => l.length * CHAR_W).concat([0]));
-    const slotW = barW + gap;
-    const showEvery = maxLabelW > slotW ? Math.ceil(maxLabelW / slotW) : 1;
-    // Building the shown-index set explicitly (rather than "i % showEvery
-    // === 0 || isCurrent") avoids the last bar's forced label landing
-    // *adjacent* to whichever modulo-selected label happens to fall just
-    // before it — e.g. n=8/showEvery=2 naively shows index 6 (modulo) AND
-    // 7 (forced-last), one slot apart, recreating the exact overlap this
-    // was meant to fix. Drop any modulo pick within showEvery of the end.
-    const shownIdx = {};
-    for (let i = 0; i < n; i += showEvery) shownIdx[i] = true;
-    shownIdx[n - 1] = true;
-    if (showEvery > 1) {
-      for (let i = 0; i < n - 1; i++) { if ((n - 1 - i) < showEvery) delete shownIdx[i]; }
-    }
-
-    let bars = '';
-    data.forEach((d, i) => {
-      const x = padLeft + i * (barW + gap);
-      const h = d.count > 0 ? Math.max(4, plotH * (d.count / niceMax)) : 0;
-      const y = baseY - h;
-      const isCurrent = i === data.length - 1;
-      bars += '<rect class="wh-freq-bar' + (isCurrent ? ' wh-freq-bar-current' : '') + '" x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + barW.toFixed(1) + '" height="' + h.toFixed(1) + '" rx="4"></rect>';
-      bars += '<text class="wh-freq-val" x="' + (x + barW / 2).toFixed(1) + '" y="' + (y - 8).toFixed(1) + '" text-anchor="middle">' + d.count + '</text>';
-      if (shownIdx[i]) {
-        bars += '<text class="wh-freq-label" x="' + (x + barW / 2).toFixed(1) + '" y="' + (baseY + 20) + '" text-anchor="middle">' + labels[i] + '</text>';
-      }
-    });
-    svg.setAttribute('viewBox', '0 0 ' + W.toFixed(1) + ' ' + H);
-    svg.innerHTML = grid + bars;
-  }
-
   function renderWorkoutHistory() {
     const latest = whSortedWorkouts().find(w => w.source === 'lyfta');
     $('lyftaSummary').textContent = latest
@@ -2602,7 +2047,6 @@ img, video, canvas, svg { max-width: 100%; }
     document.dispatchEvent(new Event('fitness-workouts-changed'));
     whRenderRecent();
     whRenderPRs();
-    whRenderFrequency();
     const meta = $('whMeta');
     const n = (whData.workouts || []).length;
     meta.textContent = n ? (n + ' workout' + (n === 1 ? '' : 's') + ' logged') : '';
@@ -2617,7 +2061,6 @@ img, video, canvas, svg { max-width: 100%; }
     commit: whCommit,
     normalizeWorkout: whNormalizeWorkout,
     computePRs: whComputePRs,
-    computeWeeklyFrequency: whComputeWeeklyFrequency,
     getAllWorkouts: whSortedWorkouts,
   };
 
@@ -2650,7 +2093,7 @@ img, video, canvas, svg { max-width: 100%; }
   });
 
   // Export / Import / Reset — scoped to what Settings manages now (units +
-  // exercise/muscle overrides, mobility log, fatigue config, via
+  // exercise/muscle overrides and fatigue config, via
   // GymPesasStore). Workout history (logged via the Pesas modal, manual
   // entry only) is intentionally untouched here.
   $('setExport').addEventListener('click', () => {
@@ -2678,7 +2121,7 @@ img, video, canvas, svg { max-width: 100%; }
     reader.readAsText(file);
   });
   $('setReset').addEventListener('click', () => {
-    if (!confirm('Delete all exercise/muscle overrides, the mobility log, and the fatigue config? This cannot be undone. (Workout history and weight/photos are not affected.)')) return;
+    if (!confirm('¿Restablecer la configuración de músculos y fatiga?')) return;
     window.GymPesasStore.resetAll();
     $('setModalBg').classList.remove('show');
   });
@@ -2689,19 +2132,9 @@ img, video, canvas, svg { max-width: 100%; }
   }
 
   // ============================================================
-  // WEIGHT TRACKER + COMPOSITION ESTIMATE + PROGRESS PHOTOS
-  // All persisted to localStorage:
-  //   po_coach_weights : [{ dateKey:'YYYY-MM-DD', weight:Number }]
-  //   po_coach_photos  : [{ id, dataUrl, dateKey, weight }]
-  // ============================================================
-  // po_coach_weights migrated to DataLayer/records (collection
-  // gym_body_weight, id=dateKey) — see DATA_AUDIT.md. WT_KEY stays only
-  // as the legacy-mirror target so index.html (not migrated) keeps
-  // reading po_coach_weights from localStorage unchanged. po_coach_photos
-  // is NOT migrated — stays on PC_SYNCED_KEYS/pcPushNow as before.
+  // Peso corporal y estimación de composición.
   const WT_COL = 'gym_body_weight';
   const WT_KEY = 'po_coach_weights';
-  const PHOTO_KEY = 'po_coach_photos';
 
   function wtLoad() {
     try {
@@ -3487,650 +2920,19 @@ img, video, canvas, svg { max-width: 100%; }
   });
 
   // ============================================================
-  // PROGRESS PHOTOS
-  // ============================================================
-  let photos = [];
-  try {
-    const raw = localStorage.getItem(PHOTO_KEY);
-    if (raw) photos = JSON.parse(raw);
-  } catch (e) { photos = []; }
-
-  function photosSave() {
-    try {
-      localStorage.setItem(PHOTO_KEY, JSON.stringify(photos));
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-  // Downscale a dataURL to a max longest-side dimension and re-encode as
-  // JPEG. Phone camera photos are often 2–5MB which blows the ~5MB
-  // localStorage quota after one or two saves. Compressing to ~1080px /
-  // q=0.75 typically drops each photo to <100KB.
-  function compressPhotoDataUrl(dataUrl, maxDim, quality) {
-    maxDim = maxDim || 1080;
-    quality = quality == null ? 0.75 : quality;
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => {
-        let w = img.naturalWidth || img.width;
-        let h = img.naturalHeight || img.height;
-        if (w > maxDim || h > maxDim) {
-          if (w >= h) { h = Math.round(h * (maxDim / w)); w = maxDim; }
-          else { w = Math.round(w * (maxDim / h)); h = maxDim; }
-        }
-        const c = document.createElement('canvas');
-        c.width = w; c.height = h;
-        c.getContext('2d').drawImage(img, 0, 0, w, h);
-        try { resolve(c.toDataURL('image/jpeg', quality)); }
-        catch { resolve(dataUrl); }
-      };
-      img.onerror = () => resolve(dataUrl);
-      img.src = dataUrl;
-    });
-  }
-  function photoFmtDate(key) {
-    const d = wtParseKey(key);
-    const mons = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    return mons[d.getMonth()] + ' ' + d.getDate();
-  }
-  function photoCurrentWeight() {
-    const last = wtEntries[wtEntries.length - 1];
-    return last ? (last.weight.toFixed(1) + ' ' + state.units) : '—';
-  }
-  function photosRender() {
-    const grid = $('wtPhotoGrid');
-    if (!photos.length) {
-      grid.innerHTML = '<div class="wt-photo-empty">No photos yet · tap Take Photo to start</div>';
-    } else {
-      grid.innerHTML = photos.map(p =>
-        '<div class="wt-photo-cell">' +
-          '<button class="wt-photo-card" data-id="' + p.id + '" type="button">' +
-            '<img src="' + (p.url || p.dataUrl) + '" alt="">' +
-            '<div class="wt-photo-overlay"></div>' +
-            '<div class="wt-photo-meta">' +
-              '<span class="wt-photo-date">' + photoFmtDate(p.dateKey) + '</span>' +
-              '<span class="wt-photo-weight">' + (p.weight || '—') + '</span>' +
-            '</div>' +
-          '</button>' +
-          (p.uploadFailed ?
-            '<div class="wt-photo-fail-badge">⚠ No se subió a la nube — solo está en este dispositivo</div>' +
-            '<button class="wt-photo-retry-btn" data-retry-id="' + p.id + '" type="button" ' + (p.uploadRetrying ? 'disabled' : '') + '>' +
-              (p.uploadRetrying ? 'Reintentando…' : '↻ Reintentar subida') +
-            '</button>'
-            : '') +
-        '</div>'
-      ).join('');
-      grid.querySelectorAll('.wt-photo-card').forEach(card => {
-        card.addEventListener('click', () => openPhoto(card.dataset.id));
-      });
-      grid.querySelectorAll('.wt-photo-retry-btn').forEach(btn => {
-        btn.addEventListener('click', () => retryPhotoUpload(btn.dataset.retryId));
-      });
-    }
-    // Update count on the link
-    if (!photos.length) $('wtProgressCount').textContent = '0 photos';
-    else if (photos.length === 1) $('wtProgressCount').textContent = '1 photo · latest ' + photoFmtDate(photos[0].dateKey);
-    else $('wtProgressCount').textContent = photos.length + ' photos · latest ' + photoFmtDate(photos[0].dateKey);
-  }
-  // Upload a compressed data URL to the Supabase Storage bucket
-  // 'progress-photos' and return its public URL (or null on failure).
-  async function uploadPhotoToStorage(dataUrl) {
-    if (!pcSupa) return null;
-    try {
-      const res = await fetch(dataUrl);
-      const blob = await res.blob();
-      const filename = 'photo_' + Date.now() + '_' +
-        Math.random().toString(36).slice(2, 10) + '.jpg';
-      const { error } = await pcSupa.storage
-        .from('progress-photos')
-        .upload(filename, blob, { contentType: 'image/jpeg', upsert: false });
-      if (error) { console.warn('[Progress photos] upload failed', error); return null; }
-      const { data } = pcSupa.storage.from('progress-photos').getPublicUrl(filename);
-      return data ? data.publicUrl : null;
-    } catch (e) { console.warn('[Progress photos] upload threw', e); return null; }
-  }
-
-  async function photosAdd(dataUrl) {
-    let compressed = dataUrl;
-    try { compressed = await compressPhotoDataUrl(dataUrl); } catch {}
-    const id = 'p' + Date.now() + '_' + Math.floor(Math.random() * 999);
-    const entry = {
-      id,
-      dataUrl: compressed,
-      dateKey: wtDateKey(new Date()),
-      weight: photoCurrentWeight()
-    };
-    photos.unshift(entry);
-    if (!photosSave()) {
-      try {
-        entry.dataUrl = await compressPhotoDataUrl(dataUrl, 800, 0.6);
-      } catch {}
-      if (!photosSave()) {
-        photos.shift();
-        alert('Phone storage is full — delete some older progress photos before adding a new one.');
-        return;
-      }
-    }
-    photosRender();
-
-    // Background: upload to Supabase Storage. Once we have a public URL,
-    // drop the base64 dataUrl locally and push to sibling devices via the
-    // normal sync path — only the URL ends up in the row, so the payload
-    // stays tiny.
-    uploadPhotoToStorage(entry.dataUrl).then((url) => {
-      const e = photos.find(p => p.id === id);
-      if (!e) return;
-      if (!url) {
-        // UI_AUDIT.md CRÍTICO #3: used to silently do nothing here — the
-        // photo looked identical to a successfully-synced one on this
-        // device, but was invisible to every other device forever. Now
-        // flagged so photosRender() can show a badge + explicit retry
-        // button instead of a fake "it worked" state.
-        e.uploadFailed = true;
-        photosSave();
-        photosRender();
-        return;
-      }
-      e.url = url;
-      e.uploadFailed = false;
-      delete e.dataUrl;
-      photosSave();
-      photosRender();
-      // Only URL-pointer entries ever reach DataLayer/records — same
-      // payload-size restriction the old PC_SYNCED_KEYS engine enforced
-      // via pcCollectState's dataUrl filter (see gym_progress_photos
-      // comment near PHOTO_KEY above).
-      if (dlReady) DataLayer.put('gym_progress_photos', e.id, { url: e.url, dateKey: e.dateKey, weight: e.weight });
-    });
-  }
-
-  // Explicit, user-triggered retry for a photo whose upload previously
-  // failed — never retried automatically/in a loop. The local dataUrl is
-  // kept until a retry actually succeeds, so the photo stays viewable on
-  // this device the whole time.
-  async function retryPhotoUpload(id) {
-    const e = photos.find(p => p.id === id);
-    if (!e || !e.dataUrl || e.uploadRetrying) return;
-    e.uploadRetrying = true;
-    photosRender();
-    const url = await uploadPhotoToStorage(e.dataUrl);
-    e.uploadRetrying = false;
-    if (!url) {
-      e.uploadFailed = true;
-      photosSave();
-      photosRender();
-      return;
-    }
-    e.url = url;
-    e.uploadFailed = false;
-    delete e.dataUrl;
-    photosSave();
-    photosRender();
-    if (dlReady) DataLayer.put('gym_progress_photos', e.id, { url: e.url, dateKey: e.dateKey, weight: e.weight });
-  }
-  function fileToPhoto(file) {
-    const r = new FileReader();
-    r.onload = (e) => photosAdd(e.target.result);
-    r.readAsDataURL(file);
-  }
-
-  $('wtProgressLink').addEventListener('click', () => {
-    photosRender();
-    $('wtOverlay').classList.add('is-open');
-    document.body.style.overflow = 'hidden';
-  });
-  $('wtBack').addEventListener('click', () => {
-    $('wtOverlay').classList.remove('is-open');
-    document.body.style.overflow = '';
-  });
-
-  // Take Photo: try in-browser camera, fall back to file input
-  let camStream = null;
-  let camFacing = 'environment';
-  async function openCam() {
-    $('wtCam').classList.add('is-open');
-    try {
-      camStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: camFacing } }, audio: false
-      });
-      $('wtCamVideo').srcObject = camStream;
-    } catch (e) {
-      try {
-        camStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-        $('wtCamVideo').srcObject = camStream;
-      } catch (e2) {
-        closeCam();
-        alert('Camera unavailable. Use "From Library" instead.');
-        throw e2;
-      }
-    }
-  }
-  function closeCam() {
-    if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
-    $('wtCamVideo').srcObject = null;
-    $('wtCam').classList.remove('is-open');
-  }
-  $('wtTakePhotoBtn').addEventListener('click', async () => {
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      try { await openCam(); return; } catch (e) {}
-    }
-    $('wtFileCamera').click();
-  });
-  $('wtFileCamera').addEventListener('change', (e) => {
-    const f = e.target.files && e.target.files[0];
-    if (f) fileToPhoto(f);
-    e.target.value = '';
-  });
-  $('wtFromLibraryBtn').addEventListener('click', () => $('wtFileLibrary').click());
-  $('wtFileLibrary').addEventListener('change', (e) => {
-    const f = e.target.files && e.target.files[0];
-    if (f) fileToPhoto(f);
-    e.target.value = '';
-  });
-  $('wtCamCancel').addEventListener('click', closeCam);
-  $('wtCamFlip').addEventListener('click', async () => {
-    camFacing = camFacing === 'environment' ? 'user' : 'environment';
-    if (camStream) camStream.getTracks().forEach(t => t.stop());
-    try { await openCam(); } catch (e) {}
-  });
-  $('wtCamShutter').addEventListener('click', () => {
-    const video = $('wtCamVideo'), canvas = $('wtCamCanvas');
-    if (!video.videoWidth) return;
-    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-    closeCam();
-    photosAdd(dataUrl);
-  });
-
-  // Photo viewer
-  let activePhotoId = null;
-  let comparePhotoId = null;       // the OTHER photo being compared to
-  let pvDeleteConfirm = false;
-  function openPhoto(id) {
-    const p = photos.find(x => x.id === id);
-    if (!p) return;
-    activePhotoId = id;
-    $('wtViewerImg').src = p.url || p.dataUrl;
-    $('wtViewerDate').textContent = photoFmtDate(p.dateKey).toUpperCase();
-    $('wtViewerWeight').textContent = p.weight || '—';
-    $('wtViewer').dataset.mode = 'single';
-    $('wtViewer').classList.add('is-open');
-    pvDeleteConfirm = false;
-    $('wtViewerDelete').textContent = 'Delete';
-    $('wtViewerDelete').classList.remove('is-confirm');
-    // Disable Compare button if there's no other photo to compare against
-    $('wtViewerCompare').disabled = photos.length < 2;
-    $('wtViewerCompare').style.opacity = photos.length < 2 ? '0.4' : '';
-  }
-  function closePhoto() {
-    $('wtViewer').classList.remove('is-open');
-    $('wtViewer').dataset.mode = 'single';
-    activePhotoId = null;
-    comparePhotoId = null;
-  }
-
-  // Pull a number out of "162.0 lbs" / "73.5 kg" / "—"
-  function parseWeightStr(w) {
-    if (!w) return null;
-    const m = String(w).match(/-?\d+(\.\d+)?/);
-    return m ? parseFloat(m[0]) : null;
-  }
-  // Format a delta with arrow + sign
-  function fmtDelta(diff, units) {
-    if (diff == null) return '';
-    if (Math.abs(diff) < 0.05) return '· no change';
-    const sign = diff > 0 ? '+' : '−';
-    return '· ' + sign + Math.abs(diff).toFixed(1) + ' ' + units;
-  }
-
-  // Pick the "compare to" photo for a given active id. Default: the most
-  // recent photo BEFORE the active one (older → time-progress comparison).
-  // Falls back to the most recent newer photo if active is the oldest.
-  function defaultCompareFor(activeId) {
-    const idx = photos.findIndex(p => p.id === activeId);
-    if (idx === -1) return null;
-    if (photos[idx + 1]) return photos[idx + 1].id;        // photos are stored newest-first
-    if (photos[idx - 1]) return photos[idx - 1].id;
-    return null;
-  }
-
-  function openCompare(activeId, otherId) {
-    const A = photos.find(p => p.id === activeId);
-    const B = photos.find(p => p.id === otherId);
-    if (!A || !B) return;
-    activePhotoId = activeId;
-    comparePhotoId = otherId;
-    $('wtCmpImgA').src = A.url || A.dataUrl;
-    $('wtCmpImgB').src = B.url || B.dataUrl;
-    $('wtCmpMetaA').textContent = photoFmtDate(A.dateKey) + ' · ' + (A.weight || '—');
-    $('wtCmpMetaB').textContent = photoFmtDate(B.dateKey) + ' · ' + (B.weight || '—');
-    // Headline — date arrow + weight delta
-    const wA = parseWeightStr(A.weight);
-    const wB = parseWeightStr(B.weight);
-    const headEl = $('wtCompareHeadline');
-    let cls = 'flat', headline = photoFmtDate(A.dateKey) + ' → ' + photoFmtDate(B.dateKey);
-    if (wA != null && wB != null) {
-      const diff = wA - wB; // active vs comparison
-      headline += ' ' + fmtDelta(diff, state.units);
-      if (Math.abs(diff) < 0.05) cls = 'flat';
-      else if (diff > 0) cls = 'up';
-      else cls = 'down';
-    }
-    headEl.textContent = headline;
-    headEl.className = 'wt-compare-headline ' + cls;
-    $('wtViewer').dataset.mode = 'compare';
-    $('wtViewer').classList.add('is-open');
-    pvDeleteConfirm = false;
-    $('wtCompareDelete').textContent = 'Delete';
-    $('wtCompareDelete').classList.remove('is-confirm');
-  }
-
-  function cycleCompareTarget() {
-    if (!activePhotoId) return;
-    const others = photos.filter(p => p.id !== activePhotoId);
-    if (!others.length) return;
-    const curIdx = others.findIndex(p => p.id === comparePhotoId);
-    const nextIdx = (curIdx + 1) % others.length;
-    openCompare(activePhotoId, others[nextIdx].id);
-  }
-
-  function deleteActivePhoto(deleteBtn) {
-    if (!activePhotoId) return;
-    if (!pvDeleteConfirm) {
-      pvDeleteConfirm = true;
-      deleteBtn.textContent = 'Confirm delete?';
-      deleteBtn.classList.add('is-confirm');
-      setTimeout(() => {
-        pvDeleteConfirm = false;
-        deleteBtn.textContent = 'Delete';
-        deleteBtn.classList.remove('is-confirm');
-      }, 3000);
-      return;
-    }
-    photos = photos.filter(p => p.id !== activePhotoId);
-    photosSave();
-    photosRender();
-    if (dlReady) DataLayer.remove('gym_progress_photos', activePhotoId);
-    closePhoto();
-  }
-
-  $('wtViewerClose').addEventListener('click', closePhoto);
-  $('wtCompareClose').addEventListener('click', closePhoto);
-  $('wtViewerDelete').addEventListener('click', () => deleteActivePhoto($('wtViewerDelete')));
-  $('wtCompareDelete').addEventListener('click', () => deleteActivePhoto($('wtCompareDelete')));
-  $('wtViewerCompare').addEventListener('click', () => {
-    if (!activePhotoId) return;
-    const otherId = defaultCompareFor(activePhotoId);
-    if (!otherId) { alert('Need at least one other photo to compare.'); return; }
-    openCompare(activePhotoId, otherId);
-  });
-  $('wtCompareBack').addEventListener('click', () => {
-    if (activePhotoId) {
-      $('wtViewer').dataset.mode = 'single';
-    } else {
-      closePhoto();
-    }
-  });
-  // Tap the right-hand "other" photo to cycle through different comparison targets
-  $('wtCmpSideB').addEventListener('click', cycleCompareTarget);
-
-  // ============================================================
   // BOOT
   // ============================================================
   wtRender();
-  photosRender();
   stepsRender();
   renderWorkoutHistory();
 
   // ============================================================
-  // CLOUD SYNC via Supabase  (OPTIONAL — leave blank for local-only)
-  // ------------------------------------------------------------
-  // Stores your gym state as one JSONB row in the public.app_state
-  // table, keyed by APP_KEY. Supabase's realtime channel pushes
-  // changes to every device the instant they happen.
-  //
-  // SETUP (5 minutes, all in a browser):
-  //   1. Make a free account at https://supabase.com
-  //   2. Create a new project
-  //   3. In your project: Settings → API → copy your Project URL +
-  //      "Publishable" key (the one starting with `sb_publishable_`)
-  //   4. Paste them below, replacing the two placeholder strings
-  //   5. Open the SQL Editor and run the SQL block from README.md
-  //
-  // If you leave the placeholders unchanged the app still works,
-  // just only on this device (data stays in your browser).
-  // ============================================================
   const SUPABASE_URL = (window.DASH_SUPABASE_URL) || 'https://bkkjtxvneldsqwyhrhub.supabase.co';
   const SUPABASE_KEY = (window.DASH_SUPABASE_KEY) || 'sb_publishable_G8LqREPRDk0_tMEJNSFBxA_mIXNAnmT';
-  const APP_KEY = 'po-coach';
-  // po_coach_weights/gym:steps were removed first (migrated to
-  // gym_body_weight/gym_steps — see DATA_AUDIT.md); po_coach_v1,
-  // po_coach_photos, and gym:stepsGoal are the last 3 — migrated to
-  // gym_routine_config/gym_progress_photos/gym_steps_goal in this pass
-  // (see saveState/stepsSaveGoal/photosAdd/retryPhotoUpload/
-  // deleteActivePhoto above and initGymDataLayer below). That's every
-  // key this engine ever synced — PC_SYNCED_KEYS is intentionally empty
-  // now. pcCollectState/pcApplyRemoteState/the patched setItem/
-  // removeItem/pcSchedulePush/the initial pull+realtime subscribe below
-  // are left in place rather than removed (out of scope for this
-  // migration): with an empty list they simply have nothing left to do.
-  const PC_SYNCED_KEYS = [];
+  const pcSupa = window.supabase && SUPABASE_URL && SUPABASE_KEY && !SUPABASE_URL.startsWith('PASTE-') && !SUPABASE_KEY.startsWith('PASTE-')
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false } })
+    : null;
 
-  let pcSupa = null;
-  let pcPushTimer = null;
-  let pcSuppressSync = false;
-  let pcPendingRemote = null;
-  // JSON of the last state we sent or received — used to ignore
-  // realtime echoes of our own pushes so we don't infinite-loop.
-  let pcLastSyncedJson = null;
-
-  const _pcOrigSet = localStorage.setItem.bind(localStorage);
-  const _pcOrigRemove = localStorage.removeItem.bind(localStorage);
-  // Wrap setItem/removeItem so a sync-side error can NEVER prevent the
-  // underlying write from happening. The original call always runs;
-  // any error in the sync scheduling is swallowed.
-  localStorage.setItem = function(k, v) {
-    _pcOrigSet(k, v);
-    try {
-      if (!pcSuppressSync && PC_SYNCED_KEYS.indexOf(k) !== -1) pcSchedulePush();
-    } catch (e) {}
-  };
-  localStorage.removeItem = function(k) {
-    _pcOrigRemove(k);
-    try {
-      if (!pcSuppressSync && PC_SYNCED_KEYS.indexOf(k) !== -1) pcSchedulePush();
-    } catch (e) {}
-  };
-
-  function pcCollectState() {
-    const out = {};
-    for (const k of PC_SYNCED_KEYS) {
-      const v = localStorage.getItem(k);
-      if (v == null) continue;
-      try {
-        let val = JSON.parse(v);
-        if (k === 'po_coach_photos' && Array.isArray(val)) {
-          val = val
-            .filter((p) => p && p.url)
-            .map((p) => ({ id: p.id, url: p.url, dateKey: p.dateKey, weight: p.weight }));
-        }
-        out[k] = val;
-      } catch {}
-    }
-    return out;
-  }
-
-  function pcIsUserEditing() {
-    const ae = document.activeElement;
-    if (!ae) return false;
-    const tag = ae.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
-    if (ae.getAttribute && ae.getAttribute('contenteditable') === 'true') return true;
-    return false;
-  }
-
-  function pcRerender() {
-    // Reload every closure variable that mirrors a synced localStorage
-    // key — otherwise wtRender/photosRender would read stale in-memory
-    // copies from before the remote pull.
-    try { state = loadState(); } catch {}
-    try { wtEntries = wtLoad(); } catch {}
-    try { stepsData = stepsLoad(); } catch {}
-    try {
-      const raw = localStorage.getItem(PHOTO_KEY);
-      photos = raw ? JSON.parse(raw) : [];
-    } catch { photos = []; }
-    try { wtRender(); } catch {}
-    try { stepsRender(); } catch {}
-    try { photosRender(); } catch {}
-  }
-
-  function pcApplyRemoteState(remote) {
-    if (!remote || typeof remote !== 'object') return false;
-    pcSuppressSync = true;
-    let changed = false;
-    try {
-      for (const k of PC_SYNCED_KEYS) {
-        if (k === 'po_coach_photos') {
-          // Merge: keep local dataUrl-only photos (not yet uploaded) +
-          // overlay the remote URL-based set.
-          let localPhotos = [];
-          try { localPhotos = JSON.parse(localStorage.getItem(k) || '[]'); } catch {}
-          const remotePhotos = Array.isArray(remote[k]) ? remote[k] : [];
-          const remoteIds = new Set(remotePhotos.map((p) => p && p.id));
-          const localOnly = localPhotos.filter((p) => p && !p.url && !remoteIds.has(p.id));
-          const merged = [...remotePhotos, ...localOnly];
-          const incoming = JSON.stringify(merged);
-          if (localStorage.getItem(k) !== incoming) {
-            try { _pcOrigSet(k, incoming); changed = true; } catch {}
-          }
-          continue;
-        }
-        if (k in remote) {
-          const incoming = JSON.stringify(remote[k]);
-          const local = localStorage.getItem(k);
-          if (local !== incoming) { try { _pcOrigSet(k, incoming); changed = true; } catch {} }
-        } else if (localStorage.getItem(k) != null) {
-          try { _pcOrigRemove(k); changed = true; } catch {}
-        }
-      }
-    } finally {
-      pcSuppressSync = false;
-    }
-    if (changed) { try { pcRerender(); } catch (e) {} }
-    return changed;
-  }
-
-  function pcMaybeApplyRemote(remote) {
-    if (pcIsUserEditing()) { pcPendingRemote = remote; return; }
-    pcApplyRemoteState(remote);
-  }
-
-  function pcApplyPendingIfReady() {
-    if (pcPendingRemote && !pcIsUserEditing()) {
-      const r = pcPendingRemote;
-      pcPendingRemote = null;
-      pcApplyRemoteState(r);
-    }
-  }
-
-  async function pcPushNow() {
-    if (!pcSupa) return;
-    const state = pcCollectState();
-    const json = JSON.stringify(state);
-    if (json === pcLastSyncedJson) return;
-    try {
-      const { error } = await pcSupa
-        .from('app_state')
-        .upsert(
-          { key: APP_KEY, data: state, updated_at: new Date().toISOString() },
-          { onConflict: 'key' }
-        );
-      if (!error) {
-        pcLastSyncedJson = json;
-        try { window.DashSyncStatus && window.DashSyncStatus.report('po-coach', true); } catch (e) {}
-      } else {
-        try { window.DashSyncStatus && window.DashSyncStatus.report('po-coach', false); } catch (e) {}
-      }
-    } catch (_) {
-      try { window.DashSyncStatus && window.DashSyncStatus.report('po-coach', false); } catch (e2) {}
-    }
-  }
-
-  function pcSchedulePush() {
-    if (pcSuppressSync) return;
-    clearTimeout(pcPushTimer);
-    pcPushTimer = setTimeout(pcPushNow, 250);
-  }
-
-  // Backup push on unload via fetch keepalive so a fast refresh
-  // doesn't lose the latest change before the debounced push fires.
-  function pcFlushPushOnUnload() {
-    if (!pcSupa) return;
-    const state = pcCollectState();
-    const json = JSON.stringify(state);
-    if (json === pcLastSyncedJson) return;
-    try {
-      fetch(SUPABASE_URL + '/rest/v1/app_state?on_conflict=key', {
-        method: 'POST',
-        headers: {
-          'apikey': SUPABASE_KEY,
-          'Authorization': 'Bearer ' + SUPABASE_KEY,
-          'Content-Type': 'application/json',
-          'Prefer': 'resolution=merge-duplicates',
-        },
-        body: JSON.stringify({ key: APP_KEY, data: state, updated_at: new Date().toISOString() }),
-        keepalive: true,
-      }).catch(() => {});
-      pcLastSyncedJson = json;
-    } catch (_) {}
-  }
-
-  // Initial sync: connect Supabase, pull current state, subscribe to
-  // realtime updates so other devices' changes appear instantly.
-  (async function pcInitCloudSync() {
-    if (!window.supabase || !SUPABASE_URL || !SUPABASE_KEY) return;
-    // Skip if the placeholder values are still in place (local-only mode)
-    if (SUPABASE_URL.indexOf('PASTE-') === 0 || SUPABASE_KEY.indexOf('PASTE-') === 0) return;
-    // persistSession/autoRefreshToken:false — this client only ever does
-    // anon-role CRUD (no .auth. calls anywhere in this file). Left at
-    // their defaults, every createClient() on the page shares one
-    // localStorage-persisted session with whichever page the user last
-    // logged into (nutrition.html/login.html); multiple independent
-    // clients here (pcSupa/whSupa/gpSupa) each auto-refreshing that same
-    // rotating session caused intermittent 401s across every table,
-    // confirmed via Supabase API/Auth logs (simultaneous 401 bursts +
-    // concurrent token_refreshed/token_revoked events).
-    pcSupa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
-    try {
-      const { data, error } = await pcSupa
-        .from('app_state').select('data').eq('key', APP_KEY).maybeSingle();
-      if (!error && data && data.data && Object.keys(data.data).length > 0) {
-        pcLastSyncedJson = JSON.stringify(data.data);
-        pcMaybeApplyRemote(data.data);
-      } else if (Object.keys(pcCollectState()).length > 0) {
-        pcSchedulePush();
-      }
-    } catch (_) {}
-    pcSupa.channel('app_state_' + APP_KEY)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'app_state',
-        filter: 'key=eq.' + APP_KEY,
-      }, (payload) => {
-        if (!payload.new || !payload.new.data) return;
-        const incoming = JSON.stringify(payload.new.data);
-        if (incoming === pcLastSyncedJson) return; // echo of our own push
-        pcLastSyncedJson = incoming;
-        pcMaybeApplyRemote(payload.new.data);
-      })
-      .subscribe();
-  })();
-
-  // ============================================================
   // ECOSYSTEM INPUTS WARM-UP (cross-device sleep/protein/screen-time)
   // ------------------------------------------------------------
   // gymEcosystem.js's 3 read functions default to THIS device's own
@@ -4223,25 +3025,10 @@ img, video, canvas, svg { max-width: 100%; }
     await Promise.all(workouts.map((w, i) => DataLayer.put(GYM_WORKOUTS_COL, whWorkoutId(w, i), w)));
   }
 
-  document.addEventListener('focusout', () => {
-    setTimeout(pcApplyPendingIfReady, 0);
-  }, true);
-  window.addEventListener('pagehide', pcFlushPushOnUnload);
-  window.addEventListener('beforeunload', pcFlushPushOnUnload);
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) pcFlushPushOnUnload();
-  });
-
-  // Re-draw the SVG-width-dependent charts (weekly frequency, steps,
-  // weight) when the viewport actually changes size — same debounce-then-
-  // redraw idea as health.html's sleep chart ResizeObserver, but window-
-  // level here since these charts scale with the viewport, not an
-  // independently-resizable container.
   let chartResizeTimer = null;
   function redrawWidthDependentCharts() {
     clearTimeout(chartResizeTimer);
     chartResizeTimer = setTimeout(function () {
-      whRenderFrequency();
       stepsRenderChart();
       wtRenderChart();
     }, 150);
@@ -4353,35 +3140,6 @@ img, video, canvas, svg { max-width: 100%; }
       stepsRender();
     });
     stepsRender();
-
-    // ---- Progress photos ----
-    // Only URL-pointer entries ever reach gym_progress_photos (same
-    // restriction the old PC_SYNCED_KEYS/pcCollectState engine enforced)
-    // — a local-only dataUrl entry (upload still in flight, or failed)
-    // is never in DataLayer's set, so every merge below keeps it
-    // alongside whatever DataLayer has, same reasoning as the old
-    // pcApplyRemoteState photo merge this replaces.
-    function rowsToPhotos(rows) {
-      return rows.map((r) => ({ id: r.id, url: r.url, dateKey: r.dateKey, weight: r.weight }))
-        .sort((a, b) => (b.dateKey || '').localeCompare(a.dateKey || ''));
-    }
-    function mergeLocalOnlyPhotos(remoteRows) {
-      const remoteIds = new Set(remoteRows.map((r) => r.id));
-      const localOnly = photos.filter((p) => p && !p.url && !remoteIds.has(p.id));
-      return rowsToPhotos(remoteRows).concat(localOnly);
-    }
-    const photoRows = await DataLayer.list('gym_progress_photos');
-    if (photoRows.length) {
-      photos = mergeLocalOnlyPhotos(photoRows);
-      photosSave();
-      photosRender();
-    }
-    DataLayer.setLegacyMirror('gym_progress_photos', PHOTO_KEY, mergeLocalOnlyPhotos);
-    DataLayer.subscribe('gym_progress_photos', async () => {
-      photos = mergeLocalOnlyPhotos(await DataLayer.list('gym_progress_photos'));
-      photosSave();
-      photosRender();
-    });
 
     dlReady = true;
   });

@@ -6,9 +6,6 @@
 //
 // `discard`: exercise names with no usable data (reps=0/weight=0) —
 // excluded entirely from import and manual entry.
-// `exercises[name].primaryMuscle === null` (with isMobility:true) marks a
-// mobility/stretch exercise — extracted from strength stats, not a "no
-// muscle assigned" case (that's only for names absent from this map).
 (function () {
   window.EXERCISE_MUSCLE_SEED = {
     discard: ['Run', 'Stationary Bike Run'],
@@ -38,7 +35,7 @@
       'Hack Calf Raise': { primaryMuscle: 'Gemelos', secondaryMuscles: [] },
       'Hammer Curl': { primaryMuscle: 'Bíceps', secondaryMuscles: ['Antebrazos'] },
       'Kettlebell Russian Twist': { primaryMuscle: 'Abdominales/Core', secondaryMuscles: [] },
-      'Kneeling Hip Flexor Stretch': { primaryMuscle: null, secondaryMuscles: [], isMobility: true },
+      'Kneeling Hip Flexor Stretch': { primaryMuscle: null, secondaryMuscles: [] },
       'Landmine 180': { primaryMuscle: 'Abdominales/Core', secondaryMuscles: ['Hombros'] },
       'Lateral Raise': { primaryMuscle: 'Hombros', secondaryMuscles: [] },
       'Leg Raise Dragon Flag': { primaryMuscle: 'Abdominales/Core', secondaryMuscles: [] },
@@ -51,19 +48,19 @@
       'Lying Neck Flexion': { primaryMuscle: 'Cuello', secondaryMuscles: [] },
       'Medicine Ball Rotary Throw': { primaryMuscle: 'Abdominales/Core', secondaryMuscles: [] },
       'Neck Bridge Prone': { primaryMuscle: 'Cuello', secondaryMuscles: [] },
-      'Neck Extensor And Rotational Stretch': { primaryMuscle: null, secondaryMuscles: [], isMobility: true },
+      'Neck Extensor And Rotational Stretch': { primaryMuscle: null, secondaryMuscles: [] },
       'Rear Fly': { primaryMuscle: 'Hombros', secondaryMuscles: ['Espalda alta'] },
       'Reverse Curl': { primaryMuscle: 'Antebrazos', secondaryMuscles: ['Bíceps'] },
       'Rowing': { primaryMuscle: 'Espalda alta', secondaryMuscles: ['Bíceps'] },
-      'Seated Single Leg Hamstring Stretch': { primaryMuscle: null, secondaryMuscles: [], isMobility: true },
+      'Seated Single Leg Hamstring Stretch': { primaryMuscle: null, secondaryMuscles: [] },
       'Shrug': { primaryMuscle: 'Espalda alta', secondaryMuscles: ['Cuello'] },
-      'Sitting Rotational Hip Stretch': { primaryMuscle: null, secondaryMuscles: [], isMobility: true },
+      'Sitting Rotational Hip Stretch': { primaryMuscle: null, secondaryMuscles: [] },
       'Sled Hack Squat': { primaryMuscle: 'Cuádriceps', secondaryMuscles: ['Glúteos'] },
       'Smith Calf Raise': { primaryMuscle: 'Gemelos', secondaryMuscles: [] },
       'Smith Incline Bench Press': { primaryMuscle: 'Pecho', secondaryMuscles: ['Hombros', 'Tríceps'] },
       'Smith Shrug': { primaryMuscle: 'Espalda alta', secondaryMuscles: ['Cuello'] },
-      'Standing Bent Knee Hip Adductor Stretch': { primaryMuscle: null, secondaryMuscles: [], isMobility: true },
-      'Standing Reach Down Hamstring Stretch': { primaryMuscle: null, secondaryMuscles: [], isMobility: true },
+      'Standing Bent Knee Hip Adductor Stretch': { primaryMuscle: null, secondaryMuscles: [] },
+      'Standing Reach Down Hamstring Stretch': { primaryMuscle: null, secondaryMuscles: [] },
       'Straight Leg Deadlift': { primaryMuscle: 'Isquiotibiales', secondaryMuscles: ['Glúteos', 'Espalda baja'] },
       'Triceps Dip': { primaryMuscle: 'Tríceps', secondaryMuscles: ['Pecho'] },
       'Triceps Pushdown': { primaryMuscle: 'Tríceps', secondaryMuscles: [] },

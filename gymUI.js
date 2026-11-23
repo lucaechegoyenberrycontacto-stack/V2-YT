@@ -441,11 +441,6 @@
   // ============================================================
   let editingExerciseName = null;
 
-  function toggleMuscleFieldsForMobility(isMobility) {
-    const fields = $('trExMuscleFields');
-    if (fields) fields.classList.toggle('hidden', isMobility);
-  }
-
   function renderExerciseLibraryList() {
     const wrap = $('trExerciseLibraryList');
     if (!wrap) return;
@@ -457,8 +452,7 @@
     wrap.innerHTML = names.map(function (name) {
       const info = window.GymPesasStore.getExerciseInfo(name);
       let tag;
-      if (info.isMobility) tag = '<span style="color:var(--text-3);font-size:11px;">· Movilidad</span>';
-      else if (!info.isAssigned) tag = '<span style="color:var(--bad);font-size:11px;">· Sin músculo asignado</span>';
+      if (!info.isAssigned) tag = '<span style="color:var(--bad);font-size:11px;">· Sin músculo asignado</span>';
       else tag = '<span style="color:var(--text-3);font-size:11px;">· ' + escapeHtml(info.primaryMuscle) + '</span>';
       return '<div class="po-set-row" data-name="' + escapeHtml(name) + '">'
         + '<span style="flex:1;min-width:0;font-size:13px;color:var(--text-1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'
@@ -504,16 +498,11 @@
       chip.addEventListener('click', function () { chip.classList.toggle('active'); });
     });
 
-    const isMobilityBox = $('trExIsMobility');
-    isMobilityBox.checked = !!(info && info.isMobility);
-    toggleMuscleFieldsForMobility(isMobilityBox.checked);
-
     $('trExerciseEditModalBg').classList.add('show');
   }
   function closeExerciseEditModal() { $('trExerciseEditModalBg').classList.remove('show'); }
 
   function saveExerciseEdit() {
-    const isMobility = $('trExIsMobility').checked;
     let name;
     if (editingExerciseName) {
       name = editingExerciseName;
@@ -521,12 +510,12 @@
       name = $('trExName').value.trim();
       if (!name) { $('trExerciseEditStatus').textContent = 'Poné un nombre.'; return; }
     }
-    const primaryMuscle = isMobility ? null : $('trExPrimaryMuscle').value;
-    const secondaryMuscles = isMobility ? [] : Array.prototype.slice.call($('trExSecondaryMuscles').querySelectorAll('.tr-chip.active'))
+    const primaryMuscle = $('trExPrimaryMuscle').value;
+    const secondaryMuscles = Array.prototype.slice.call($('trExSecondaryMuscles').querySelectorAll('.tr-chip.active'))
       .map(function (chip) { return chip.dataset.muscle; })
       .filter(function (m) { return m !== primaryMuscle; });
 
-    window.GymPesasStore.setExerciseOverride(name, { primaryMuscle: primaryMuscle, secondaryMuscles: secondaryMuscles, isMobility: isMobility });
+    window.GymPesasStore.setExerciseOverride(name, { primaryMuscle: primaryMuscle, secondaryMuscles: secondaryMuscles });
     closeExerciseEditModal();
     renderExerciseLibraryList();
   }
@@ -537,7 +526,6 @@
     $('trExerciseLibraryAddBtn').addEventListener('click', function () { openExerciseEditModal(null); });
     $('trExerciseEditCancel').addEventListener('click', closeExerciseEditModal);
     $('trExerciseEditSave').addEventListener('click', saveExerciseEdit);
-    $('trExIsMobility').addEventListener('change', function (e) { toggleMuscleFieldsForMobility(e.target.checked); });
   }
 
   function refreshExerciseNameDatalist() {
@@ -570,21 +558,14 @@
       return;
     }
     const streak = window.GymDomain.computeTrainingStreak(sessions);
-    const vol = window.GymDomain.computeWeekOverWeek(
-      sessions,
-      function (w) { return (w.exercises || []).reduce(function (s, ex) { return s + (ex.sets || []).reduce(function (s2, set) { return s2 + (set.weight || 0) * (set.reps || 0); }, 0); }, 0); },
-      function (w) { return (w.discipline || 'pesas') === 'pesas'; }
-    );
     const config = (window.GymPesasStore && window.GymPesasStore.getMuscleFatigueConfig) ? window.GymPesasStore.getMuscleFatigueConfig() : window.DEFAULT_MUSCLE_FATIGUE_CONFIG;
     const fatigue = window.computeMuscleFatigue(sessions, config);
     const muscleTeaser = fatigue.isPlaceholder
       ? 'Sin config'
       : (Object.keys(fatigue.muscles).filter(function (m) { return fatigue.muscles[m].score > 30; }).length + ' activos');
-    const deltaLabel = vol.deltaPct == null ? '' : (' · ' + (vol.deltaPct >= 0 ? '+' : '') + Math.round(vol.deltaPct) + '%');
 
     wrap.innerHTML =
       '<div class="tr-home-stat"><div class="tr-home-stat-val">' + streak + '</div><div class="tr-home-stat-label">Racha (días)</div></div>'
-      + '<div class="tr-home-stat"><div class="tr-home-stat-val">' + Math.round(vol.thisWeek) + 'kg</div><div class="tr-home-stat-label">Volumen sem' + escapeHtml(deltaLabel) + '</div></div>'
       + '<div class="tr-home-stat"><div class="tr-home-stat-val">' + escapeHtml(muscleTeaser) + '</div><div class="tr-home-stat-label">Mapa muscular</div></div>';
   }
 
@@ -657,12 +638,7 @@
   }
 
   // ============================================================
-  // PESAS — manual log (replaces the old routine/session/RIR/rest-timer
-  // flow entirely). Just: date + exercises + sets (reps × peso). Every
-  // exercise is routed to workout_history (fuerza/sin asignar) or the
-  // mobility log purely by its classification in GymPesasStore — same
-  // partitionWorkoutExercises() the Lyfta import uses.
-  // ============================================================
+  // Registro manual de pesas.
   let pesasLogRows = [];   // [{rowId, name, sets:[{reps,weight,rir}]}]
   let pesasLogRowSeq = 0;
   let pesasLogDatePicker = null; // lazily created, reset to "Hoy" every time
@@ -819,18 +795,17 @@
     };
 
     const allWorkoutsBefore = window.WH.getAllWorkouts();
-    const partitioned = window.GymPesasStore.partitionWorkoutExercises(date, rawExercises);
+    const exercises = window.GymPesasStore.prepareExercises(rawExercises);
 
-    if (partitioned.mobilityEntries.length) window.GymPesasStore.addMobilityLogEntries(partitioned.mobilityEntries);
 
-    if (partitioned.keptExercises.length) {
+    if (exercises.length) {
       const workout = window.WH.normalizeWorkout({
-        date: date, title: 'Pesas', source: 'manual', discipline: 'pesas', exercises: partitioned.keptExercises, sessionMetrics: sessionMetrics,
+        date: date, title: 'Pesas', source: 'manual', discipline: 'pesas', exercises: exercises, sessionMetrics: sessionMetrics,
       }, 'manual');
       window.WH.appendWorkout(workout);
       window.WH.commit(workout);
 
-      partitioned.keptExercises.forEach(function (ex) {
+      exercises.forEach(function (ex) {
         const vol = ex.sets.reduce(function (s, x) { return s + (x.weight || 0) * (x.reps || 0); }, 0);
         const volResult = window.GymDomain.checkVolumePR(ex.name, vol, allWorkoutsBefore);
         if (volResult.isPR && vol > 0) window.showToast('¡Nuevo PR de volumen! ' + escapeHtml(ex.name), { celebrate: true });
@@ -841,7 +816,6 @@
     }
 
     closePesasLogModal();
-    renderMobilityHistory();
   }
 
   function initPesasLogModal() {
@@ -849,61 +823,6 @@
     $('trPesasLogRepeatBtn').addEventListener('click', pesasLogRepeatLastSession);
     $('trPesasLogCancel').addEventListener('click', closePesasLogModal);
     $('trPesasLogSave').addEventListener('click', savePesasLog);
-  }
-
-  // ============================================================
-  // MOVILIDAD — sub-sección dentro de Pesas (no una 5ta disciplina). Log
-  // rápido (fecha + nombre + reps opcional) + historial. Un ejercicio
-  // logueado acá siempre se marca isMobility:true en el store, para que
-  // cualquier futura carga con ese mismo nombre (import o manual) se siga
-  // clasificando como movilidad.
-  // ============================================================
-  let mobilityDatePicker = null;
-
-  function openMobilityLogModal() {
-    $('trMobilityName').value = '';
-    $('trMobilityReps').value = '';
-    $('trMobilityStatus').textContent = '';
-    if (!mobilityDatePicker) mobilityDatePicker = createDatePicker($('trMobilityDatePicker'));
-    mobilityDatePicker.reset();
-    refreshExerciseNameDatalist();
-    $('trMobilityLogModalBg').classList.add('show');
-  }
-  function closeMobilityLogModal() { $('trMobilityLogModalBg').classList.remove('show'); }
-
-  function saveMobilityLog() {
-    const name = $('trMobilityName').value.trim();
-    if (!name) { $('trMobilityStatus').textContent = 'Poné un nombre.'; return; }
-    if (window.GymPesasStore.isDiscarded(name)) { $('trMobilityStatus').textContent = 'Ese nombre está excluido del sistema.'; return; }
-    const date = mobilityDatePicker ? mobilityDatePicker.getSelectedDateKey() : new Date().toISOString().slice(0, 10);
-    const repsVal = $('trMobilityReps').value;
-    const reps = repsVal === '' ? null : Number(repsVal);
-
-    window.GymPesasStore.ensureExercise(name);
-    window.GymPesasStore.setExerciseOverride(name, { isMobility: true });
-    window.GymPesasStore.addMobilityLogEntry({ date: date, name: name, reps: reps });
-
-    closeMobilityLogModal();
-    renderMobilityHistory();
-  }
-
-  function renderMobilityHistory() {
-    const wrap = $('trMobilityHistoryList');
-    if (!wrap) return;
-    const log = window.GymPesasStore ? window.GymPesasStore.getMobilityLog() : [];
-    if (!log.length) { wrap.innerHTML = '<div class="po-empty">Sin sesiones de movilidad todavía.</div>'; return; }
-    wrap.innerHTML = log.slice(0, 20).map(function (e) {
-      return '<div class="wh-session">'
-        + '<div class="wh-session-head"><span class="wh-session-date">' + escapeHtml(e.date || '') + '</span></div>'
-        + '<div class="wh-session-title">' + escapeHtml(e.name) + (e.reps != null ? ' · ' + e.reps + ' reps' : '') + '</div>'
-        + '</div>';
-    }).join('');
-  }
-
-  function initMobilityLogModal() {
-    $('trMobilityOpenBtn').addEventListener('click', openMobilityLogModal);
-    $('trMobilityCancel').addEventListener('click', closeMobilityLogModal);
-    $('trMobilitySave').addEventListener('click', saveMobilityLog);
   }
 
   // ============================================================
@@ -992,68 +911,6 @@
     $('trCardioSave').addEventListener('click', saveCardio);
   }
 
-  // Measured HR (sessionMetrics.avgHr/maxHr) for a pesas session, or — when
-  // nothing was measured but intensity was logged — an estimateHrRange
-  // fallback tagged "(estimado)". Purely cosmetic display string: this
-  // never feeds computeMuscleFatigue or computeSessionLoad, same rule as
-  // boxeo's HR estimate.
-  function pesasHrLineFor(session) {
-    const m = session && session.sessionMetrics;
-    if (!m) return '';
-    if (m.avgHr != null || m.maxHr != null) {
-      const parts = [];
-      if (m.avgHr != null) parts.push(m.avgHr);
-      if (m.maxHr != null) parts.push('máx ' + m.maxHr);
-      return 'HR: ' + parts.join(' / ') + ' bpm';
-    }
-    if (m.intensity != null && window.GymEcosystem && window.GymEcosystem.estimateHrRange) {
-      const hr = window.GymEcosystem.estimateHrRange(m.intensity);
-      if (hr) return 'HR: ' + hr.low + '–' + hr.high + ' bpm (estimado)';
-    }
-    return '';
-  }
-
-  // ============================================================
-  // ANALYTICS — period-comparison charts.
-  // ============================================================
-  function renderPeriodCharts() {
-    const sessions = (window.WH && window.WH.getAllWorkouts) ? window.WH.getAllWorkouts() : [];
-
-    function showOrEmpty(svgId, emptyId, hasAny) {
-      if (hasAny) { $(svgId).classList.remove('hidden'); $(emptyId).classList.add('hidden'); }
-      else { $(svgId).classList.add('hidden'); $(emptyId).classList.remove('hidden'); }
-    }
-
-    const vol = window.GymDomain.computeWeekOverWeek(
-      sessions,
-      function (w) { return (w.exercises || []).reduce(function (s, ex) { return s + (ex.sets || []).reduce(function (s2, set) { return s2 + (set.weight || 0) * (set.reps || 0); }, 0); }, 0); },
-      function (w) { return (w.discipline || 'pesas') === 'pesas'; }
-    );
-    showOrEmpty('trWeeklyVolSvg', 'trWeeklyVolEmpty', vol.thisWeek > 0 || vol.lastWeek > 0);
-    if (vol.thisWeek > 0 || vol.lastWeek > 0) {
-      // deltaPct only when there's a real last-week baseline to compare
-      // against — computeWeekOverWeek reports a synthetic 100% off a zero
-      // baseline, which would read as a misleading "doubled" claim here.
-      window.renderPeriodComparisonChart('trWeeklyVolSvg', { thisPeriod: vol.thisWeek, lastPeriod: vol.lastWeek, unit: 'kg', deltaPct: vol.lastWeek > 0 ? vol.deltaPct : null });
-    }
-    const hrLineEl = $('trPesasLastHr');
-    if (hrLineEl) {
-      const lastPesas = sessions.find(function (w) { return (w.discipline || 'pesas') === 'pesas'; });
-      hrLineEl.textContent = pesasHrLineFor(lastPesas);
-    }
-
-    const cardioMin = window.GymDomain.computeWeekOverWeek(
-      sessions,
-      function (w) { return w.cardio ? (w.cardio.duration || 0) : 0; },
-      function (w) { return !!w.cardio; }
-    );
-    showOrEmpty('trCardioMinSvg', 'trCardioMinEmpty', cardioMin.thisWeek > 0 || cardioMin.lastWeek > 0);
-    if (cardioMin.thisWeek > 0 || cardioMin.lastWeek > 0) {
-      window.renderPeriodComparisonChart('trCardioMinSvg', { thisPeriod: cardioMin.thisWeek, lastPeriod: cardioMin.lastWeek, unit: 'min', deltaPct: cardioMin.lastWeek > 0 ? cardioMin.deltaPct : null });
-    }
-
-  }
-
   function initMuscleDetailModal() {
     $('trMuscleDetailClose').addEventListener('click', function () { $('trMuscleDetailModalBg').classList.remove('show'); });
   }
@@ -1063,41 +920,23 @@
       renderTrCards();
       renderTrHomeStats();
       renderMuscleMap();
-      renderPeriodCharts();
     });
     renderMuscleMapAfterWarmUp();
     initExerciseLibraryModals();
     initPesasLogModal();
-    initMobilityLogModal();
     initCardioModal();
     initMuscleDetailModal();
     renderTrCards();
     renderTrHomeStats();
-    renderPeriodCharts();
-    renderMobilityHistory();
     // Any remote gym_pesas_store pull/realtime update should refresh
     // anything derived from it (fatigue config may flip isPlaceholder,
     // mobility log may have new entries from another device).
-    window.gpsOnChange = function () { renderMuscleMap(); renderTrHomeStats(); renderMobilityHistory(); };
+    window.gpsOnChange = function () { renderMuscleMap(); renderTrHomeStats(); };
     // Surfaces GymPesasStore's sync outcome (ok/pending/error) via the
     // discreet note appended inside renderMuscleMap() — see
     // appendSyncNoteIfError() above.
     window.gpsOnSyncStatusChange = function () { renderMuscleMap(); };
 
-    // Re-draw the period-comparison charts (weekly volume, cardio minutes,
-    // distance, Boxeo/Muay Thai load ring + trend) when the viewport
-    // actually changes size — their SVG viewBox width is sized off the real
-    // rendered width (see gymCharts.js), so it goes stale on resize/rotation
-    // without this. Same debounce-then-redraw idea as health.html's sleep
-    // chart ResizeObserver, but window-level since these scale with the
-    // viewport, not an independently-resizable container.
-    let periodChartResizeTimer = null;
-    function redrawPeriodCharts() {
-      clearTimeout(periodChartResizeTimer);
-      periodChartResizeTimer = setTimeout(renderPeriodCharts, 150);
-    }
-    window.addEventListener('resize', redrawPeriodCharts);
-    window.addEventListener('orientationchange', redrawPeriodCharts);
   }
 
   if (document.readyState === 'loading') {

@@ -1,15 +1,3 @@
-// Data store for the Pesas section of the training module (gym.html):
-// exercise->muscle overrides (on top of gymExerciseMuscleSeed.js), the
-// muscle-fatigue config, and the mobility log. Replaces the old gymData.js
-// (routines/versioned exercise library, discarded — see project spec).
-// Backed by its own debounced Supabase sync channel (same pattern as the
-// old gymData.js / workout_history), table `gym_pesas_store` — a separate
-// concern from workout_history, which only holds the per-session log.
-//
-// Must load BEFORE the inline <script> in gym.html that runs the Lyfta
-// import filter (partitionWorkoutExercises), so it's placed in the <head>
-// script cluster alongside gymMuscleEnum.js/gymMuscleFatigue.js — unlike
-// gymData.js, which only needed to exist before gymUI.js at the bottom.
 (function () {
   const GP_LS_KEY = 'po_coach_pesas_store_v1';
   const GP_TABLE = 'gym_pesas_store';
@@ -17,7 +5,6 @@
   const SUPABASE_URL = (typeof window !== 'undefined' && window.DASH_SUPABASE_URL) || 'https://bkkjtxvneldsqwyhrhub.supabase.co';
   const SUPABASE_KEY = (typeof window !== 'undefined' && window.DASH_SUPABASE_KEY) || 'sb_publishable_G8LqREPRDk0_tMEJNSFBxA_mIXNAnmT';
 
-  function gpUid(prefix) { return prefix + '_' + Date.now() + '_' + Math.floor(Math.random() * 9999); }
 
   function seedExercises() { return (window.EXERCISE_MUSCLE_SEED && window.EXERCISE_MUSCLE_SEED.exercises) || {}; }
   function seedDiscard() { return (window.EXERCISE_MUSCLE_SEED && window.EXERCISE_MUSCLE_SEED.discard) || []; }
@@ -29,7 +16,7 @@
     return JSON.parse(JSON.stringify(window.DEFAULT_MUSCLE_FATIGUE_CONFIG || { isPlaceholder: true, muscles: {}, cardioMuscleMap: {} }));
   }
   function gpDefault() {
-    return { exerciseOverrides: {}, muscleFatigueConfig: gpDefaultFatigueConfig(), mobilityLog: [] };
+    return { exerciseOverrides: {}, muscleFatigueConfig: gpDefaultFatigueConfig() };
   }
 
   function gpNormalizeOverride(name, o) {
@@ -38,16 +25,6 @@
     return {
       primaryMuscle: o.primaryMuscle !== undefined ? o.primaryMuscle : (seed.primaryMuscle != null ? seed.primaryMuscle : null),
       secondaryMuscles: Array.isArray(o.secondaryMuscles) ? o.secondaryMuscles.slice() : (Array.isArray(seed.secondaryMuscles) ? seed.secondaryMuscles.slice() : []),
-      isMobility: o.isMobility !== undefined ? !!o.isMobility : !!seed.isMobility,
-    };
-  }
-  function gpNormalizeMobilityEntry(e) {
-    e = e || {};
-    return {
-      id: e.id || gpUid('mob'),
-      date: e.date || new Date().toISOString().slice(0, 10),
-      name: e.name || '',
-      reps: (e.reps != null && e.reps !== '') ? Number(e.reps) : null,
     };
   }
   function gpNormalize(raw) {
@@ -70,7 +47,8 @@
       muscleFatigueConfig: (raw.muscleFatigueConfig && typeof raw.muscleFatigueConfig === 'object' && raw.muscleFatigueConfig.isPlaceholder === false)
         ? raw.muscleFatigueConfig
         : gpDefaultFatigueConfig(),
-      mobilityLog: Array.isArray(raw.mobilityLog) ? raw.mobilityLog.map(gpNormalizeMobilityEntry) : [],
+      // Preserve archived entries when updating an existing settings snapshot.
+      ...(Array.isArray(raw.mobilityLog) ? { mobilityLog: raw.mobilityLog } : {}),
     };
   }
 
@@ -124,7 +102,7 @@
       try { window.DashSyncStatus && window.DashSyncStatus.report('gym_pesas_store', true); } catch (e) {}
     } catch (e) {
       console.warn('[GymPesasStore] push failed — change saved locally only', e);
-      gpSetSyncStatus('error', 'No se pudo sincronizar con la nube — los cambios de músculo, fatiga y movilidad se guardaron solo en este dispositivo.');
+      gpSetSyncStatus('error', 'No se pudo sincronizar con la nube — los cambios de músculos y fatiga se guardaron solo en este dispositivo.');
       try { window.DashSyncStatus && window.DashSyncStatus.report('gym_pesas_store', false); } catch (e2) {}
     }
   }
@@ -181,7 +159,7 @@
         gpSaveLocal();
         gpSetSyncStatus('ok');
         if (typeof window.gpsOnChange === 'function') { try { window.gpsOnChange(gpData); } catch (e) {} }
-      } else if (Object.keys(gpData.exerciseOverrides).length || gpData.mobilityLog.length) {
+      } else if (Object.keys(gpData.exerciseOverrides).length) {
         gpPushNow();
       }
     } catch (e) {
@@ -218,14 +196,13 @@
     const seed = seedEntry(name);
     const override = gpData.exerciseOverrides[name];
     if (!seed && !override) {
-      return { primaryMuscle: null, secondaryMuscles: [], isMobility: false, isAssigned: false, inMap: false };
+      return { primaryMuscle: null, secondaryMuscles: [], isAssigned: false, inMap: false };
     }
     const base = Object.assign({ primaryMuscle: null, secondaryMuscles: [] }, seed || {}, override || {});
     return {
       primaryMuscle: base.primaryMuscle != null ? base.primaryMuscle : null,
       secondaryMuscles: Array.isArray(base.secondaryMuscles) ? base.secondaryMuscles.slice() : [],
-      isMobility: !!base.isMobility,
-      isAssigned: base.primaryMuscle != null || !!base.isMobility,
+      isAssigned: base.primaryMuscle != null,
       inMap: true,
     };
   }
@@ -237,7 +214,7 @@
     if (!name) return;
     if (seedEntry(name)) return;
     if (gpData.exerciseOverrides[name]) return;
-    gpData.exerciseOverrides[name] = { primaryMuscle: null, secondaryMuscles: [], isMobility: false };
+    gpData.exerciseOverrides[name] = { primaryMuscle: null, secondaryMuscles: [] };
     gpCommit();
   }
 
@@ -263,14 +240,8 @@
       .filter(function (info) { return info.primaryMuscle === muscle || info.secondaryMuscles.indexOf(muscle) !== -1; });
   }
 
-  // ---- The one place discard/mobility filtering happens — used by both
-  // the Lyfta import handler and the manual Pesas/Movilidad log flow. ----
-  // @param {string} date  "YYYY-MM-DD"
-  // @param {Array<{name, sets:[{reps,weight}]}>} rawExercises
-  // @returns {{ keptExercises: Array, mobilityEntries: Array }}
-  function partitionWorkoutExercises(date, rawExercises) {
+  function prepareExercises(rawExercises) {
     const keptExercises = [];
-    const mobilityEntries = [];
     (rawExercises || []).forEach(function (raw) {
       const name = (raw && raw.name || '').trim();
       const sets = (raw && Array.isArray(raw.sets)) ? raw.sets : [];
@@ -278,20 +249,14 @@
       if (isDiscarded(name)) return;
       ensureExercise(name);
       const info = getExerciseInfo(name);
-      if (info.isMobility) {
-        sets.forEach(function (s) {
-          mobilityEntries.push({ date: date, name: name, reps: (s && s.reps != null) ? s.reps : null });
-        });
-      } else {
         keptExercises.push({
           name: name,
           primaryMuscle: info.primaryMuscle,
           secondaryMuscles: info.secondaryMuscles,
           sets: sets.slice(),
         });
-      }
     });
-    return { keptExercises: keptExercises, mobilityEntries: mobilityEntries };
+    return keptExercises;
   }
 
   // ---- Muscle fatigue config ----
@@ -300,28 +265,6 @@
     gpCommit();
   }
   function getMuscleFatigueConfig() { return gpData.muscleFatigueConfig; }
-
-  // ---- Mobility log ----
-  function addMobilityLogEntry(entry) {
-    const e = gpNormalizeMobilityEntry(entry);
-    gpData.mobilityLog.push(e);
-    gpCommit();
-    return e;
-  }
-  function addMobilityLogEntries(entries) {
-    if (!entries || !entries.length) return [];
-    const added = entries.map(gpNormalizeMobilityEntry);
-    gpData.mobilityLog = gpData.mobilityLog.concat(added);
-    gpCommit();
-    return added;
-  }
-  function getMobilityLog() {
-    return gpData.mobilityLog.slice().sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
-  }
-  function deleteMobilityLogEntry(id) {
-    gpData.mobilityLog = gpData.mobilityLog.filter(function (e) { return e.id !== id; });
-    gpCommit();
-  }
 
   // ---- Bulk export/import (Settings → Data), for users running fully
   // local/offline without Supabase configured. ----
@@ -345,13 +288,9 @@
     setExerciseOverride: setExerciseOverride,
     getAllKnownNames: getAllKnownNames,
     getExercisesByMuscle: getExercisesByMuscle,
-    partitionWorkoutExercises: partitionWorkoutExercises,
+    prepareExercises: prepareExercises,
     getMuscleFatigueConfig: getMuscleFatigueConfig,
     setMuscleFatigueConfig: setMuscleFatigueConfig,
-    addMobilityLogEntry: addMobilityLogEntry,
-    addMobilityLogEntries: addMobilityLogEntries,
-    getMobilityLog: getMobilityLog,
-    deleteMobilityLogEntry: deleteMobilityLogEntry,
     exportSnapshot: exportSnapshot,
     importSnapshot: importSnapshot,
     resetAll: resetAll,
