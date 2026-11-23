@@ -304,17 +304,6 @@ img, video, canvas, svg { max-width: 100%; }
   background-color: #16161A;
   color: var(--text-primary);
 }
-/* #trProgressionExSelect (gymUI.js renderExerciseProgression — the actual
-   live "choose exercise to see its progress" picker; .po-ex-select above is
-   dead CSS per UI_AUDIT.md, no HTML/JS ever applies that class) has the
-   same dark-closed/unstyled-popup problem, styled inline rather than via a
-   class — targeted by id here since that id is stable in the JS template. */
-#trProgressionExSelect { color-scheme: dark; }
-#trProgressionExSelect option,
-#trProgressionExSelect optgroup {
-  background-color: #16161A;
-  color: var(--text-primary);
-}
 .po-ex-select:focus {
   outline: none; border-color: rgba(255,255,255,0.40);
   box-shadow: 0 0 0 3px rgba(255,255,255,0.06);
@@ -1450,23 +1439,6 @@ img, video, canvas, svg { max-width: 100%; }
   white-space: nowrap; box-shadow: 0 6px 18px rgba(0,0,0,0.45); z-index: 5;
 }
 
-/* ----- Progression chart (gymUI.js drawProgressionSvg) -----
-   Replaces the old min/max-normalized zigzag ("ECG spike" look) with a
-   proper axis+grid+area-fill line chart, one point per SESSION (not per
-   set — see aggregateSessionsForChart in gymUI.js). */
-.tr-progression-select {
-  width: 100%; margin-bottom: 10px; padding: 10px 12px;
-  border: 1px solid var(--border); border-radius: 10px;
-  background: rgba(0,0,0,0.28); color: var(--text-primary);
-  font-family: inherit; font-size: 13px;
-}
-.cht-line { fill: none; stroke: var(--good); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
-.cht-area { fill: url(#trProgressionAreaGradient); }
-.cht-dot { fill: var(--good); stroke: var(--bg-card); stroke-width: 1.5; cursor: pointer; transition: r 0.15s; }
-.cht-dot-hit { fill: rgba(0,0,0,0.001); pointer-events: all; cursor: pointer; }
-.cht-dot-hit:hover + .cht-dot, .cht-dot:hover { r: 5; }
-.cht-point-label { font-size: 10px; font-weight: 700; fill: var(--text-secondary); font-family: var(--font-mono); }
-
 /* One-tap effort/difficulty selector (RIR/Fallo, Boxeo-MuayThai
    difficulty) — same visual language as .po-seg-btn but sized as
    individually-clickable pills instead of a single connected track,
@@ -2086,12 +2058,6 @@ img, video, canvas, svg { max-width: 100%; }
         <div id="trMobilityHistoryList"></div>
       </div>
 
-      <!-- Per-exercise PR progression -->
-      <div class="wh-block">
-        <div class="wh-block-title">Progresión por ejercicio</div>
-        <div id="trExerciseProgressionWrap"></div>
-      </div>
-
       </div>
     </div>
 
@@ -2651,8 +2617,7 @@ img, video, canvas, svg { max-width: 100%; }
     }
 
     // Thin out X-axis date labels rather than let them collide at narrow
-    // widths — same "estimate label width vs. available slot" technique
-    // used for the progression chart's date labels (gymUI.js). Always
+    // widths. Always
     // keeps the first and last (current week, already bar-highlighted).
     const labels = data.map(d => d.weekStart ? (WH_MONTHS_SHORT[d.weekStart.getMonth()] + ' ' + d.weekStart.getDate()) : '');
     const CHAR_W = 6.6; // calibrated in gymCharts.js's truncateLabel comment
@@ -2719,7 +2684,6 @@ img, video, canvas, svg { max-width: 100%; }
     computePRs: whComputePRs,
     computeWeeklyFrequency: whComputeWeeklyFrequency,
     getAllWorkouts: whSortedWorkouts,
-    getPesasSetsGroupedByExercise: whGetPesasSetsGroupedByExercise,
   };
 
   // ============================================================

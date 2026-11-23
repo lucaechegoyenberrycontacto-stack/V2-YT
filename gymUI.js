@@ -1014,8 +1014,7 @@
   }
 
   // ============================================================
-  // ANALYTICS — period-comparison charts (one component, 3 instances) +
-  // per-exercise PR progression. Untouched by the Pesas rework.
+  // ANALYTICS — period-comparison charts.
   // ============================================================
   function renderPeriodCharts() {
     const sessions = (window.WH && window.WH.getAllWorkouts) ? window.WH.getAllWorkouts() : [];
@@ -1108,180 +1107,6 @@
     }
   }
 
-  const PROGRESSION_MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-  // whGetPesasSetsGroupedByExercise (window.WH) returns one entry per SET
-  // (every set of every session), not per session — charting each of those
-  // individually is what produced the old "ECG spike" zigzag. One point per
-  // session (its top set that day) is the actual progression signal; this
-  // is a display-only reduction, WH's own data/shape is untouched.
-  function aggregateSessionsForChart(sets) {
-    const byDate = {};
-    (sets || []).forEach(function (s) {
-      if (byDate[s.date] == null || s.weight > byDate[s.date]) byDate[s.date] = s.weight;
-    });
-    return Object.keys(byDate).sort().map(function (d) { return { date: d, weight: byDate[d] }; });
-  }
-  function fmtProgressionDate(dstr) {
-    const parts = (dstr || '').split('-').map(Number);
-    const d = new Date(parts[0], (parts[1] || 1) - 1, parts[2] || 1);
-    return PROGRESSION_MONTHS_SHORT[d.getMonth()] + ' ' + d.getDate();
-  }
-
-  function hideProgressionTooltip() {
-    const t = $('trProgressionTooltip');
-    if (t) t.style.display = 'none';
-  }
-  function showProgressionTooltip(el) {
-    const tip = $('trProgressionTooltip'), wrap = $('trProgressionChartWrap');
-    if (!tip || !wrap) return;
-    tip.textContent = el.getAttribute('data-weight') + 'kg · ' + el.getAttribute('data-date');
-    tip.style.display = 'block';
-    const wrapRect = wrap.getBoundingClientRect(), elRect = el.getBoundingClientRect();
-    tip.style.left = (elRect.left + elRect.width / 2 - wrapRect.left) + 'px';
-    tip.style.top = (elRect.top - wrapRect.top) + 'px';
-  }
-  document.addEventListener('click', function (e) {
-    if (!e.target.closest('.cht-dot, .cht-dot-hit')) hideProgressionTooltip();
-  });
-
-  // Redesigned progression chart: matched-width viewBox (no distortion),
-  // 0-based Y axis with the same nice-step rounding used elsewhere in this
-  // module (real variation reads as real variation, not exaggerated by a
-  // min/max-of-the-series axis), gridlines, a dot per session with a hover
-  // tooltip, discrete labels on the first/last/max points, and a subtle
-  // area fill under the line.
-  function drawProgressionSvg(rawSets) {
-    const svg = $('trProgressionSvg');
-    const emptyEl = $('trProgressionEmpty');
-    if (!svg || !emptyEl) return;
-
-    const points = aggregateSessionsForChart(rawSets);
-    if (points.length < 2) {
-      svg.classList.add('hidden');
-      emptyEl.classList.remove('hidden');
-      hideProgressionTooltip();
-      return;
-    }
-    emptyEl.classList.add('hidden');
-    svg.classList.remove('hidden');
-
-    const n = points.length;
-    const W = svg.getBoundingClientRect().width || 700, H = 220;
-    const padLeft = 40, padRight = 14, padTop = 32, padBottom = 30;
-    const plotW = W - padLeft - padRight, plotH = H - padTop - padBottom;
-    const baseY = padTop + plotH;
-
-    const weights = points.map(function (p) { return p.weight; });
-    const rawMax = Math.max.apply(null, weights.concat([1]));
-    const step = rawMax <= 4 ? 1 : Math.ceil(rawMax / 4);
-    const niceMax = Math.ceil(rawMax / step) * step;
-
-    const xAt = function (i) { return padLeft + (n === 1 ? 0 : plotW * (i / (n - 1))); };
-    const yAt = function (v) { return baseY - plotH * (Math.min(v, niceMax) / niceMax); };
-
-    let html = '<defs><linearGradient id="trProgressionAreaGradient" x1="0" y1="0" x2="0" y2="1">'
-      + '<stop offset="0%" stop-color="var(--good)" stop-opacity="0.28"></stop>'
-      + '<stop offset="100%" stop-color="var(--good)" stop-opacity="0"></stop>'
-      + '</linearGradient></defs>';
-
-    // Grid + Y-axis weight labels, 0-based floor (never the series' own min)
-    // so a small real fluctuation reads as small, not as a dramatic swing.
-    for (let v = 0; v <= niceMax; v += step) {
-      const y = yAt(v);
-      html += '<line class="wh-freq-grid" x1="' + padLeft + '" y1="' + y.toFixed(1) + '" x2="' + (W - padRight).toFixed(1) + '" y2="' + y.toFixed(1) + '"></line>'
-        + '<text class="wh-freq-yaxis-label" x="' + (padLeft - 8) + '" y="' + (y + 3).toFixed(1) + '" text-anchor="end">' + v + '</text>';
-    }
-
-    let linePath = '';
-    points.forEach(function (p, i) {
-      linePath += (i === 0 ? 'M' : ' L') + xAt(i).toFixed(1) + ' ' + yAt(p.weight).toFixed(1);
-    });
-    const areaPath = linePath + ' L' + xAt(n - 1).toFixed(1) + ' ' + baseY.toFixed(1) + ' L' + xAt(0).toFixed(1) + ' ' + baseY.toFixed(1) + ' Z';
-    html += '<path class="cht-area" d="' + areaPath + '"></path>';
-    html += '<path class="cht-line" d="' + linePath + '"></path>';
-
-    // Thin out X-axis date labels when they'd overlap, same technique as
-    // whRenderFrequency's weekly-bar labels — always keep the first/last.
-    const CHAR_W = 6.6; // calibrated in gymCharts.js's truncateLabel comment
-    const dateLabels = points.map(function (p) { return fmtProgressionDate(p.date); });
-    const maxLabelW = Math.max.apply(null, dateLabels.map(function (l) { return l.length * CHAR_W; }).concat([0]));
-    const slotW = n > 1 ? plotW / (n - 1) : plotW;
-    const showEvery = maxLabelW > slotW ? Math.ceil(maxLabelW / slotW) : 1;
-    // Explicit shown-index set (see whRenderFrequency's identical comment in
-    // gym.html) — a naive "i % showEvery === 0 || i === n-1" can force the
-    // last label immediately next to a modulo-selected one one slot before
-    // it, recreating the very overlap this thinning is meant to prevent.
-    const shownIdx = {};
-    for (let i = 0; i < n; i += showEvery) shownIdx[i] = true;
-    shownIdx[n - 1] = true;
-    if (showEvery > 1) {
-      for (let i = 0; i < n - 1; i++) { if ((n - 1 - i) < showEvery) delete shownIdx[i]; }
-    }
-
-    let maxIdx = 0;
-    points.forEach(function (p, i) { if (p.weight > points[maxIdx].weight) maxIdx = i; });
-    // Only add the max-point callout when it's far enough (in on-screen px,
-    // not index count) from the first/last labels to not collide with them —
-    // a max that lands on the session right before/after an endpoint would
-    // otherwise print two overlapping "NNkg" labels on top of each other.
-    const MIN_POINT_LABEL_GAP = 34;
-    const showMaxLabel = maxIdx !== 0 && maxIdx !== n - 1
-      && Math.abs(xAt(maxIdx) - xAt(0)) > MIN_POINT_LABEL_GAP
-      && Math.abs(xAt(maxIdx) - xAt(n - 1)) > MIN_POINT_LABEL_GAP;
-
-    let dotsHtml = '', pointLabelsHtml = '';
-    points.forEach(function (p, i) {
-      const x = xAt(i), y = yAt(p.weight);
-      const attrs = ' cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" data-weight="' + p.weight + '" data-date="' + dateLabels[i] + '"';
-      dotsHtml += '<circle class="cht-dot-hit" r="12"' + attrs + '></circle><circle class="cht-dot" r="3.5"' + attrs + '></circle>';
-
-      if (shownIdx[i]) {
-        html += '<text class="wh-freq-label" x="' + x.toFixed(1) + '" y="' + (H - 8) + '" text-anchor="middle">' + dateLabels[i] + '</text>';
-      }
-      if (i === 0 || i === n - 1 || (i === maxIdx && showMaxLabel)) {
-        pointLabelsHtml += '<text class="cht-point-label" x="' + x.toFixed(1) + '" y="' + (y - 10).toFixed(1) + '" text-anchor="middle">' + p.weight + 'kg</text>';
-      }
-    });
-    html += dotsHtml + pointLabelsHtml;
-
-    svg.setAttribute('viewBox', '0 0 ' + W.toFixed(1) + ' ' + H);
-    svg.innerHTML = html;
-
-    svg.querySelectorAll('.cht-dot, .cht-dot-hit').forEach(function (dot) {
-      dot.addEventListener('mouseenter', function () { showProgressionTooltip(dot); });
-      dot.addEventListener('mouseleave', hideProgressionTooltip);
-      dot.addEventListener('click', function (e) { e.stopPropagation(); showProgressionTooltip(dot); });
-    });
-  }
-
-  function renderExerciseProgression() {
-    const wrap = $('trExerciseProgressionWrap');
-    if (!wrap) return;
-    const grouped = window.WH.getPesasSetsGroupedByExercise ? window.WH.getPesasSetsGroupedByExercise() : {};
-    const names = Object.keys(grouped);
-    if (!names.length) {
-      wrap.innerHTML = '<div class="po-empty">Registrá al menos una sesión de pesas para ver esto.</div>';
-      return;
-    }
-    const selected = (wrap.dataset.selected && names.indexOf(wrap.dataset.selected) !== -1) ? wrap.dataset.selected : names[0];
-    wrap.dataset.selected = selected;
-    wrap.innerHTML =
-      '<select id="trProgressionExSelect" class="tr-progression-select">'
-      + names.map(function (n) { return '<option value="' + escapeHtml(n) + '"' + (n === selected ? ' selected' : '') + '>' + escapeHtml(n) + '</option>'; }).join('')
-      + '</select>'
-      + '<div class="po-empty hidden" id="trProgressionEmpty">Necesitás 2+ sesiones para ver progresión.</div>'
-      + '<div class="wh-freq-wrap" id="trProgressionChartWrap">'
-      +   '<svg class="wh-freq-svg" id="trProgressionSvg" viewBox="0 0 700 220"></svg>'
-      +   '<div class="cht-tooltip" id="trProgressionTooltip"></div>'
-      + '</div>';
-    drawProgressionSvg(grouped[selected]);
-    $('trProgressionExSelect').addEventListener('change', function (e) {
-      wrap.dataset.selected = e.target.value;
-      drawProgressionSvg(grouped[e.target.value]);
-    });
-  }
-
   function initMuscleDetailModal() {
     $('trMuscleDetailClose').addEventListener('click', function () { $('trMuscleDetailModalBg').classList.remove('show'); });
   }
@@ -1293,7 +1118,6 @@
       renderMuscleMap();
       renderPeriodCharts();
       renderBoxeoInsights();
-      renderExerciseProgression();
     });
     renderMuscleMapAfterWarmUp();
     initExerciseLibraryModals();
@@ -1305,7 +1129,6 @@
     renderTrHomeStats();
     renderPeriodCharts();
     renderBoxeoInsights();
-    renderExerciseProgression();
     renderMobilityHistory();
     // Any remote gym_pesas_store pull/realtime update should refresh
     // anything derived from it (fatigue config may flip isPlaceholder,
